@@ -64,8 +64,6 @@
 ├── pages.json
 ├── manifest.json
 ├── uni.scss
-├── API_DOCUMENTATION.md
-└── API_DOCUMENTATION_VIRTUAL_TRYON.md
 ```
 
 ## 📦 安装与运行
