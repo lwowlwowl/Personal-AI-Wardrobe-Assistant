@@ -1,0 +1,37 @@
+\chapter{Problems Encountered}
+\label{ch:problem}
+
+\section{Model Deployment Problem}
+In the early stage of the project, we planned to deploy the Qwen-Image-Edit model locally and integrate it into the backend inference pipeline. However, the installation process relied on several dependencies and failed multiple times. 
+
+The main reasons are that the unstable network connection prevented the complete download of the dependencies, the insufficient coverage of domestic mirror sources, and the large disk space requirement for the complete installation of the model, which led to multiple installation interruptions. We attempted to switch networks, use mirror sources, and migrate to larger storage, but still failed to achieve a stable deployment. 
+
+Ultimately, we switched to ComfyUI, which bypassed the dependency installation issues through its pre-configured nodes and modular inference process, making the deployment more stable. After the migration, the model inference could run normally. A single virtual fitting request took approximately 10 seconds and generated high-quality image results.
+
+\section{Workflow Problem}
+During the early stage of the project, there was no specific task timeline. Multiple tasks such as model research, requirement analysis, and prototype design were carried out simultaneously, resulting in a disorder in the execution sequence. For instance, the prototype design was completed before the use case diagram was finished, and the SRS and persona were almost written simultaneously, leading to inconsistencies in the information of the two. Subsequently, additional time was spent on making corrections. 
+
+The fundamental reason for this issue lies in the insufficient division of task granularity and the lack of phased milestones oriented towards clear deliverables. 
+
+To address this issue, the team redrawn the overall development plan's timeline and assigned tasks to corresponding members based on specific deliverables, such as UML diagrams, sequence interaction flows, user profiles and requirement specifications, etc. This ensured a clear and traceable work sequence and avoided redundant efforts and inconsistent information.
+
+\section{Collaboration and Version Control Problem}
+
+During the research-oriented phase, most tasks involved literature review, model trials, and draft writing. Thus, GitLab usage was low, and many decisions were stored locally rather than tracked through commits or merge requests. 
+
+This caused weak traceability and made it difficult to synchronize individual progress.
+
+
+However, as the project transitions from exploratory research to implementation, tasks will generate concrete deliverables that require versioning and review. This shift will naturally increase Git usage and mitigate the collaboration problem.
+
+\section{Aesthetic Logic and User Experience Problem}
+All team members come from a computer science background, resulting in a limited understanding of aesthetic logic in outfit recommendation.
+
+To mitigate this, the team consulted external style resources, and utilized LLM-generated explanations to express aesthetic reasoning. User questionnaire feedback will also be collected to iteratively refine visual and stylistic logic.
+
+\section{Role Responsibility and Ownership Problem}
+Before the interim stage, many tasks such as model research, writing, and prototype design were completed collaboratively without explicit ownership. 
+
+This led to duplicated effort, gaps in responsibility, and inconsistencies across deliverables.
+
+To solve this, the team transitioned from skill-based participation to deliverable-based ownership. During the subsequent development process, each module will have a designated owner (e.g. virtual try-on pipeline, recommendation logic, front-end UI, back-end API, documentation), ensuring accountability and continuous progress.

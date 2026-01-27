@@ -1,0 +1,137 @@
+% your packages file. add/remove packages here
+
+\usepackage{graphicx}
+\usepackage{verbatim}
+\usepackage{latexsym}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{subfigure}
+\usepackage{spverbatim}
+\usepackage{url}
+\usepackage{lscape}
+\usepackage{pdflscape}
+\usepackage[super]{nth}
+\usepackage{adjustbox}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage{rotating}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage{everypage}
+\usepackage{wrapfig}
+\usepackage{enumitem}
+\usepackage[toc]{appendix}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{pdfpages}
+\usepackage{wasysym}
+\usepackage[round,authoryear,maxbibnames=6,minbibnames=1]{natbib}
+\usepackage{booktabs}    % 更好看的表格线
+\usepackage{array}       % p{..} 列
+\usepackage{tabularx}     % X 列类型，自动调整列宽
+\usepackage{pifont}      % 勾叉符号
+\usepackage{subcaption}
+
+% styling for hyperlinks in your TOC
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=black,
+    linktoc=all,
+    citecolor=black
+}
+
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{sharpc}{language=[Sharp]C, frame=lr, rulecolor=\color{blue!80!black}}
+
+% styling for your code samples (listings)
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+% rename Bibliography to References
+\usepackage[nottoc,notlof,notlot]{tocbibind} 
+\renewcommand\bibname{References}
+
+% Improve bibliography formatting
+\setlength{\bibsep}{0.8em}
+\renewcommand{\bibfont}{\normalsize}
+
+% Fix bibliography alignment - ensure first line aligns with subsequent lines
+\makeatletter
+\renewcommand{\@biblabel}[1]{}
+\makeatother
+\setlength{\bibhang}{0pt}
+\setlength{\bibindent}{0pt}
+
+% Enable URL breaking in bibliography
+\Urlmuskip=0mu plus 1mu
+
+% Custom command to display DOI/URL in bibliography
+\makeatletter
+\newcommand{\printdoi}[1]{\ifx\relax#1\relax\else DOI: \url{#1}\fi}
+\newcommand{\printurl}[1]{\ifx\relax#1\relax\else URL: \url{#1}\fi}
+\makeatother
+
+\titleformat{\chapter}[display]   
+{\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{20pt}{\Huge}   
+\titlespacing*{\chapter}{0pt}{10pt}{10pt}
+\titlespacing*{\section}{0pt}{20pt}{0pt}
+\titlespacing*{\subsection}{0pt}{20pt}{0pt}
+
+\usepackage{nomencl}
+\makenomenclature
+
+%% This removes the main title:
+\renewcommand{\nomname}{}
+%% this modifies item separation:
+\setlength{\nomitemsep}{8pt}
+%% this part defines the groups:
+%----------------------------------------------
+\usepackage{etoolbox}
+\renewcommand\nomgroup[1]{%
+  \item[\Huge\bfseries{%
+  \ifstrequal{#1}{A}{List of Abbreviations}{}}%
+]\vspace{-2em}}
+
+\def\fillandplacepagenumber{%
+ \par\pagestyle{empty}%
+ \vbox to 0pt{\vss}\vfill
+ \vbox to 0pt{\baselineskip0pt
+   \hbox to\linewidth{\hss}%
+   \baselineskip\footskip
+   \hbox to\linewidth{%
+     \hfil\thepage\hfil}\vss}}
+     
+\usepackage[nottoc,notlof,notlot]{tocbibind} 
+\renewcommand\bibname{References}
+
+% 勾叉命令：\cmark / \xmark
+\newcommand{\cmark}{\ding{51}}  % ✓
+\newcommand{\xmark}{\ding{55}}  % ✗
+
+\input{thesis.sty}
