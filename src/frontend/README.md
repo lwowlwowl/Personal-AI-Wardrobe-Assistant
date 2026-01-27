@@ -1,171 +1,118 @@
-# AI 虛擬衣櫥助手 - 前端項目
+# AI虚拟衣橱助手 - 前端（Vue3 + UniApp）
 
-這是一個基於 Vue 3 + UniApp 開發的虛擬試衣網頁應用，採用 Apple 設計風格。
+这是一个基于 Vue 3 + UniApp 开发的虚拟衣橱助手前端项目，整体 UI 走 Apple 风格，支持多端构建（H5/小程序/App）。
 
-## 📋 項目簡介
+## 📋 项目简介
 
-本項目實現了虛擬衣櫥助手的登錄和註冊頁面，具有優雅的用戶界面和流暢的交互體驗。項目採用 UniApp 框架開發，支持多端部署（H5、小程序、App）。
+本项目包含登录/注册与首页应用框架，并提供两个核心功能页：
 
-## 🎨 設計特點
+- Recommendation AI：聊天式穿搭/检索交互界面（当前以前端展示为主）
+- Virtual Try-On：双图上传 + 生成结果展示（当前生成流程为前端模拟，接口规范已提供给后端）
 
-- **Apple 風格設計**：簡潔、優雅、注重細節
-- **響應式佈局**：適配不同屏幕尺寸
-- **柔和配色方案**：使用大地色系（#EBE3D5, #9B8B6F）營造溫馨氛圍
-- **圓角設計**：所有交互元素採用大圓角設計
-- **流暢動畫**：過渡效果和懸停狀態
+## ✨ 功能概览
 
-## 📁 項目結構
+### 1) 登录页（`pages/login/login.vue`）
+
+- 表单校验（用户名/密码）
+- 记住我选项（UI）
+- 登录成功后跳转首页（逻辑以对接后端为准）
+
+### 2) 注册页（`pages/register/register.vue`）
+
+- 表单校验（邮箱格式/用户名/密码）
+- 注册成功后跳转登录页（逻辑以对接后端为准）
+
+### 3) 首页（`pages/index/index.vue`）
+
+- 侧边栏布局与菜单切换
+- 已接入组件：
+  - `pages/index/components/RecommendationAI.vue`
+  - `pages/index/components/VirtualTryOn.vue`
+- 侧边栏中的 `My Wardrobe / Wardrobe Analysis` 为预留菜单项（当前未实现对应页面）
+
+### 4) Virtual Try-On（`pages/index/components/VirtualTryOn.vue`）
+
+- 人物图 + 服装图双图上传（H5 支持拖拽上传）
+- 图片预览与删除
+- 点击 Generate：
+  - 展开结果区域
+  - 进入加载态（当前为模拟加载）
+  - 自动滚动到结果区域，便于查看生成结果
+
+## 🧰 技术栈
+
+- 框架：Vue 3（Composition API）
+- 跨端：UniApp
+- 构建：Vite（`@dcloudio/vite-plugin-uni`）
+- 样式：SCSS
+
+## 📁 目录结构（核心）
 
 ```
-frontend/
+.
 ├── pages/
-│   ├── login/           # 登錄頁面
-│   │   └── login.vue
-│   ├── register/        # 註冊頁面
-│   │   └── register.vue
-│   └── index/           # 首頁（待開發）
-│       └── index.vue
-├── static/              # 靜態資源
-│   ├── logo.png
-│   └── README.md       # 資源說明文件
-├── App.vue             # 應用配置
-├── main.js             # 入口文件
-├── pages.json          # 頁面配置
-├── manifest.json       # 應用配置
-└── uni.scss            # 全局樣式變量
+│   ├── login/                 # 登录页
+│   ├── register/              # 注册页
+│   └── index/                 # 首页（侧边栏 + 功能切换）
+│       ├── index.vue
+│       └── components/
+│           ├── RecommendationAI.vue
+│           └── VirtualTryOn.vue
+├── static/                    # 静态资源
+├── App.vue
+├── main.js
+├── pages.json
+├── manifest.json
+├── uni.scss
 ```
 
-## 🚀 功能特性
+## 📦 安装与运行
 
-### 登錄頁面 (`/pages/login/login.vue`)
-
-- ✅ 用戶名輸入
-- ✅ 密碼輸入（支持顯示/隱藏）
-- ✅ 記住我選項
-- ✅ 忘記密碼功能
-- ✅ 表單驗證
-- ✅ 跳轉到註冊頁面
-
-### 註冊頁面 (`/pages/register/register.vue`)
-
-- ✅ 郵箱地址輸入
-- ✅ 用戶名輸入
-- ✅ 密碼輸入（支持顯示/隱藏）
-- ✅ 表單驗證（包括郵箱格式驗證）
-- ✅ 註冊成功後自動跳轉到登錄頁
-
-## 🛠️ 技術棧
-
-- **框架**：Vue 3 (Composition API)
-- **跨平台方案**：UniApp
-- **樣式**：SCSS
-- **UI 設計**：自定義組件
-
-## 📦 安裝與運行
-
-### 環境要求
+### 环境要求
 
 - Node.js >= 14
-- HBuilderX（推薦）或 Vue CLI
+- HBuilderX（推荐）
 
-### 安裝依賴
+### 安装依赖
 
 ```bash
 npm install
 ```
 
-### 開發運行
-
-#### 使用 HBuilderX
-1. 用 HBuilderX 打開項目
-2. 點擊「運行」-> 選擇運行平台（瀏覽器/小程序/App）
-
-#### 使用命令行
+### 开发运行
 
 ```bash
-# H5 開發
+# H5
 npm run dev:h5
 
-# 微信小程序開發
+# 微信小程序
 npm run dev:mp-weixin
 
-# 支付寶小程序開發
+# 支付宝小程序
 npm run dev:mp-alipay
 ```
 
-### 構建發布
+### 构建发布
 
 ```bash
-# H5 構建
+# H5
 npm run build:h5
 
-# 微信小程序構建
+# 微信小程序
 npm run build:mp-weixin
 ```
 
-## 🎯 待完成事項
+## 🧩 待办（建议）
 
-### 資源文件
-需要添加以下圖片到 `static` 文件夾：
+- 对接真实登录/注册接口（参考 `API_DOCUMENTATION.md`）
+- 对接虚拟试穿上传 + 生成接口（参考 `API_DOCUMENTATION_VIRTUAL_TRYON.md`）
+- Recommendation AI 对接后端/大模型服务（当前偏展示）
+- 补齐 `My Wardrobe / Wardrobe Analysis` 对应页面与数据流
 
-1. **wardrobe-bg.jpg** - 衣櫥背景圖
-   - 建議尺寸：1920x1080
-   - 可從 Unsplash 搜索 "wardrobe" 或 "closet"
+## 🤝 团队
 
-2. **eye-open.png** - 顯示密碼圖標（可選）
-   - 目前使用 emoji 替代
-
-3. **eye-close.png** - 隱藏密碼圖標（可選）
-   - 目前使用 emoji 替代
-
-### 功能開發
-- [ ] 實現真實的登錄 API 接口
-- [ ] 實現真實的註冊 API 接口
-- [ ] 添加忘記密碼頁面
-- [ ] 添加用戶協議和隱私政策頁面
-- [ ] 實現本地存儲「記住我」功能
-- [ ] 添加第三方登錄（微信、Apple ID）
-
-## 🎨 設計規範
-
-### 顏色
-
-- 主色調：`#9B8B6F`（暖棕色）
-- 背景色：`#EBE3D5`（米色）
-- 文字色：`#333333`（深灰）
-- 次要文字：`#666666`（中灰）
-- 占位文字：`#CCCCCC`（淺灰）
-
-### 圓角
-
-- 按鈕和輸入框：`45rpx`
-- 切換標籤：`40rpx`
-- 背景卡片：`30rpx`
-
-### 字體大小
-
-- 標題：`36rpx - 48rpx`
-- 正文：`28rpx - 32rpx`
-- 輔助文字：`24rpx - 26rpx`
-
-## 📱 多端適配
-
-項目使用 UniApp 開發，天然支持：
-
-- ✅ H5 網頁
-- ✅ 微信小程序
-- ✅ 支付寶小程序
-- ✅ iOS App
-- ✅ Android App
-
-## 🤝 團隊
-
-**teammmm13**
-
-## 📄 許可證
-
-待定
+teammmm13
 
 ---
 
-**備註**：這是一個前端展示項目，後端 API 接口需要另外開發實現。
+备注：当前仓库以前端展示为主，后端接口需另行实现/对接。
