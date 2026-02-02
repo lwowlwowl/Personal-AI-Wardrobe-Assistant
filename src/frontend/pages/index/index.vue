@@ -1,21 +1,16 @@
 <template>
 	<view class="container">
-		<view class="sidebar" :class="{ 'collapsed': isCollapsed }">
-			<view class="sidebar-header" @click="toggleSidebar">
+		<!-- 左侧边栏 -->
+		<view class="sidebar">
+			<!-- 顶部标题 -->
+			<view class="sidebar-header">
 				<view class="home-icon">
-					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D1D1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-						<polyline points="9 22 9 12 15 12 15 22"></polyline>
-					</svg>
+					<text class="icon-text">🏠</text>
 				</view>
-				<view class="app-title-group" v-show="!isCollapsed">
-					<text class="app-title">Personal AI</text>
-					<text class="app-title">Wardrobe Assistant</text>
-				</view>
+				<text class="app-title">Personal AI Wardrobe Assistant</text>
 			</view>
 			
-			<view class="divider"></view>
-			
+			<!-- 导航菜单 -->
 			<view class="nav-menu">
 				<view 
 					class="nav-item" 
@@ -23,15 +18,9 @@
 					@click="setActiveMenu('recommendation')"
 				>
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" :stroke="activeMenu === 'recommendation' ? '#FFF' : '#1D1D1F'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<rect x="3" y="11" width="18" height="10" rx="2"></rect>
-							<circle cx="12" cy="5" r="2"></circle>
-							<path d="M12 7v4"></path>
-							<line x1="8" y1="16" x2="8" y2="16"></line>
-							<line x1="16" y1="16" x2="16" y2="16"></line>
-						</svg>
+						<text class="icon-text">🤖</text>
 					</view>
-					<text class="nav-text" v-show="!isCollapsed">Recommendation AI</text>
+					<text class="nav-text">Recommendation AI</text>
 				</view>
 				
 				<view 
@@ -40,12 +29,9 @@
 					@click="setActiveMenu('tryon')"
 				>
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" :stroke="activeMenu === 'tryon' ? '#FFF' : '#1D1D1F'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-							<circle cx="12" cy="13" r="4"></circle>
-						</svg>
+						<text class="icon-text">📷</text>
 					</view>
-					<text class="nav-text" v-show="!isCollapsed">Virtual Try-On</text>
+					<text class="nav-text">Virtual Try-On</text>
 				</view>
 				
 				<view 
@@ -54,11 +40,9 @@
 					@click="setActiveMenu('wardrobe')"
 				>
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" :stroke="activeMenu === 'wardrobe' ? '#FFF' : '#1D1D1F'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"></path>
-						</svg>
+						<text class="icon-text">👕</text>
 					</view>
-					<text class="nav-text" v-show="!isCollapsed">My Wardrobe</text>
+					<text class="nav-text">My Wardrobe</text>
 				</view>
 				
 				<view 
@@ -67,256 +51,399 @@
 					@click="setActiveMenu('analysis')"
 				>
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" :stroke="activeMenu === 'analysis' ? '#FFF' : '#1D1D1F'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<line x1="18" y1="20" x2="18" y2="10"></line>
-							<line x1="12" y1="20" x2="12" y2="4"></line>
-							<line x1="6" y1="20" x2="6" y2="14"></line>
-						</svg>
+						<text class="icon-text">📊</text>
 					</view>
-					<text class="nav-text" v-show="!isCollapsed">Wardrobe Analysis</text>
+					<text class="nav-text">Wardrobe Analysis</text>
 				</view>
 			</view>
 			
-			<view class="divider"></view>
-			
+			<!-- 底部菜单 -->
 			<view class="sidebar-footer">
-				<view class="nav-item footer-item" @click="handleGuestUser">
+				<view class="nav-item" @click="handleGuestUser">
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D1D1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-							<circle cx="12" cy="7" r="4"></circle>
-						</svg>
+						<text class="icon-text">👤</text>
 					</view>
-					<text class="nav-text" v-show="!isCollapsed">Guest User</text>
+					<text class="nav-text">Guest User</text>
 				</view>
 				
-				<view class="nav-item footer-item" @click="handleSetting">
+				<view class="nav-item" @click="handleSetting">
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D1D1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<circle cx="12" cy="12" r="3"></circle>
-							<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-						</svg>
+						<text class="icon-text">⚙️</text>
 					</view>
-					<text class="nav-text" v-show="!isCollapsed">Setting</text>
+					<text class="nav-text">Setting</text>
 				</view>
 			</view>
 		</view>
 		
-		<view class="main-content" ref="mainContentRef">
-			<!-- 根据选中的菜单项切换显示不同的组件 -->
-			<RecommendationAI v-if="activeMenu === 'recommendation'" />
-			<VirtualTryOn v-if="activeMenu === 'tryon'" :main-content-ref="mainContentRef" />
+		<!-- 主内容区 -->
+		<view class="main-content">
+			<!-- 问候语 -->
+			<view class="greeting-section">
+				<view class="greeting-content">
+					<view class="robot-icon">
+						<text class="icon-text">🤖</text>
+					</view>
+					<text class="greeting-text">Hi! Good Afternoon</text>
+					<text class="wave-emoji">👋</text>
+				</view>
+			</view>
+			
+			<!-- 天气/推荐信息 -->
+			<view class="weather-section">
+				<text class="weather-text">Today 21°C | Light Breeze | Ideal for a Light Jacket</text>
+			</view>
+			
+			<!-- 搜索栏 -->
+			<view class="search-section">
+				<view class="search-bar">
+					<view class="search-icon-left">
+						<text class="icon-text">➕</text>
+					</view>
+					<input 
+						class="search-input" 
+						v-model="searchQuery"
+						placeholder="Ask me anything!"
+						placeholder-class="search-placeholder"
+						@focus="handleSearchFocus"
+						@blur="handleSearchBlur"
+					/>
+					<view class="search-button" @click="handleSearch">
+						<text class="icon-text">↑</text>
+					</view>
+				</view>
+			</view>
+			
+			<!-- 搜索标签 -->
+			<view class="search-tabs">
+				<view 
+					class="search-tab" 
+					:class="{ 'active': activeTab === 'wardrobe' }"
+					@click="setActiveTab('wardrobe')"
+				>
+					<text class="tab-text">My Wardrobe</text>
+				</view>
+				<view 
+					class="search-tab" 
+					:class="{ 'active': activeTab === 'online' }"
+					@click="setActiveTab('online')"
+				>
+					<text class="tab-text">Online Search</text>
+				</view>
+			</view>
 		</view>
 	</view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import RecommendationAI from './components/RecommendationAI.vue'
-import VirtualTryOn from './components/VirtualTryOn.vue'
 
 const activeMenu = ref('recommendation')
-const isCollapsed = ref(false)
-const mainContentRef = ref(null)
+const activeTab = ref('wardrobe')
+const searchQuery = ref('')
 
 const setActiveMenu = (menu) => {
 	activeMenu.value = menu
+	// TODO: 实现菜单切换逻辑
+	console.log('切换到菜单:', menu)
 }
 
-const toggleSidebar = () => {
-	isCollapsed.value = !isCollapsed.value
+const setActiveTab = (tab) => {
+	activeTab.value = tab
+	// TODO: 实现标签切换逻辑
+	console.log('切换到标签:', tab)
 }
 
-const handleGuestUser = () => {}
-const handleSetting = () => {}
+const handleSearchFocus = () => {
+	// TODO: 搜索框获得焦点时的逻辑
+}
+
+const handleSearchBlur = () => {
+	// TODO: 搜索框失去焦点时的逻辑
+}
+
+const handleSearch = () => {
+	if (!searchQuery.value.trim()) {
+		uni.showToast({
+			title: '請輸入搜索內容',
+			icon: 'none'
+		})
+		return
+	}
+	// TODO: 实现搜索逻辑
+	console.log('搜索:', searchQuery.value)
+}
+
+const handleGuestUser = () => {
+	// TODO: 处理访客用户逻辑
+	uni.showToast({
+		title: '訪客用戶功能開發中',
+		icon: 'none'
+	})
+}
+
+const handleSetting = () => {
+	// TODO: 处理设置逻辑
+	uni.showToast({
+		title: '設置功能開發中',
+		icon: 'none'
+	})
+}
 </script>
 
 <style scoped>
-/* 定义衬线字体栈，模拟设计图的优雅感 */
 .container {
 	display: flex;
 	width: 100vw;
 	height: 100vh;
-	/* 主体背景色 - 极淡的米白色 */
-	background-color: #FDFBF7; 
-	font-family: "Didot", "Bodoni MT", "Noto Serif", "Songti SC", serif;
-	color: #1D1D1F;
-	font-weight: bold;
+	background-color: #F3EDE3;
 }
 
 /* 左侧边栏 */
 .sidebar {
-	width: 260rpx; /* 调整宽度比例 */
-	min-width: 250px; /* 桌面端最小宽度 */
-	/* 侧边栏背景色 - 稍深一点的米色 */
-	background-color: #F5F0E6; 
+	width: 23.61%;
+	background-color: #F8EDDD;
 	display: flex;
 	flex-direction: column;
-	padding: 60rpx 40rpx 20rpx 40rpx;
-	border-right: 1px solid rgba(0,0,0,0.05);
-	transition: width 0.3s ease, min-width 0.3s ease, padding 0.3s ease;
-	overflow: hidden;
-}
-
-/* 折叠状态 */
-.sidebar.collapsed {
-	width: 100rpx;
-	min-width: 80px;
-	padding: 60rpx 20rpx 20rpx 20rpx;
+	padding: 40rpx 30rpx;
+	box-shadow: 2rpx 0 8rpx rgba(0, 0, 0, 0.04);
 }
 
 .sidebar-header {
 	display: flex;
-	align-items: center; /* 垂直居中对齐 */
-	height: 88rpx;
-	margin-bottom: 20rpx;
-	gap: 24rpx; /* Home icon 和文本之间的距离 */
-	cursor: pointer;
-	justify-content: center; /* 折叠时居中 */
-	transition: justify-content 0.3s ease;
-	white-space: nowrap;
+	align-items: center;
+	margin-bottom: 60rpx;
+	padding-bottom: 30rpx;
+	border-bottom: 1rpx solid rgba(0, 0, 0, 0.08);
 }
 
-.sidebar.collapsed .sidebar-header {
-	justify-content: center;
-	gap: 0;
-}
-
-.app-title-group {
+.home-icon {
+	width: 40rpx;
+	height: 40rpx;
 	display: flex;
-	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	margin-right: 15rpx;
 }
 
 .app-title {
-	font-size: 40rpx; /* 字体加大 */
-	font-weight: 500;
-	color: #1D1D1F;
-	line-height: 1.2;
-	/* 继承 container 的 Didot 字体，或者显式指定 */
-	font-family: "Didot", "Bodoni MT", "Songti SC", serif;
-	letter-spacing: -0.5px; /* 紧凑一点更优雅 */
-
-	/* 强制文字即使空间不够也不换行 */
-    white-space: nowrap; 
-    /* 防止文字溢出导致布局错乱 */
-	overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.divider {
-	width: 100%;
-	height: 1px;
-	background-color: rgba(0, 0, 0, 0.1);
-	margin: 30rpx 0;
-	transition: width 0.3s ease, margin 0.3s ease;
+	font-size: 24rpx;
+	font-weight: 600;
+	color: #333;
+	line-height: 1.4;
+	flex: 1;
 }
 
 .nav-menu {
 	flex: 1;
 	display: flex;
 	flex-direction: column;
-	gap: 16rpx;
+	gap: 8rpx;
 }
 
-/* 导航项 */
 .nav-item {
 	display: flex;
 	align-items: center;
-	padding: 24rpx 24rpx;
-	border-radius: 50rpx; /* 完整的胶囊圆角 */
+	padding: 20rpx 16rpx;
+	border-radius: 16rpx;
 	cursor: pointer;
-	transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
-	justify-content: flex-start;
-	/* 固定高度，防止激活状态改变布局 */
-	min-height: 72rpx;
-	height: 72rpx;
-	box-sizing: border-box;
+	transition: all 0.2s ease;
+	margin-bottom: 4rpx;
 }
 
-/* 折叠时导航项居中 */
-.sidebar.collapsed .nav-item {
-	justify-content: center;
-	padding: 24rpx 0;
+.nav-item:active {
+	opacity: 0.7;
 }
 
-.nav-item:hover {
-	background-color: rgba(0,0,0,0.03);
-}
-
-/* 激活状态：深褐色背景，白色文字 */
 .nav-item.active {
-	background-color: #9D8B70; 
-	box-shadow: 0 4rpx 12rpx rgba(157, 139, 112, 0.3);
-	/* 确保激活状态不改变高度和布局 */
-	min-height: 72rpx;
-	height: 72rpx;
+	background-color: rgba(168, 155, 132, 0.15);
+}
+
+.nav-item.active .nav-icon {
+	background-color: #A89B84;
+}
+
+.nav-item.active .icon-text {
+	color: #FFFFFF;
 }
 
 .nav-item.active .nav-text {
-	color: #FFFFFF;
-	font-weight: 500;
+	color: #A89B84;
+	font-weight: 600;
 }
 
 .nav-icon {
-	width: 40rpx;
-	height: 40rpx;
+	width: 44rpx;
+	height: 44rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	margin-right: 20rpx; /* 导航图标和文字之间的距离 */
-	transition: margin-right 0.3s ease;
-	/* 固定图标容器尺寸，防止激活状态改变 */
-	flex-shrink: 0;
+	border-radius: 12rpx;
+	background-color: transparent;
+	margin-right: 16rpx;
+	transition: all 0.2s ease;
 }
 
-.sidebar.collapsed .nav-icon {
-	margin-right: 0;
+.icon-text {
+	font-size: 32rpx;
+	color: #666;
+	transition: all 0.2s ease;
 }
 
 .nav-text {
-	font-size: 28rpx;
-	/* 英文用系统无衬线体更易读，或者也用 Didot 保持一致，这里推荐无衬线体搭配 */
-	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-	font-weight: 550;
-	color: #48484a; /* 稍微柔和一点的黑 */
-	letter-spacing: 0.3px;
-	white-space: nowrap;
-	opacity: 1;
-	transition: opacity 0.3s ease, width 0.3s ease;
-	overflow: hidden;
-	white-space: nowrap;
+	font-size: 26rpx;
+	color: #333;
+	transition: all 0.2s ease;
 }
 
 .sidebar-footer {
-	margin-top: auto;
 	display: flex;
 	flex-direction: column;
-	gap: 10rpx;
-}
-
-.footer-item {
-	padding-left: 0; /* 底部菜单靠左对齐，不需要胶囊背景 */
-}
-
-.sidebar.collapsed .footer-item {
-	justify-content: center;
-}
-
-.footer-item:hover {
-	background-color: transparent;
-	opacity: 0.7;
+	gap: 8rpx;
+	padding-top: 30rpx;
+	border-top: 1rpx solid rgba(0, 0, 0, 0.08);
 }
 
 /* 主内容区 */
 .main-content {
 	flex: 1;
 	display: flex;
-	align-items: flex-start; /* 改为顶部对齐，允许内容超出 */
-	justify-content: center; /* 水平居中 */
-	position: relative;
-	transition: margin-left 0.3s ease;
-	overflow-y: hidden; /* 默认不允许滚动，由子组件控制 */
-	height: 100vh; /* 设置固定高度 */
+	flex-direction: column;
+	padding: 60rpx 80rpx;
+	overflow-y: auto;
 }
 
+.greeting-section {
+	margin-bottom: 30rpx;
+}
+
+.greeting-content {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 16rpx;
+}
+
+.robot-icon {
+	width: 60rpx;
+	height: 60rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: #FFFFFF;
+	border-radius: 16rpx;
+	box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.greeting-text {
+	font-size: 48rpx;
+	font-weight: 600;
+	color: #333;
+}
+
+.wave-emoji {
+	font-size: 48rpx;
+}
+
+.weather-section {
+	text-align: center;
+	margin-bottom: 50rpx;
+}
+
+.weather-text {
+	font-size: 28rpx;
+	color: #666;
+	line-height: 1.5;
+}
+
+.search-section {
+	margin-bottom: 30rpx;
+}
+
+.search-bar {
+	display: flex;
+	align-items: center;
+	background-color: #FFFFFF;
+	border-radius: 50rpx;
+	padding: 0 20rpx;
+	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+	border: 2rpx solid rgba(168, 155, 132, 0.2);
+	transition: all 0.2s ease;
+}
+
+.search-bar:focus-within {
+	border-color: #A89B84;
+	box-shadow: 0 6rpx 20rpx rgba(168, 155, 132, 0.15);
+}
+
+.search-icon-left {
+	width: 44rpx;
+	height: 44rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-right: 16rpx;
+}
+
+.search-input {
+	flex: 1;
+	height: 88rpx;
+	font-size: 28rpx;
+	color: #333;
+	padding: 0 10rpx;
+}
+
+.search-placeholder {
+	color: #999;
+}
+
+.search-button {
+	width: 64rpx;
+	height: 64rpx;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: #A89B84;
+	border-radius: 50%;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	margin-left: 10rpx;
+}
+
+.search-button:active {
+	opacity: 0.8;
+	transform: scale(0.95);
+}
+
+.search-button .icon-text {
+	color: #FFFFFF;
+	font-size: 32rpx;
+	font-weight: 600;
+}
+
+.search-tabs {
+	display: flex;
+	justify-content: center;
+	gap: 30rpx;
+}
+
+.search-tab {
+	padding: 12rpx 30rpx;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.search-tab.active .tab-text {
+	color: #A89B84;
+	font-weight: 600;
+}
+
+.tab-text {
+	font-size: 26rpx;
+	color: #666;
+	transition: all 0.2s ease;
+}
+
+.search-tab:active {
+	opacity: 0.7;
+}
 </style>
