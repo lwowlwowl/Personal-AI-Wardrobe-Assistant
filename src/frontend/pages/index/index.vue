@@ -1,16 +1,18 @@
 <template>
 	<view class="container">
-		<!-- 左侧边栏 -->
-		<view class="sidebar">
-			<!-- 顶部标题 -->
-			<view class="sidebar-header">
+		<view class="sidebar" :class="{ 'collapsed': isCollapsed }">
+			<view class="sidebar-header" @click="toggleSidebar">
 				<view class="home-icon">
-					<text class="icon-text">🏠</text>
+					<image src="/static/icons/icon-home.svg" mode="aspectFit" class="icon-img icon-24"></image>
 				</view>
-				<text class="app-title">Personal AI Wardrobe Assistant</text>
+				<view class="app-title-group" v-show="!isCollapsed">
+					<text class="app-title">Personal AI</text>
+					<text class="app-title">Wardrobe Assistant</text>
+				</view>
 			</view>
 			
-			<!-- 导航菜单 -->
+			<view class="divider"></view>
+			
 			<view class="nav-menu">
 				<view 
 					class="nav-item" 
@@ -18,9 +20,9 @@
 					@click="setActiveMenu('recommendation')"
 				>
 					<view class="nav-icon">
-						<text class="icon-text">🤖</text>
+						<image :src="activeMenu === 'recommendation' ? '/static/icons/icon-recommendation-active.svg' : '/static/icons/icon-recommendation.svg'" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
-					<text class="nav-text">Recommendation AI</text>
+					<text class="nav-text" v-show="!isCollapsed">Recommendation AI</text>
 				</view>
 				
 				<view 
@@ -29,9 +31,9 @@
 					@click="setActiveMenu('tryon')"
 				>
 					<view class="nav-icon">
-						<text class="icon-text">📷</text>
+						<image :src="activeMenu === 'tryon' ? '/static/icons/icon-tryon-active.svg' : '/static/icons/icon-tryon.svg'" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
-					<text class="nav-text">Virtual Try-On</text>
+					<text class="nav-text" v-show="!isCollapsed">Virtual Try-On</text>
 				</view>
 				
 				<view 
@@ -40,9 +42,9 @@
 					@click="setActiveMenu('wardrobe')"
 				>
 					<view class="nav-icon">
-						<text class="icon-text">👕</text>
+						<image :src="activeMenu === 'wardrobe' ? '/static/icons/icon-wardrobe-active.svg' : '/static/icons/icon-wardrobe.svg'" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
-					<text class="nav-text">My Wardrobe</text>
+					<text class="nav-text" v-show="!isCollapsed">My Wardrobe</text>
 				</view>
 				
 				<view 
@@ -51,130 +53,81 @@
 					@click="setActiveMenu('analysis')"
 				>
 					<view class="nav-icon">
-						<text class="icon-text">📊</text>
+						<image :src="activeMenu === 'analysis' ? '/static/icons/icon-analysis-active.svg' : '/static/icons/icon-analysis.svg'" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
-					<text class="nav-text">Wardrobe Analysis</text>
+					<text class="nav-text" v-show="!isCollapsed">Wardrobe Analysis</text>
 				</view>
 			</view>
 			
-			<!-- 底部菜单 -->
+			<view class="divider"></view>
+			
 			<view class="sidebar-footer">
-				<view class="nav-item" @click="handleGuestUser">
+				<view class="nav-item footer-item" @click="handleGuestUser">
 					<view class="nav-icon">
-						<text class="icon-text">👤</text>
+						<image src="/static/icons/icon-user.svg" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
-					<text class="nav-text">Guest User</text>
+					<text class="nav-text" v-show="!isCollapsed">Guest User</text>
 				</view>
 				
-				<view class="nav-item" @click="handleSetting">
+				<view class="nav-item footer-item" @click="handleSetting">
 					<view class="nav-icon">
-						<text class="icon-text">⚙️</text>
+						<image src="/static/icons/icon-setting.svg" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
-					<text class="nav-text">Setting</text>
+					<text class="nav-text" v-show="!isCollapsed">Setting</text>
 				</view>
 			</view>
 		</view>
 		
-		<!-- 主内容区 -->
-		<view class="main-content">
-			<!-- 问候语 -->
-			<view class="greeting-section">
-				<view class="greeting-content">
-					<view class="robot-icon">
-						<text class="icon-text">🤖</text>
-					</view>
-					<text class="greeting-text">Hi! Good Afternoon</text>
-					<text class="wave-emoji">👋</text>
-				</view>
-			</view>
-			
-			<!-- 天气/推荐信息 -->
-			<view class="weather-section">
-				<text class="weather-text">Today 21°C | Light Breeze | Ideal for a Light Jacket</text>
-			</view>
-			
-			<!-- 搜索栏 -->
-			<view class="search-section">
-				<view class="search-bar">
-					<view class="search-icon-left">
-						<text class="icon-text">➕</text>
-					</view>
-					<input 
-						class="search-input" 
-						v-model="searchQuery"
-						placeholder="Ask me anything!"
-						placeholder-class="search-placeholder"
-						@focus="handleSearchFocus"
-						@blur="handleSearchBlur"
+		<view class="main-content" ref="mainContentRef">
+			<!-- 根据选中的菜单项切换显示不同的组件，带切换动画 -->
+			<view class="main-content-inner">
+				<transition name="view-fade" mode="out-in">
+					<RecommendationAI v-if="activeMenu === 'recommendation'" key="recommendation" />
+					<VirtualTryOn
+					v-else-if="activeMenu === 'tryon'"
+					:key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')"
+					:main-content-ref="mainContentRef"
+					:initial-clothing-image="initialClothingForTryon || null"
+					:initial-person-image="initialPersonImageForTryon || null"
+				/>
+					<WardrobeView
+						v-else-if="activeMenu === 'wardrobe'"
+						key="wardrobe"
+						@switch-to-tryon="handleSwitchToTryon"
 					/>
-					<view class="search-button" @click="handleSearch">
-						<text class="icon-text">↑</text>
-					</view>
-				</view>
-			</view>
-			
-			<!-- 搜索标签 -->
-			<view class="search-tabs">
-				<view 
-					class="search-tab" 
-					:class="{ 'active': activeTab === 'wardrobe' }"
-					@click="setActiveTab('wardrobe')"
-				>
-					<text class="tab-text">My Wardrobe</text>
-				</view>
-				<view 
-					class="search-tab" 
-					:class="{ 'active': activeTab === 'online' }"
-					@click="setActiveTab('online')"
-				>
-					<text class="tab-text">Online Search</text>
-				</view>
+					<view v-else-if="activeMenu === 'analysis'" key="analysis" class="view-placeholder">Wardrobe Analysis (Coming soon)</view>
+				</transition>
 			</view>
 		</view>
 	</view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
+import RecommendationAI from './components/RecommendationAI.vue'
+import VirtualTryOn from './components/VirtualTryOn.vue'
+import WardrobeView from './components/MyWardrobe/WardrobeView.vue'
 
 const activeMenu = ref('recommendation')
-const activeTab = ref('wardrobe')
-const searchQuery = ref('')
+const isCollapsed = ref(false)
+const mainContentRef = ref(null)
+const initialClothingForTryon = ref(null)
+const initialPersonImageForTryon = ref(null)
 
 const setActiveMenu = (menu) => {
 	activeMenu.value = menu
-	// TODO: 实现菜单切换逻辑
-	console.log('切换到菜单:', menu)
-}
-
-const setActiveTab = (tab) => {
-	activeTab.value = tab
-	// TODO: 实现标签切换逻辑
-	console.log('切换到标签:', tab)
-}
-
-const handleSearchFocus = () => {
-	// TODO: 搜索框获得焦点时的逻辑
-}
-
-const handleSearchBlur = () => {
-	// TODO: 搜索框失去焦点时的逻辑
-}
-
-const handleSearch = () => {
-	if (!searchQuery.value.trim()) {
-		uni.showToast({
-			title: '請輸入搜索內容',
-			icon: 'none'
-		})
-		return
+	if (menu !== 'tryon') {
+		initialClothingForTryon.value = null
+		initialPersonImageForTryon.value = null
 	}
-	// TODO: 实现搜索逻辑
-	console.log('搜索:', searchQuery.value)
 }
 
+const toggleSidebar = () => {
+	isCollapsed.value = !isCollapsed.value
+}
+
+// 後端聯調保留：訪客/設置的 Toast 提示
 const handleGuestUser = () => {
-	// TODO: 处理访客用户逻辑
 	uni.showToast({
 		title: '訪客用戶功能開發中',
 		icon: 'none'
@@ -182,268 +135,255 @@ const handleGuestUser = () => {
 }
 
 const handleSetting = () => {
-	// TODO: 处理设置逻辑
 	uni.showToast({
 		title: '設置功能開發中',
 		icon: 'none'
 	})
 }
+
+const handleSwitchToTryon = (item, defaultModelImage) => {
+	initialClothingForTryon.value = item?.image ?? null
+	initialPersonImageForTryon.value = defaultModelImage ?? null
+	nextTick(() => {
+		activeMenu.value = 'tryon'
+	})
+}
 </script>
 
 <style scoped>
+/* 定义衬线字体栈，模拟设计图的优雅感 */
 .container {
 	display: flex;
 	width: 100vw;
 	height: 100vh;
-	background-color: #F3EDE3;
+	/* 主体背景色 - 极淡的米白色 */
+	background-color: #FDFBF7; 
+	font-family: "Didot", "Bodoni MT", "Noto Serif", "Songti SC", serif;
+	color: #1D1D1F;
+	font-weight: bold;
 }
 
 /* 左侧边栏 */
 .sidebar {
-	width: 23.61%;
-	background-color: #F8EDDD;
+	width: 260rpx; /* 调整宽度比例 */
+	min-width: 250px; /* 桌面端最小宽度 */
+	/* 侧边栏背景色 - 稍深一点的米色 */
+	background-color: #F5F0E6; 
 	display: flex;
 	flex-direction: column;
-	padding: 40rpx 30rpx;
-	box-shadow: 2rpx 0 8rpx rgba(0, 0, 0, 0.04);
+	padding: 60rpx 40rpx 20rpx 40rpx;
+	border-right: 1px solid rgba(0,0,0,0.05);
+	transition: width 0.3s ease, min-width 0.3s ease, padding 0.3s ease;
+	overflow: hidden;
+}
+
+/* 折叠状态 */
+.sidebar.collapsed {
+	width: 100rpx;
+	min-width: 80px;
+	padding: 60rpx 20rpx 20rpx 20rpx;
 }
 
 .sidebar-header {
 	display: flex;
-	align-items: center;
-	margin-bottom: 60rpx;
-	padding-bottom: 30rpx;
-	border-bottom: 1rpx solid rgba(0, 0, 0, 0.08);
+	align-items: center; /* 垂直居中对齐 */
+	height: 88rpx;
+	margin-bottom: 20rpx;
+	gap: 24rpx; /* Home icon 和文本之间的距离 */
+	cursor: pointer;
+	justify-content: center; /* 折叠时居中 */
+	transition: justify-content 0.3s ease;
+	white-space: nowrap;
 }
 
-.home-icon {
-	width: 40rpx;
-	height: 40rpx;
-	display: flex;
-	align-items: center;
+.sidebar.collapsed .sidebar-header {
 	justify-content: center;
-	margin-right: 15rpx;
+	gap: 0;
+}
+
+.app-title-group {
+	display: flex;
+	flex-direction: column;
 }
 
 .app-title {
-	font-size: 24rpx;
-	font-weight: 600;
-	color: #333;
-	line-height: 1.4;
-	flex: 1;
+	font-size: 40rpx; /* 字体加大 */
+	font-weight: 500;
+	color: #1D1D1F;
+	line-height: 1.2;
+	/* 继承 container 的 Didot 字体，或者显式指定 */
+	font-family: "Didot", "Bodoni MT", "Songti SC", serif;
+	letter-spacing: -0.5px; /* 紧凑一点更优雅 */
+
+	/* 强制文字即使空间不够也不换行 */
+    white-space: nowrap; 
+    /* 防止文字溢出导致布局错乱 */
+	overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.divider {
+	width: 100%;
+	height: 1px;
+	background-color: rgba(0, 0, 0, 0.1);
+	margin: 30rpx 0;
+	transition: width 0.3s ease, margin 0.3s ease;
 }
 
 .nav-menu {
 	flex: 1;
 	display: flex;
 	flex-direction: column;
-	gap: 8rpx;
+	gap: 16rpx;
 }
 
+/* 导航项 */
 .nav-item {
 	display: flex;
 	align-items: center;
-	padding: 20rpx 16rpx;
-	border-radius: 16rpx;
+	padding: 24rpx 24rpx;
+	border-radius: 50rpx; /* 完整的胶囊圆角 */
 	cursor: pointer;
-	transition: all 0.2s ease;
-	margin-bottom: 4rpx;
+	transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+	justify-content: flex-start;
+	/* 固定高度，防止激活状态改变布局 */
+	min-height: 72rpx;
+	height: 72rpx;
+	box-sizing: border-box;
 }
 
-.nav-item:active {
-	opacity: 0.7;
+/* 折叠时导航项居中 */
+.sidebar.collapsed .nav-item {
+	justify-content: center;
+	padding: 24rpx 0;
 }
 
+.nav-item:hover {
+	background-color: rgba(0,0,0,0.03);
+}
+
+/* 激活状态：深褐色背景，白色文字 */
 .nav-item.active {
-	background-color: rgba(168, 155, 132, 0.15);
-}
-
-.nav-item.active .nav-icon {
-	background-color: #A89B84;
-}
-
-.nav-item.active .icon-text {
-	color: #FFFFFF;
+	background-color: #9D8B70; 
+	box-shadow: 0 4rpx 12rpx rgba(157, 139, 112, 0.3);
+	/* 确保激活状态不改变高度和布局 */
+	min-height: 72rpx;
+	height: 72rpx;
 }
 
 .nav-item.active .nav-text {
-	color: #A89B84;
-	font-weight: 600;
+	color: #FFFFFF;
+	font-weight: 500;
 }
 
 .nav-icon {
-	width: 44rpx;
-	height: 44rpx;
+	width: 40rpx;
+	height: 40rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border-radius: 12rpx;
-	background-color: transparent;
-	margin-right: 16rpx;
-	transition: all 0.2s ease;
+	margin-right: 20rpx; /* 导航图标和文字之间的距离 */
+	transition: margin-right 0.3s ease;
+	/* 固定图标容器尺寸，防止激活状态改变 */
+	flex-shrink: 0;
 }
 
-.icon-text {
-	font-size: 32rpx;
-	color: #666;
-	transition: all 0.2s ease;
+.icon-img {
+	display: block;
+}
+.icon-img.icon-24 {
+	width: 24px;
+	height: 24px;
+}
+.icon-img.icon-20 {
+	width: 20px;
+	height: 20px;
+}
+
+.sidebar.collapsed .nav-icon {
+	margin-right: 0;
 }
 
 .nav-text {
-	font-size: 26rpx;
-	color: #333;
-	transition: all 0.2s ease;
+	font-size: 28rpx;
+	/* 英文用系统无衬线体更易读，或者也用 Didot 保持一致，这里推荐无衬线体搭配 */
+	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+	font-weight: 550;
+	color: #48484a; /* 稍微柔和一点的黑 */
+	letter-spacing: 0.3px;
+	white-space: nowrap;
+	opacity: 1;
+	transition: opacity 0.3s ease, width 0.3s ease;
+	overflow: hidden;
+	white-space: nowrap;
 }
 
 .sidebar-footer {
+	margin-top: auto;
 	display: flex;
 	flex-direction: column;
-	gap: 8rpx;
-	padding-top: 30rpx;
-	border-top: 1rpx solid rgba(0, 0, 0, 0.08);
+	gap: 10rpx;
+}
+
+.footer-item {
+	padding-left: 0; /* 底部菜单靠左对齐，不需要胶囊背景 */
+}
+
+.sidebar.collapsed .footer-item {
+	justify-content: center;
+}
+
+.footer-item:hover {
+	background-color: transparent;
+	opacity: 0.7;
 }
 
 /* 主内容区 */
 .main-content {
 	flex: 1;
 	display: flex;
-	flex-direction: column;
-	padding: 60rpx 80rpx;
-	overflow-y: auto;
+	align-items: flex-start;
+	justify-content: center;
+	position: relative;
+	transition: margin-left 0.3s ease;
+	overflow: hidden;
+	height: 100vh;
 }
 
-.greeting-section {
-	margin-bottom: 30rpx;
+.main-content-inner {
+	width: 100%;
+	height: 100%;
+	position: relative;
 }
 
-.greeting-content {
+/* 视图切换动画 */
+.view-fade-enter-active,
+.view-fade-leave-active {
+	transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.view-fade-enter-from {
+	opacity: 0;
+	transform: translateX(12rpx);
+}
+.view-fade-leave-to {
+	opacity: 0;
+	transform: translateX(-12rpx);
+}
+.view-fade-enter-to,
+.view-fade-leave-from {
+	opacity: 1;
+	transform: translateX(0);
+}
+
+.view-placeholder {
+	width: 100%;
+	height: 100%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	gap: 16rpx;
+	font-family: "Didot", "Bodoni MT", "Noto Serif", "Songti SC", serif;
+	font-size: 36rpx;
+	color: #9D8B70;
 }
 
-.robot-icon {
-	width: 60rpx;
-	height: 60rpx;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background-color: #FFFFFF;
-	border-radius: 16rpx;
-	box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.06);
-}
-
-.greeting-text {
-	font-size: 48rpx;
-	font-weight: 600;
-	color: #333;
-}
-
-.wave-emoji {
-	font-size: 48rpx;
-}
-
-.weather-section {
-	text-align: center;
-	margin-bottom: 50rpx;
-}
-
-.weather-text {
-	font-size: 28rpx;
-	color: #666;
-	line-height: 1.5;
-}
-
-.search-section {
-	margin-bottom: 30rpx;
-}
-
-.search-bar {
-	display: flex;
-	align-items: center;
-	background-color: #FFFFFF;
-	border-radius: 50rpx;
-	padding: 0 20rpx;
-	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
-	border: 2rpx solid rgba(168, 155, 132, 0.2);
-	transition: all 0.2s ease;
-}
-
-.search-bar:focus-within {
-	border-color: #A89B84;
-	box-shadow: 0 6rpx 20rpx rgba(168, 155, 132, 0.15);
-}
-
-.search-icon-left {
-	width: 44rpx;
-	height: 44rpx;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	margin-right: 16rpx;
-}
-
-.search-input {
-	flex: 1;
-	height: 88rpx;
-	font-size: 28rpx;
-	color: #333;
-	padding: 0 10rpx;
-}
-
-.search-placeholder {
-	color: #999;
-}
-
-.search-button {
-	width: 64rpx;
-	height: 64rpx;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background-color: #A89B84;
-	border-radius: 50%;
-	cursor: pointer;
-	transition: all 0.2s ease;
-	margin-left: 10rpx;
-}
-
-.search-button:active {
-	opacity: 0.8;
-	transform: scale(0.95);
-}
-
-.search-button .icon-text {
-	color: #FFFFFF;
-	font-size: 32rpx;
-	font-weight: 600;
-}
-
-.search-tabs {
-	display: flex;
-	justify-content: center;
-	gap: 30rpx;
-}
-
-.search-tab {
-	padding: 12rpx 30rpx;
-	cursor: pointer;
-	transition: all 0.2s ease;
-}
-
-.search-tab.active .tab-text {
-	color: #A89B84;
-	font-weight: 600;
-}
-
-.tab-text {
-	font-size: 26rpx;
-	color: #666;
-	transition: all 0.2s ease;
-}
-
-.search-tab:active {
-	opacity: 0.7;
-}
 </style>

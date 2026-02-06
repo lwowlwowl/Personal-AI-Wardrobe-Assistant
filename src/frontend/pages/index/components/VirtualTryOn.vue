@@ -15,11 +15,7 @@
 					@dragenter.prevent
 				>
 					<view class="upload-icon">
-						<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-							<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-							<circle cx="8.5" cy="8.5" r="1.5"></circle>
-							<polyline points="21 15 16 10 5 21"></polyline>
-						</svg>
+						<image src="/static/icons/icon-image-upload.svg" mode="aspectFit" class="icon-upload-img"></image>
 					</view>
 					<view class="upload-text">
 						<text class="upload-link">Click to upload</text>
@@ -33,7 +29,7 @@
 					<view class="overlay-dim"></view>
 					<image :src="personImg" mode="aspectFit" class="main-img"></image>
 					<view class="remove-btn" @click.stop="removeImage('person')">
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+						<image src="/static/icons/icon-close.svg" mode="aspectFit" class="icon-close-img"></image>
 					</view>
 				</view>
 			</view>
@@ -52,11 +48,7 @@
 					@dragenter.prevent
 				>
 					<view class="upload-icon">
-						<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-							<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-							<circle cx="8.5" cy="8.5" r="1.5"></circle>
-							<polyline points="21 15 16 10 5 21"></polyline>
-						</svg>
+						<image src="/static/icons/icon-image-upload.svg" mode="aspectFit" class="icon-upload-img"></image>
 					</view>
 					<view class="upload-text">
 						<text class="upload-link">Click to upload</text>
@@ -70,7 +62,7 @@
 					<view class="overlay-dim"></view>
 					<image :src="clothingImg" mode="aspectFit" class="main-img"></image>
 					<view class="remove-btn" @click.stop="removeImage('clothing')">
-						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+						<image src="/static/icons/icon-close.svg" mode="aspectFit" class="icon-close-img"></image>
 					</view>
 				</view>
 			</view>
@@ -101,11 +93,7 @@
 				
 				<!-- 加载中的占位内容 -->
 				<view class="preview-icon" v-if="isLoading">
-					<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-						<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-						<circle cx="8.5" cy="8.5" r="1.5"></circle>
-						<polyline points="21 15 16 10 5 21"></polyline>
-					</svg>
+					<image src="/static/icons/icon-image-upload.svg" mode="aspectFit" class="icon-result-placeholder"></image>
 				</view>
 				
 				<!-- 生成结果（当有结果时显示） -->
@@ -113,11 +101,7 @@
 					<!-- 如果有结果图片则显示，否则显示占位符 -->
 					<image v-if="resultImg" :src="resultImg" mode="aspectFit" class="result-image"></image>
 					<view v-else class="preview-icon">
-						<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-							<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-							<circle cx="8.5" cy="8.5" r="1.5"></circle>
-							<polyline points="21 15 16 10 5 21"></polyline>
-						</svg>
+						<image src="/static/icons/icon-image-upload.svg" mode="aspectFit" class="icon-result-placeholder"></image>
 					</view>
 				</view>
 			</view>
@@ -126,17 +110,41 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 
 const props = defineProps({
 	mainContentRef: {
 		type: Object,
+		default: null
+	},
+	initialClothingImage: {
+		type: String,
+		default: null
+	},
+	initialPersonImage: {
+		type: String,
 		default: null
 	}
 })
 
 const personImg = ref('')
 const clothingImg = ref('')
+
+// cloth：與原本一致
+watch(() => props.initialClothingImage, (url) => {
+	if (url) clothingImg.value = url
+}, { immediate: true })
+
+// model/person：完全比照 cloth
+watch(() => props.initialPersonImage, (url) => {
+	if (url) personImg.value = url
+}, { immediate: true })
+
+onMounted(() => {
+	if (props.initialClothingImage) clothingImg.value = props.initialClothingImage
+	if (props.initialPersonImage) personImg.value = props.initialPersonImage
+})
+
 const resultImg = ref('') // 存储生成的结果图片
 const draggingTarget = ref(null) // 用于控制拖拽时的 UI 高亮
 const showResult = ref(false) // 控制结果区域的显示/隐藏
@@ -427,6 +435,22 @@ const handleGenerate = () => {
 
 .upload-icon {
 	pointer-events: none;
+}
+
+.icon-upload-img {
+	width: 48px;
+	height: 48px;
+	display: block;
+}
+.icon-close-img {
+	width: 16px;
+	height: 16px;
+	display: block;
+}
+.icon-result-placeholder {
+	width: 80px;
+	height: 80px;
+	display: block;
 }
 
 .upload-link {
