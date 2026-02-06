@@ -30,17 +30,17 @@
 						<view class="info-row info-row-select">
 							<text class="label">Type:</text>
 							<view class="select-trigger" @click="openField = openField === 'type' ? null : 'type'">
-								<text class="select-value">{{ editTypes.length ? editTypes.join(', ') : '—' }}</text>
+								<text class="select-value">{{ typeDisplayText }}</text>
 								<image :src="openField === 'type' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="select-arrow"></image>
 							</view>
 							<view v-if="openField === 'type'" class="select-dropdown">
 								<view 
 									v-for="opt in typeOptions" 
-									:key="opt" 
+									:key="opt.value" 
 									class="select-option" 
-									:class="{ active: editTypes.includes(opt) }"
+									:class="{ active: editTypes.includes(opt.value) }"
 									@click="toggleOption('type', opt)"
-								>{{ opt }}</view>
+								>{{ opt.label }}</view>
 								<view class="select-apply" @click="applyField('type')">Apply</view>
 							</view>
 						</view>
@@ -51,34 +51,34 @@
 						<view class="info-row info-row-select">
 							<text class="label">Color:</text>
 							<view class="select-trigger" @click="openField = openField === 'color' ? null : 'color'">
-								<text class="select-value">{{ editColors.length ? editColors.join(', ') : '—' }}</text>
+								<text class="select-value">{{ colorDisplayText }}</text>
 								<image :src="openField === 'color' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="select-arrow"></image>
 							</view>
 							<view v-if="openField === 'color'" class="select-dropdown">
 								<view 
 									v-for="opt in colorOptions" 
-									:key="opt" 
+									:key="opt.value" 
 									class="select-option" 
-									:class="{ active: editColors.includes(opt) }"
+									:class="{ active: editColors.includes(opt.value) }"
 									@click="toggleOption('color', opt)"
-								>{{ opt }}</view>
+								>{{ opt.label }}</view>
 								<view class="select-apply" @click="applyField('color')">Apply</view>
 							</view>
 						</view>
 						<view class="info-row info-row-select">
 							<text class="label">Season:</text>
 							<view class="select-trigger" @click="openField = openField === 'season' ? null : 'season'">
-								<text class="select-value">{{ editSeasons.length ? editSeasons.join(', ') : '—' }}</text>
+								<text class="select-value">{{ seasonDisplayText }}</text>
 								<image :src="openField === 'season' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="select-arrow"></image>
 							</view>
 							<view v-if="openField === 'season'" class="select-dropdown">
 								<view 
 									v-for="opt in seasonOptions" 
-									:key="opt" 
+									:key="opt.value" 
 									class="select-option" 
-									:class="{ active: editSeasons.includes(opt) }"
+									:class="{ active: editSeasons.includes(opt.value) }"
 									@click="toggleOption('season', opt)"
-								>{{ opt }}</view>
+								>{{ opt.label }}</view>
 								<view class="select-apply" @click="applyField('season')">Apply</view>
 							</view>
 						</view>
@@ -122,7 +122,8 @@
 </template>
 
 <script setup>
-import { watch, ref, nextTick } from 'vue'
+import { watch, ref, nextTick, computed } from 'vue'
+import { TYPE_OPTIONS, COLOR_OPTIONS, SEASON_OPTIONS, TYPE_LABEL_BY_CODE, COLOR_LABEL_BY_CODE, SEASON_LABEL_BY_CODE, codesToLabels } from '@/utils/wardrobeEnums.js'
 
 const props = defineProps({
 	visible: {
@@ -140,9 +141,9 @@ const emit = defineEmits(['update:visible', 'try-on', 'delete', 'update'])
 const isEnter = ref(false)
 const isLeave = ref(false)
 
-const typeOptions = ['Blouse', 'T-Shirt', 'Top', 'Vest', 'Sweater', 'Shirt']
-const colorOptions = ['White', 'Black', 'Beige', 'Brown', 'Navy', 'Olive', 'Burnt Orange', 'Black/White']
-const seasonOptions = ['Spring', 'Summer', 'Autumn', 'Winter', 'Spring / Summer']
+const typeOptions = TYPE_OPTIONS
+const colorOptions = COLOR_OPTIONS
+const seasonOptions = SEASON_OPTIONS
 
 const editName = ref('')
 const editTypes = ref([])
@@ -155,6 +156,10 @@ function parseMulti (str) {
 	if (!str || typeof str !== 'string') return []
 	return str.split(/[,/]+/).map(s => s.trim()).filter(Boolean)
 }
+
+const typeDisplayText = computed(() => codesToLabels(editTypes.value, TYPE_LABEL_BY_CODE))
+const colorDisplayText = computed(() => codesToLabels(editColors.value, COLOR_LABEL_BY_CODE))
+const seasonDisplayText = computed(() => codesToLabels(editSeasons.value, SEASON_LABEL_BY_CODE))
 
 watch(() => props.item, (val) => {
 	if (!val) return
@@ -202,10 +207,11 @@ const emitField = (field, value) => {
 }
 
 const toggleOption = (field, opt) => {
+	const code = opt && typeof opt === 'object' && 'value' in opt ? opt.value : opt
 	const arr = field === 'type' ? editTypes.value : field === 'color' ? editColors.value : editSeasons.value
-	const i = arr.indexOf(opt)
+	const i = arr.indexOf(code)
 	if (i >= 0) arr.splice(i, 1)
-	else arr.push(opt)
+	else arr.push(code)
 }
 
 const applyField = (field) => {

@@ -121,11 +121,11 @@
 								<view class="option-list">
 									<view 
 										v-for="opt in typeOptions" 
-										:key="opt" 
+										:key="opt.value" 
 										class="option-item" 
-										:class="{ active: selectedTypes.includes(opt) }"
-										@click="toggleType(opt)"
-									>{{ opt }}</view>
+										:class="{ active: selectedTypes.includes(opt.value) }"
+										@click="toggleType(opt.value)"
+									>{{ opt.label }}</view>
 								</view>
 								<view class="dropdown-actions">
 									<view class="apply-btn" @click="applyType">Apply</view>
@@ -147,11 +147,11 @@
 								<view class="option-list">
 									<view 
 										v-for="opt in colorOptions" 
-										:key="opt" 
+										:key="opt.value" 
 										class="option-item" 
-										:class="{ active: selectedColors.includes(opt) }"
-										@click="toggleColor(opt)"
-									>{{ opt }}</view>
+										:class="{ active: selectedColors.includes(opt.value) }"
+										@click="toggleColor(opt.value)"
+									>{{ opt.label }}</view>
 								</view>
 								<view class="dropdown-actions">
 									<view class="apply-btn" @click="applyColor">Apply</view>
@@ -173,11 +173,11 @@
 								<view class="option-list">
 									<view 
 										v-for="opt in seasonOptions" 
-										:key="opt" 
+										:key="opt.value" 
 										class="option-item" 
-										:class="{ active: selectedSeasons.includes(opt) }"
-										@click="toggleSeason(opt)"
-									>{{ opt }}</view>
+										:class="{ active: selectedSeasons.includes(opt.value) }"
+										@click="toggleSeason(opt.value)"
+									>{{ opt.label }}</view>
 								</view>
 								<view class="dropdown-actions">
 									<view class="apply-btn" @click="applySeason">Apply</view>
@@ -312,6 +312,7 @@
 import { ref, computed, watch } from 'vue'
 import DetailModal from './DetailModal.vue'
 import ModelDetailModal from './ModelDetailModal.vue'
+import { TYPE_OPTIONS, COLOR_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
 
 const emit = defineEmits(['switch-to-tryon'])
 
@@ -333,32 +334,32 @@ const appliedFavouriteLevels = ref([])
 const dateSortOrder = ref('desc')
 const appliedDate = ref(null)
 
-// Clothing type（多选）
-const typeOptions = ['Blouse', 'T-Shirt', 'Top', 'Vest', 'Sweater', 'Shirt']
+// Clothing type（多选，存 code）
+const typeOptions = TYPE_OPTIONS
 const selectedTypes = ref([])
 const appliedTypes = ref([])
 
-// Color（多选）
-const colorOptions = ['White', 'Black', 'Beige', 'Brown', 'Navy', 'Olive', 'Burnt Orange', 'Black/White']
+// Color（多选，存 code）
+const colorOptions = COLOR_OPTIONS
 const selectedColors = ref([])
 const appliedColors = ref([])
 
-// Season（多选）
-const seasonOptions = ['Spring', 'Summer', 'Autumn', 'Winter']
+// Season（多选，存 code）
+const seasonOptions = SEASON_OPTIONS
 const selectedSeasons = ref([])
 const appliedSeasons = ref([])
 
-// Mock 資料，與設計圖描述一致
+// Mock 資料（type/color/season 使用 API code，與 MY_WARDROBE.md 附錄一致）
 const clothes = ref([
-	{ id: 1, name: 'Basic White Tee', type: 'T-Shirt', date: '2024-01-10', color: 'White', season: 'Summer', favourite: 0, image: 'https://placehold.co/400x500/f5f0e6/8c7b60?text=White+Tee' },
-	{ id: 2, name: 'Pumpkin Puff Sleeve Top', type: 'Blouse', date: '2024-11-18', color: 'Burnt Orange', season: 'Spring / Summer', favourite: 1, image: 'https://placehold.co/400x500/e8a857/5c4a32?text=Pumpkin+Top' },
-	{ id: 3, name: 'Black Camisole', type: 'Top', date: '2024-02-15', color: 'Black', season: 'Summer', favourite: 2, image: 'https://placehold.co/400x500/2c2c2c/fff?text=Black+Camisole' },
-	{ id: 4, name: 'Striped Long Sleeve', type: 'Top', date: '2023-12-05', color: 'Black/White', season: 'Autumn', favourite: 1, image: 'https://placehold.co/400x500/f5f0e6/2c2c2c?text=Striped' },
-	{ id: 5, name: 'Brown Tank', type: 'Vest', date: '2023-08-20', color: 'Brown', season: 'Summer', favourite: 0, image: 'https://placehold.co/400x500/8b6914/f5f0e6?text=Brown+Tank' },
-	{ id: 6, name: 'Navy V-Neck', type: 'Sweater', date: '2024-01-05', color: 'Navy', season: 'Winter', favourite: 3, image: 'https://placehold.co/400x500/1e3a5f/f5f0e6?text=Navy+V-Neck' },
-	{ id: 7, name: 'Beige Button Up', type: 'Shirt', date: '2024-03-01', color: 'Beige', season: 'Spring', favourite: 1, image: 'https://placehold.co/400x500/d4b896/5c4a32?text=Beige+Shirt' },
-	{ id: 8, name: 'Olive Wrap Top', type: 'Blouse', date: '2023-10-12', color: 'Olive', season: 'Autumn', favourite: 0, image: 'https://placehold.co/400x500/6b7c3c/f5f0e6?text=Olive+Wrap' },
-	{ id: 9, name: 'Example Cloth', type: 'Blouse', date: '2024-12-01', color: 'White', season: 'Spring', favourite: 0, image: '/static/cloth_example.png' },
+	{ id: 1, name: 'Basic White Tee', type: 't_shirt', date: '2024-01-10', color: 'white', season: 'summer', favourite: 0, image: 'https://placehold.co/400x500/f5f0e6/8c7b60?text=White+Tee' },
+	{ id: 2, name: 'Pumpkin Puff Sleeve Top', type: 'blouse', date: '2024-11-18', color: 'burnt_orange', season: 'summer', favourite: 1, image: 'https://placehold.co/400x500/e8a857/5c4a32?text=Pumpkin+Top' },
+	{ id: 3, name: 'Black Camisole', type: 'top', date: '2024-02-15', color: 'black', season: 'summer', favourite: 2, image: 'https://placehold.co/400x500/2c2c2c/fff?text=Black+Camisole' },
+	{ id: 4, name: 'Striped Long Sleeve', type: 'top', date: '2023-12-05', color: 'black_white', season: 'autumn', favourite: 1, image: 'https://placehold.co/400x500/f5f0e6/2c2c2c?text=Striped' },
+	{ id: 5, name: 'Brown Tank', type: 'vest', date: '2023-08-20', color: 'brown', season: 'summer', favourite: 0, image: 'https://placehold.co/400x500/8b6914/f5f0e6?text=Brown+Tank' },
+	{ id: 6, name: 'Navy V-Neck', type: 'sweater', date: '2024-01-05', color: 'navy', season: 'winter', favourite: 3, image: 'https://placehold.co/400x500/1e3a5f/f5f0e6?text=Navy+V-Neck' },
+	{ id: 7, name: 'Beige Button Up', type: 'shirt', date: '2024-03-01', color: 'beige', season: 'spring', favourite: 1, image: 'https://placehold.co/400x500/d4b896/5c4a32?text=Beige+Shirt' },
+	{ id: 8, name: 'Olive Wrap Top', type: 'blouse', date: '2023-10-12', color: 'olive', season: 'autumn', favourite: 0, image: 'https://placehold.co/400x500/6b7c3c/f5f0e6?text=Olive+Wrap' },
+	{ id: 9, name: 'Example Cloth', type: 'blouse', date: '2024-12-01', color: 'white', season: 'spring', favourite: 0, image: '/static/cloth_example.png' },
 ])
 
 // Model mock data (posture for search, date, favourite 0-3)
@@ -389,17 +390,19 @@ const displayList = computed(() => {
 		const levels = appliedFavouriteLevels.value
 		list = list.filter((c) => levels.includes(Number(c.favourite) || 0))
 	}
+	// type/color/season 可能为多选（逗号分隔），筛选时只要有一个 code 命中即显示
+	const parseItemCodes = (str) => (str || '').split(/[,/]+/).map((s) => s.trim()).filter(Boolean)
 	if (appliedTypes.value.length > 0) {
-		const types = appliedTypes.value.map((t) => t.toLowerCase())
-		list = list.filter((c) => types.includes((c.type || '').toLowerCase()))
+		const types = appliedTypes.value
+		list = list.filter((c) => parseItemCodes(c.type).some((code) => types.includes(code)))
 	}
 	if (appliedColors.value.length > 0) {
-		const colors = appliedColors.value.map((t) => t.toLowerCase())
-		list = list.filter((c) => colors.some((col) => (c.color || '').toLowerCase().includes(col)))
+		const colors = appliedColors.value
+		list = list.filter((c) => parseItemCodes(c.color).some((code) => colors.includes(code)))
 	}
 	if (appliedSeasons.value.length > 0) {
-		const seasons = appliedSeasons.value.map((t) => t.toLowerCase())
-		list = list.filter((c) => seasons.some((s) => (c.season || '').toLowerCase().includes(s)))
+		const seasons = appliedSeasons.value
+		list = list.filter((c) => parseItemCodes(c.season).some((code) => seasons.includes(code)))
 	}
 	return list
 })
@@ -645,10 +648,10 @@ const handleUploadDrop = (event) => {
 		: {
 			id: Date.now(),
 			name: 'New Item',
-			type: 'Blouse',
+			type: 'blouse',
 			date: new Date().toISOString().slice(0, 10),
-			color: '—',
-			season: '—',
+			color: '',
+			season: '',
 			favourite: 0,
 			image: url,
 		}
@@ -678,10 +681,10 @@ const handleUpload = () => {
 				clothes.value.unshift({
 					id: Date.now(),
 					name: 'New Item',
-					type: 'Blouse',
+					type: 'blouse',
 					date: new Date().toISOString().slice(0, 10),
-					color: '—',
-					season: '—',
+					color: '',
+					season: '',
 					favourite: 0,
 					image: tempFilePath,
 				})
