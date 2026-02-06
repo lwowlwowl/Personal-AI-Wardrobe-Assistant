@@ -79,24 +79,23 @@
 		</view>
 		
 		<view class="main-content" ref="mainContentRef">
-			<!-- 根据选中的菜单项切换显示不同的组件，带切换动画 -->
+			<!-- 用 v-show 替代 v-if，切换菜单时不销毁组件，从而保留衣橱内 type/color/season 等编辑结果 -->
 			<view class="main-content-inner">
-				<transition name="view-fade" mode="out-in">
-					<RecommendationAI v-if="activeMenu === 'recommendation'" key="recommendation" />
+				<view v-show="activeMenu === 'recommendation'" class="content-panel">
+					<RecommendationAI />
+				</view>
+				<view v-show="activeMenu === 'tryon'" class="content-panel">
 					<VirtualTryOn
-					v-else-if="activeMenu === 'tryon'"
-					:key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')"
-					:main-content-ref="mainContentRef"
-					:initial-clothing-image="initialClothingForTryon || null"
-					:initial-person-image="initialPersonImageForTryon || null"
-				/>
-					<WardrobeView
-						v-else-if="activeMenu === 'wardrobe'"
-						key="wardrobe"
-						@switch-to-tryon="handleSwitchToTryon"
+						:key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')"
+						:main-content-ref="mainContentRef"
+						:initial-clothing-image="initialClothingForTryon || null"
+						:initial-person-image="initialPersonImageForTryon || null"
 					/>
-					<view v-else-if="activeMenu === 'analysis'" key="analysis" class="view-placeholder">Wardrobe Analysis (Coming soon)</view>
-				</transition>
+				</view>
+				<view v-show="activeMenu === 'wardrobe'" class="content-panel">
+					<WardrobeView @switch-to-tryon="handleSwitchToTryon" />
+				</view>
+				<view v-show="activeMenu === 'analysis'" class="content-panel view-placeholder">Wardrobe Analysis (Coming soon)</view>
 			</view>
 		</view>
 	</view>
@@ -356,7 +355,12 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	position: relative;
 }
 
-/* 视图切换动画 */
+.content-panel {
+	width: 100%;
+	height: 100%;
+}
+
+/* 视图切换动画（当前使用 v-show 保留状态，未使用 transition） */
 .view-fade-enter-active,
 .view-fade-leave-active {
 	transition: opacity 0.28s ease, transform 0.28s ease;

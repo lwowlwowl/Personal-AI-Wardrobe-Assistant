@@ -217,7 +217,7 @@ const toggleOption = (field, opt) => {
 const applyField = (field) => {
 	if (!props.item?.id) return
 	const arr = field === 'type' ? editTypes.value : field === 'color' ? editColors.value : editSeasons.value
-	const value = arr.join(', ')
+	const value = arr.join(',')  // 逗号分隔且不加空格，与 API 约定一致
 	emit('update', { id: props.item.id, field, value })
 	openField.value = null
 }
