@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import os
 from typing import Optional
 
 from langchain_community.embeddings import DashScopeEmbeddings
@@ -24,9 +25,12 @@ class ChatModelFactory(BaseModelFactory):
 
 class EmbeddingsFactory(BaseModelFactory):
     def generator(self) -> Optional[Embeddings | BaseChatModel]:
+        dashscope_api_key = os.getenv("DASHSCOPE_API_KEY")
+        if not dashscope_api_key:
+            raise ValueError("未配置DASHSCOPE_API_KEY，无法初始化DashScopeEmbeddings")
         return DashScopeEmbeddings(
             model=rag_conf["embedding_model_name"],
-            dashscope_api_key=rag_conf["DASHSCOPE_API_KEY"]
+            dashscope_api_key=dashscope_api_key
         )
 
 chat_model = ChatModelFactory().generator()

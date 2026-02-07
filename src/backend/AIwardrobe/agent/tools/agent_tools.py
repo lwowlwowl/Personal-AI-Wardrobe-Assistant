@@ -2,8 +2,6 @@ import json
 import os.path
 import random
 from datetime import datetime
-from urllib.parse import urlencode
-from urllib.request import urlopen
 
 from langchain_core.tools import tool
 from rag.rag_service import RagSummarizeService
@@ -20,71 +18,65 @@ user_ids = ["1001","1002","1003","1004","1005","1006","1007","1008","1009","1010
 def rag_summarize(query: str) -> str:
     return rag.rag_summarize(query)
 
-def _fetch_amap_weather(city: str, extensions: str, api_key: str) -> dict:
-    params = urlencode({
-        "key": api_key,
-        "city": city,
-        "extensions": extensions,
-    })
-    url = f"https://restapi.amap.com/v3/weather/weatherInfo?{params}"
-    with urlopen(url, timeout=8) as resp:
-        return json.loads(resp.read().decode("utf-8"))
 
-@tool(description="获取指定城市的实时天气和预报，以消息字符串的形式返回")
+
+@tool(description="根据用户城市或本地位置读取天气文件并返回实况与预报")
 def get_weather(city: str) -> str:
-    if not city:
-        return "未提供城市名称，无法查询天气"
-
-    api_key = os.getenv("AMAP_WEATHER_KEY")
-    if not api_key:
-        return "未配置AMAP_WEATHER_KEY，无法调用高德天气API"
+    weather_path = get_abs_path("data/weather.json")
+    if not os.path.exists(weather_path):
+        return "未找到本地天气文件，请先拉取并保存天气数据"
 
     try:
-        live_resp = _fetch_amap_weather(city, "base", api_key)
-        forecast_resp = _fetch_amap_weather(city, "all", api_key)
+        with open(weather_path, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                return "本地天气文件为空，请先拉取并保存天气数据"
+            data = json.loads(content)
     except Exception as exc:
-        logger.warning(f"[get_weather]调用高德天气API失败: {exc}")
-        return "天气服务暂时不可用，请稍后再试"
-
-    if live_resp.get("status") != "1" or forecast_resp.get("status") != "1":
-        logger.warning(f"[get_weather]高德天气API返回异常: {live_resp} | {forecast_resp}")
-        return "天气服务返回异常，请稍后再试"
+        logger.warning(f"[get_qweather]读取本地天气文件失败: {exc}")
+        return "读取本地天气文件失败，请检查文件格式"
 
     parts = []
     parts.append(f"查询时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    location_name = data.get("city") or data.get("location_name")
+    if location_name:
+        parts.append(f"位置：{location_name}")
+        if city and city not in location_name:
+            parts.append("提示：当前文件城市与请求城市不一致，请先更新天气文件")
+    elif city:
+        parts.append(f"位置：{city}")
 
-    lives = live_resp.get("lives") or []
-    if lives:
-        live = lives[0]
+    now = data.get("now") or {}
+    if now:
         parts.append(
             "实况："
-            f"{live.get('weather','未知')}，"
-            f"{live.get('temperature','?')}℃，"
-            f"湿度{live.get('humidity','?')}%，"
-            f"{live.get('winddirection','未知')}风{live.get('windpower','?')}级"
-            f"（{live.get('reporttime','未知时间')}）"
+            f"{now.get('text','未知')}，"
+            f"{now.get('temp','?')}℃，"
+            f"体感{now.get('feelsLike','?')}℃，"
+            f"湿度{now.get('humidity','?')}%，"
+            f"{now.get('windDir','未知')}风{now.get('windScale','?')}级"
+            f"（{now.get('obsTime','未知时间')}）"
         )
 
-    forecasts = forecast_resp.get("forecasts") or []
-    if forecasts:
-        casts = forecasts[0].get("casts") or []
-        if casts:
-            forecast_lines = []
-            for cast in casts:
-                forecast_lines.append(
-                    f"{cast.get('date','')} "
-                    f"周{cast.get('week','')} "
-                    f"白天{cast.get('dayweather','未知')}{cast.get('daytemp','?')}℃ "
-                    f"{cast.get('daywind','未知')}{cast.get('daypower','?')}级；"
-                    f"夜间{cast.get('nightweather','未知')}{cast.get('nighttemp','?')}℃ "
-                    f"{cast.get('nightwind','未知')}{cast.get('nightpower','?')}级"
-                )
-            parts.append("预报：" + " | ".join(forecast_lines))
+    daily = data.get("daily") or []
+    if daily:
+        forecast_lines = []
+        for day in daily:
+            forecast_lines.append(
+                f"{day.get('fxDate','')} "
+                f"白天{day.get('textDay','未知')}{day.get('tempMax','?')}℃ "
+                f"{day.get('windDirDay','未知')}{day.get('windScaleDay','?')}级；"
+                f"夜间{day.get('textNight','未知')}{day.get('tempMin','?')}℃ "
+                f"{day.get('windDirNight','未知')}{day.get('windScaleNight','?')}级"
+            )
+        parts.append("预报：" + " | ".join(forecast_lines))
 
-    if len(parts) == 1:
+    if len(parts) <= 2 and not now and not daily:
         return "未查询到有效天气信息"
 
     return "\n".join(parts)
+
+
 
 @tool(description="获取用户所在城市名称，以纯字符串形式返回")
 def get_user_location() -> str:

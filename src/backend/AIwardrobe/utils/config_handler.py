@@ -3,6 +3,7 @@ yaml
 k: b
 """
 
+import os
 import yaml
 from utils.path_tool import get_abs_path
 
@@ -21,6 +22,23 @@ def load_prompts_config(config_path: str=get_abs_path("config/prompts.yml"), enc
 def load_agent_config(config_path: str=get_abs_path("config/agent.yml"), encoding: str="utf-8"):
     with open(config_path, "r", encoding=encoding) as f:
         return yaml.load(f, Loader=yaml.FullLoader)
+
+def load_env_config(env_path: str=get_abs_path("config/.env"), encoding: str="utf-8"):
+    if not os.path.exists(env_path):
+        return
+
+    with open(env_path, "r", encoding=encoding) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+load_env_config()
 
 rag_conf = load_rag_config()
 chroma_conf = load_chroma_config()
