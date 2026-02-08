@@ -147,7 +147,7 @@ def fetch_weather_json_days(
     return daily_resp
 
 
-def save_weather_json(payload: dict, output_path: str | None = None) -> str:
+def save_weather_json(city: str | None, payload: dict, output_path: str | None = None, days: str | None = None) -> str:
     """
     Save weather payload to local JSON and return its path.
     """
@@ -155,7 +155,7 @@ def save_weather_json(payload: dict, output_path: str | None = None) -> str:
         output_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "data",
-            "weather.json",
+            f"weather{city}{days}.json",
         )
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
@@ -167,8 +167,11 @@ def main() -> None:
     """
     Example usage for fetching and saving weather data.
     """
-    payload = fetch_weather_json_now(city="深圳")
-    output_path = save_weather_json(payload)
+    city = "深圳"
+    days = "3d"
+    payload = fetch_weather_json_days(city,days=days)
+
+    output_path = save_weather_json(city,payload,days=days)
     print(f"weather json saved to: {output_path}")
 
 
