@@ -3,9 +3,10 @@ from utils.path_tool import get_abs_path
 from utils.logger_handler import logger
 
 
-def load_system_prompts():
+def load_system_prompts(lang: str = "zh"):
+    key = "main_prompt_path_zh" if lang == "zh" else "main_prompt_path_en"
     try:
-        system_prompt_path = get_abs_path(prompts_conf["main_prompt_path"])
+        system_prompt_path = get_abs_path(prompts_conf[key])
     except KeyError as e:
         logger.error(f"[load_system_prompts]在yaml配置项中没有main_prompt_path配置项")
         raise e

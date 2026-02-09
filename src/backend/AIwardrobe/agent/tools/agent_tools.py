@@ -19,10 +19,9 @@ def rag_summarize(query: str) -> str:
     return rag.rag_summarize(query)
 
 
-
 @tool(description="根据用户城市或本地位置读取天气文件并返回实况与预报")
-def get_weather(city: str) -> str:
-    weather_path = get_abs_path("data/weather.json")
+def get_weather(city: str, days: str = "") -> str:
+    weather_path = get_abs_path(f"data/weather{city}{days}.json")
     if not os.path.exists(weather_path):
         return "未找到本地天气文件，请先拉取并保存天气数据"
 
@@ -38,14 +37,7 @@ def get_weather(city: str) -> str:
 
     parts = []
     parts.append(f"查询时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    location_name = data.get("city") or data.get("location_name")
-    if location_name:
-        parts.append(f"位置：{location_name}")
-        if city and city not in location_name:
-            parts.append("提示：当前文件城市与请求城市不一致，请先更新天气文件")
-    elif city:
-        parts.append(f"位置：{city}")
-
+    parts.append(f"位置：{city}")
     now = data.get("now") or {}
     if now:
         parts.append(
@@ -54,7 +46,8 @@ def get_weather(city: str) -> str:
             f"{now.get('temp','?')}℃，"
             f"体感{now.get('feelsLike','?')}℃，"
             f"湿度{now.get('humidity','?')}%，"
-            f"{now.get('windDir','未知')}风{now.get('windScale','?')}级"
+            f"{now.get('windDir','未知')}风{now.get('windScale','?')}级,{now.get('windSpeed','?')}km/h"
+            f"当前小时累计降水量{now.get('precip','?')}mm"
             f"（{now.get('obsTime','未知时间')}）"
         )
 
@@ -65,9 +58,14 @@ def get_weather(city: str) -> str:
             forecast_lines.append(
                 f"{day.get('fxDate','')} "
                 f"白天{day.get('textDay','未知')}{day.get('tempMax','?')}℃ "
-                f"{day.get('windDirDay','未知')}{day.get('windScaleDay','?')}级；"
+                f"{day.get('windDirDay','未知')}{day.get('windScaleDay','?')}级"
+                f"{day.get('windSpeedDay','?')}km/h；"
                 f"夜间{day.get('textNight','未知')}{day.get('tempMin','?')}℃ "
                 f"{day.get('windDirNight','未知')}{day.get('windScaleNight','?')}级"
+                f"{day.get('windSpeedNight','?')}km/h，"
+                f"湿度{day.get('humidity','?')}%，"
+                f"降水{day.get('precip','?')}mm，"
+                f"紫外线{day.get('uvIndex','?')}级"
             )
         parts.append("预报：" + " | ".join(forecast_lines))
 
@@ -153,4 +151,4 @@ def fetch_external_data(user_id: str, month: str) -> str:
 
 
 if __name__ == '__main__':
-    print(fetch_external_data("1001","2025-01"))
+    print(get_weather("深圳","3d"))

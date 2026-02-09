@@ -9,10 +9,10 @@ from agent.tools.agent_tools import (rag_summarize, get_weather,
 from agent.tools.middleware import monitor_tool, log_before_model, report_prompt_switch
 
 class ReactAgent:
-    def __init__(self):
+    def __init__(self, lang="zh"):
         self.agent = create_agent(
             model=chat_model,
-            system_prompt=load_system_prompts(),
+            system_prompt=load_system_prompts(lang),
             tools = [rag_summarize, get_weather, get_user_location, get_user_id,
                     get_current_month, fetch_external_data,
                     fill_context_for_report],
