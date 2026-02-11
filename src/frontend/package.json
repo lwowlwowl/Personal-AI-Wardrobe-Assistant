@@ -1,0 +1,30 @@
+{
+  "name": "ai-wardrobe-assistant",
+  "version": "1.0.0",
+  "description": "AI虚拟衣橱助手 - 基于 Vue3 + UniApp 的跨平台应用",
+  "main": "main.js",
+  "scripts": {
+    "dev:h5": "uni",
+    "build:h5": "uni build",
+    "dev:mp-weixin": "uni -p mp-weixin",
+    "build:mp-weixin": "uni build -p mp-weixin",
+    "dev:mp-alipay": "uni -p mp-alipay",
+    "build:mp-alipay": "uni build -p mp-alipay",
+    "dev:mp-toutiao": "uni -p mp-toutiao",
+    "build:mp-toutiao": "uni build -p mp-toutiao"
+  },
+  "dependencies": {
+    "vue": "3.2.47"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "^3.3.3",
+    "@dcloudio/uni-app": "3.0.0-alpha-3080220230511001",
+    "@dcloudio/uni-cli-shared": "3.0.0-alpha-3080220230511001",
+    "@dcloudio/uni-h5": "3.0.0-alpha-3080220230511001",
+    "@dcloudio/uni-mp-weixin": "3.0.0-alpha-3080220230511001",
+    "@dcloudio/vite-plugin-uni": "3.0.0-alpha-3080220230511001",
+    "sass": "^1.97.3",
+    "sass-embedded": "^1.97.3",
+    "vite": "^4.0.0"
+  }
+}
