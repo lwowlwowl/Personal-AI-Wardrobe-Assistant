@@ -7,7 +7,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
-from utils.config_handler import rag_conf, load_env_config
+from AIwardrobe.utils.config_handler import rag_conf, load_env_config
 
 load_env_config()
 

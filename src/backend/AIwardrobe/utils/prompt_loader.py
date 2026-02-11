@@ -1,6 +1,6 @@
-from utils.config_handler import prompts_conf
-from utils.path_tool import get_abs_path
-from utils.logger_handler import logger
+from AIwardrobe.utils.config_handler import prompts_conf
+from AIwardrobe.utils.path_tool import get_abs_path
+from AIwardrobe.utils.logger_handler import logger
 
 
 def load_system_prompts(lang: str = "zh"):
@@ -30,6 +30,21 @@ def load_rag_prompts():
     except Exception as e:
         logger.error(f"[load_rag_prompts]解析RAG提示词出错，{str(e)}")
         raise e
+
+
+def load_report_prompts():
+    try:
+        report_prompt_rel_path = prompts_conf["report_prompt_path"]
+    except KeyError:
+        logger.warning("[load_report_prompts]未配置report_prompt_path，回退到system prompt")
+        return load_system_prompts()
+
+    report_prompt_path = get_abs_path(report_prompt_rel_path)
+    try:
+        return open(report_prompt_path, "r", encoding="utf-8").read()
+    except Exception as e:
+        logger.warning(f"[load_report_prompts]读取报告提示词失败，回退到system prompt: {str(e)}")
+        return load_system_prompts()
 
 
 

@@ -5,11 +5,12 @@
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from datetime import timedelta
+import json
 import traceback
-
+	
 # 导入自定义模块
 import models, schemas, crud
 from database import engine, get_db
@@ -19,6 +20,8 @@ from fastapi import UploadFile, File, Form, Query, Path
 from typing import List, Optional, Dict, Any
 from datetime import date
 from pathlib import Path as PathLib
+
+from AIwardrobe.agent.react_agent import ReactAgent
 
 # ============ 路径配置 ============
 # 项目根目录：.../Personal-AI-Wardrobe-Assistant
@@ -2025,6 +2028,60 @@ async def set_primary_model_photo(
         )
 
 
+react_agent = ReactAgent()
+
+@app.post("/api/ai/chat/stream")
+async def ai_chat_stream(req: schemas.ChatReq):
+    def event_stream():
+        try:
+            # ReactAgent 当前接口仅接收 query；将历史上下文压成文本前缀传入。
+            history_lines = []
+            for item in req.history:
+                role = item.get("role")
+                content = (item.get("content") or "").strip()
+                if not content:
+                    continue
+                if role == "user":
+                    history_lines.append(f"用户: {content}")
+                elif role == "ai":
+                    history_lines.append(f"助手: {content}")
+
+            full_query = req.query
+            if history_lines:
+                history_text = "\n".join(history_lines[-10:])
+                full_query = f"以下是历史对话，请结合上下文回答：\n{history_text}\n\n当前问题：{req.query}"
+
+            previous_text = ""
+            for chunk_text in react_agent.execute_stream(full_query):
+                if not chunk_text:
+                    continue
+                if chunk_text.startswith(previous_text):
+                    delta = chunk_text[len(previous_text):]
+                else:
+                    delta = chunk_text
+                previous_text = chunk_text
+                if not delta:
+                    continue
+                payload = json.dumps({"type": "delta", "content": delta}, ensure_ascii=False)
+                yield f"data: {payload}\n\n"
+
+            yield 'data: {"type":"done"}\n\n'
+        except Exception as e:
+            error_payload = json.dumps(
+                {"type": "error", "message": str(e)}, ensure_ascii=False
+            )
+            yield f"data: {error_payload}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
 # ============ 错误处理 ============
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
@@ -2066,5 +2123,5 @@ if __name__ == "__main__":
 
     print("启动服务器: http://localhost:8000")
     print("API文档: http://localhost:8000/docs")
-    # 启动UVicorn服务器，监听所有网络接口，端口8000，开启热重载
+    # 启动UVicorn服务器，监听所有网络接口，端口8080，开启热重载
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
