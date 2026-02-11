@@ -3,10 +3,7 @@
 		<view class="sidebar" :class="{ 'collapsed': isCollapsed }">
 			<view class="sidebar-header" @click="toggleSidebar">
 				<view class="home-icon">
-					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1D1D1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-						<polyline points="9 22 9 12 15 12 15 22"></polyline>
-					</svg>
+					<image src="/static/icons/icon-home.svg" mode="aspectFit" class="icon-img icon-24"></image>
 				</view>
 				<view class="app-title-group" v-show="!isCollapsed">
 					<text class="app-title">Personal AI</text>
@@ -23,13 +20,7 @@
 					@click="setActiveMenu('recommendation')"
 				>
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" :stroke="activeMenu === 'recommendation' ? '#FFF' : '#1D1D1F'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<rect x="3" y="11" width="18" height="10" rx="2"></rect>
-							<circle cx="12" cy="5" r="2"></circle>
-							<path d="M12 7v4"></path>
-							<line x1="8" y1="16" x2="8" y2="16"></line>
-							<line x1="16" y1="16" x2="16" y2="16"></line>
-						</svg>
+						<image :src="activeMenu === 'recommendation' ? '/static/icons/icon-recommendation-active.svg' : '/static/icons/icon-recommendation.svg'" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
 					<text class="nav-text" v-show="!isCollapsed">Recommendation AI</text>
 				</view>
@@ -40,10 +31,7 @@
 					@click="setActiveMenu('tryon')"
 				>
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" :stroke="activeMenu === 'tryon' ? '#FFF' : '#1D1D1F'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-							<circle cx="12" cy="13" r="4"></circle>
-						</svg>
+						<image :src="activeMenu === 'tryon' ? '/static/icons/icon-tryon-active.svg' : '/static/icons/icon-tryon.svg'" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
 					<text class="nav-text" v-show="!isCollapsed">Virtual Try-On</text>
 				</view>
@@ -54,9 +42,7 @@
 					@click="setActiveMenu('wardrobe')"
 				>
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" :stroke="activeMenu === 'wardrobe' ? '#FFF' : '#1D1D1F'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"></path>
-						</svg>
+						<image :src="activeMenu === 'wardrobe' ? '/static/icons/icon-wardrobe-active.svg' : '/static/icons/icon-wardrobe.svg'" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
 					<text class="nav-text" v-show="!isCollapsed">My Wardrobe</text>
 				</view>
@@ -67,11 +53,7 @@
 					@click="setActiveMenu('analysis')"
 				>
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" :stroke="activeMenu === 'analysis' ? '#FFF' : '#1D1D1F'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<line x1="18" y1="20" x2="18" y2="10"></line>
-							<line x1="12" y1="20" x2="12" y2="4"></line>
-							<line x1="6" y1="20" x2="6" y2="14"></line>
-						</svg>
+						<image :src="activeMenu === 'analysis' ? '/static/icons/icon-analysis-active.svg' : '/static/icons/icon-analysis.svg'" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
 					<text class="nav-text" v-show="!isCollapsed">Wardrobe Analysis</text>
 				</view>
@@ -82,20 +64,14 @@
 			<view class="sidebar-footer">
 				<view class="nav-item footer-item" @click="handleGuestUser">
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D1D1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-							<circle cx="12" cy="7" r="4"></circle>
-						</svg>
+						<image src="/static/icons/icon-user.svg" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
 					<text class="nav-text" v-show="!isCollapsed">Guest User</text>
 				</view>
 				
 				<view class="nav-item footer-item" @click="handleSetting">
 					<view class="nav-icon">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1D1D1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<circle cx="12" cy="12" r="3"></circle>
-							<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-						</svg>
+						<image src="/static/icons/icon-setting.svg" mode="aspectFit" class="icon-img icon-20"></image>
 					</view>
 					<text class="nav-text" v-show="!isCollapsed">Setting</text>
 				</view>
@@ -103,32 +79,74 @@
 		</view>
 		
 		<view class="main-content" ref="mainContentRef">
-			<!-- 根据选中的菜单项切换显示不同的组件 -->
-			<RecommendationAI v-if="activeMenu === 'recommendation'" />
-			<VirtualTryOn v-if="activeMenu === 'tryon'" :main-content-ref="mainContentRef" />
+			<!-- 用 v-show 替代 v-if，切换菜单时不销毁组件，从而保留衣橱内 type/color/season 等编辑结果 -->
+			<view class="main-content-inner">
+				<view v-show="activeMenu === 'recommendation'" class="content-panel">
+					<RecommendationAI />
+				</view>
+				<view v-show="activeMenu === 'tryon'" class="content-panel">
+					<VirtualTryOn
+						:key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')"
+						:main-content-ref="mainContentRef"
+						:initial-clothing-image="initialClothingForTryon || null"
+						:initial-person-image="initialPersonImageForTryon || null"
+					/>
+				</view>
+				<view v-show="activeMenu === 'wardrobe'" class="content-panel">
+					<WardrobeView @switch-to-tryon="handleSwitchToTryon" />
+				</view>
+				<view v-show="activeMenu === 'analysis'" class="content-panel view-placeholder">Wardrobe Analysis (Coming soon)</view>
+			</view>
 		</view>
 	</view>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import RecommendationAI from './components/RecommendationAI.vue'
 import VirtualTryOn from './components/VirtualTryOn.vue'
+import WardrobeView from './components/MyWardrobe/WardrobeView.vue'
 
 const activeMenu = ref('recommendation')
 const isCollapsed = ref(false)
 const mainContentRef = ref(null)
+const initialClothingForTryon = ref(null)
+const initialPersonImageForTryon = ref(null)
 
 const setActiveMenu = (menu) => {
 	activeMenu.value = menu
+	if (menu !== 'tryon') {
+		initialClothingForTryon.value = null
+		initialPersonImageForTryon.value = null
+	}
 }
 
 const toggleSidebar = () => {
 	isCollapsed.value = !isCollapsed.value
 }
 
-const handleGuestUser = () => {}
-const handleSetting = () => {}
+// 後端聯調保留：訪客/設置的 Toast 提示
+const handleGuestUser = () => {
+	uni.showToast({
+		title: '訪客用戶功能開發中',
+		icon: 'none'
+	})
+}
+
+const handleSetting = () => {
+	uni.showToast({
+		title: '設置功能開發中',
+		icon: 'none'
+	})
+}
+
+const handleSwitchToTryon = (item, defaultModelImage) => {
+	initialClothingForTryon.value = item?.image ?? null
+	initialPersonImageForTryon.value = defaultModelImage ?? null
+	nextTick(() => {
+		activeMenu.value = 'tryon'
+	})
+}
 </script>
 
 <style scoped>
@@ -269,6 +287,18 @@ const handleSetting = () => {}
 	flex-shrink: 0;
 }
 
+.icon-img {
+	display: block;
+}
+.icon-img.icon-24 {
+	width: 24px;
+	height: 24px;
+}
+.icon-img.icon-20 {
+	width: 20px;
+	height: 20px;
+}
+
 .sidebar.collapsed .nav-icon {
 	margin-right: 0;
 }
@@ -311,12 +341,53 @@ const handleSetting = () => {}
 .main-content {
 	flex: 1;
 	display: flex;
-	align-items: flex-start; /* 改为顶部对齐，允许内容超出 */
-	justify-content: center; /* 水平居中 */
+	align-items: flex-start;
+	justify-content: center;
 	position: relative;
 	transition: margin-left 0.3s ease;
-	overflow-y: hidden; /* 默认不允许滚动，由子组件控制 */
-	height: 100vh; /* 设置固定高度 */
+	overflow: hidden;
+	height: 100vh;
+}
+
+.main-content-inner {
+	width: 100%;
+	height: 100%;
+	position: relative;
+}
+
+.content-panel {
+	width: 100%;
+	height: 100%;
+}
+
+/* 视图切换动画（当前使用 v-show 保留状态，未使用 transition） */
+.view-fade-enter-active,
+.view-fade-leave-active {
+	transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.view-fade-enter-from {
+	opacity: 0;
+	transform: translateX(12rpx);
+}
+.view-fade-leave-to {
+	opacity: 0;
+	transform: translateX(-12rpx);
+}
+.view-fade-enter-to,
+.view-fade-leave-from {
+	opacity: 1;
+	transform: translateX(0);
+}
+
+.view-placeholder {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-family: "Didot", "Bodoni MT", "Noto Serif", "Songti SC", serif;
+	font-size: 36rpx;
+	color: #9D8B70;
 }
 
 </style>

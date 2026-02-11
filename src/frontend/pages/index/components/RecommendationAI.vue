@@ -3,15 +3,7 @@
 		<!-- 初始状态：问候语部分（居中布局） -->
 		<view class="greeting-wrapper" v-if="!hasSearched">
 			<view class="robot-hero">
-				<svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#1D1D1F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-					<rect x="3" y="11" width="18" height="10" rx="2"></rect>
-					<circle cx="12" cy="5" r="2"></circle>
-					<path d="M12 7v4"></path>
-					<line x1="8" y1="16" x2="8" y2="16"></line>
-					<line x1="16" y1="16" x2="16" y2="16"></line>
-					<line x1="2" y1="14" x2="1" y2="14"></line>
-					<line x1="23" y1="14" x2="22" y2="14"></line>
-				</svg>
+				<image src="/static/icons/icon-robot.svg" mode="aspectFit" class="icon-robot-hero"></image>
 			</view>
 			<view class="greeting-row">
 				<text class="wave-emoji">👋</text>
@@ -51,11 +43,7 @@
 					<!-- AI 消息 (左侧) -->
 					<view v-else-if="msg.role === 'ai'" class="ai-container">
 						<view class="ai-avatar">
-							<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1D1D1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<rect x="3" y="11" width="18" height="10" rx="2"></rect>
-								<circle cx="12" cy="5" r="2"></circle>
-								<path d="M12 7v4"></path>
-							</svg>
+							<image src="/static/icons/icon-robot-avatar.svg" mode="aspectFit" class="icon-robot-avatar"></image>
 						</view>
 						<view class="ai-content">
 							<text class="message-text">{{ msg.content }}</text>
@@ -84,11 +72,7 @@
 					<!-- 加载指示器 -->
 					<view v-if="msg.role === 'loading'" class="ai-container">
 						<view class="ai-avatar">
-							<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1D1D1F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<rect x="3" y="11" width="18" height="10" rx="2"></rect>
-								<circle cx="12" cy="5" r="2"></circle>
-								<path d="M12 7v4"></path>
-							</svg>
+							<image src="/static/icons/icon-robot-avatar.svg" mode="aspectFit" class="icon-robot-avatar"></image>
 						</view>
 						<view class="loading-indicator">
 							<view class="loading-dot"></view>
@@ -122,10 +106,7 @@
 		<view class="input-container" :class="{ 'fixed-bottom': hasSearched }">
 			<view class="search-bar">
 				<view class="search-icon-left" @click="handleAdd">
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<line x1="12" y1="5" x2="12" y2="19"></line>
-						<line x1="5" y1="12" x2="19" y2="12"></line>
-					</svg>
+					<image src="/static/icons/icon-plus.svg" mode="aspectFit" class="icon-search-btn"></image>
 				</view>
 				<input 
 					class="search-input" 
@@ -135,10 +116,7 @@
 					@keyup.enter="handleSearch"
 				/>
 				<view class="search-button" @click="handleSearch">
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<line x1="12" y1="19" x2="12" y2="5"></line>
-						<polyline points="5 12 12 5 19 12"></polyline>
-					</svg>
+					<image src="/static/icons/icon-send.svg" mode="aspectFit" class="icon-search-btn"></image>
 				</view>
 			</view>
 		</view>
@@ -269,9 +247,22 @@ const handleAdd = () => {
 }
 
 /* 机器人悬浮呼吸动画 */
-.robot-hero svg {
+.robot-hero .icon-robot-hero {
+	width: 60px;
+	height: 60px;
+	display: block;
 	/* 4秒循环，丝滑缓动 */
 	animation: float 4s ease-in-out infinite;
+}
+.icon-robot-avatar {
+	width: 32px;
+	height: 32px;
+	display: block;
+}
+.icon-search-btn {
+	width: 20px;
+	height: 20px;
+	display: block;
 }
 
 @keyframes float {
@@ -579,8 +570,8 @@ const handleAdd = () => {
 	background-color: #1D1D1F;
 }
 
-.search-icon-left:hover svg {
-	stroke: #FFF;
+.search-icon-left:hover .icon-search-btn {
+	opacity: 0.85;
 }
 
 .search-input {
@@ -619,8 +610,8 @@ const handleAdd = () => {
 	background-color: #1D1D1F;
 }
 /* hover 时箭头变白 */
-.search-button:hover svg {
-	stroke: #FFF;
+.search-button:hover .icon-search-btn {
+	opacity: 0.85;
 }
 
 /* 底部标签 - 使用分割线设计 */

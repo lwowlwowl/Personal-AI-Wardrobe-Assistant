@@ -129,6 +129,10 @@ const showPassword = ref(false)
 const showConfirmPassword = ref(false)
 const imageError = ref(false)
 const passwordMismatch = ref(false)
+const isLoading = ref(false)  
+const testResult = ref('')
+const isLeaving = ref(false)
+const isEntering = ref(false)
 
 const handleImageError = () => {
 	imageError.value = true
@@ -162,7 +166,7 @@ const validateEmail = (email) => {
 	return re.test(email)
 }
 
-const handleRegister = () => {
+const handleRegister = async () => {
 	if (!formData.value.email) {
 		uni.showToast({
 			title: '請輸入郵箱地址',
@@ -220,25 +224,140 @@ const handleRegister = () => {
 		return
 	}
 	
-	// TODO: 實現註冊邏輯
-	console.log('註冊', formData.value)
-	uni.showToast({
-		title: '註冊成功',
-		icon: 'success',
-		duration: 2000
-	})
+	// 防止重复提交
+	if (isLoading.value) return
+	isLoading.value = true
 	
-	// 註冊成功後跳轉到登錄頁
-	setTimeout(() => {
-		uni.redirectTo({
-			url: '/pages/login/login'
+try {
+		// 显示加载中
+		uni.showLoading({
+			title: '註冊中...',
+			mask: true
 		})
-	}, 2000)
-}
+		
+		console.log('發送註冊請求:', {
+			username: formData.value.username,
+			email: formData.value.email,
+			password: formData.value.password,
+			confirm_password: formData.value.confirmPassword
+		})
+		
+		// 调用后端API
+		const res = await uni.request({
+			url: 'http://localhost:8000/api/auth/register',
+			method: 'POST',
+			header: {
+				'Content-Type': 'application/json'
+			},
+			data: {
+				username: formData.value.username,
+				email: formData.value.email,
+				password: formData.value.password,
+				confirm_password: formData.value.confirmPassword
+			},
+			timeout: 10000
+		})
+		
+		console.log('註冊API完整響應:', res)
+		console.log('響應狀態碼:', res.statusCode)
+		console.log('響應數據:', res.data)
+		
+		uni.hideLoading()
+		isLoading.value = false
+		
+		if (res.statusCode === 200) {
+		            if (res.data && res.data.success === true) {
+		                // 注册成功
+		                uni.showToast({
+		                    title: '註冊成功！',
+		                    icon: 'success',
+		                    duration: 2000
+		                })
+		                
+		                // 注册成功后跳转到登录页
+		                setTimeout(() => {
+		                    uni.redirectTo({
+		                        url: '/pages/login/login'
+		                    })
+		                }, 2000)
+		            } else {
+		                // 注册失败（但HTTP状态码是200）
+		                const errorMessage = res.data?.message || '註冊失敗'
+		                uni.showToast({
+		                    title: errorMessage,
+		                    icon: 'none',
+		                    duration: 3000
+		                })
+		            }
+		        } else if (res.statusCode === 400 || res.statusCode === 409) {
+		            // 客户端错误（用户名/邮箱已被注册等）
+		            const errorDetail = res.data?.message || res.data?.detail || ''
+		            let errorMessage = '註冊失敗'
+		            
+		            if (errorDetail.includes('用户名') || errorDetail.includes('username')) {
+		                errorMessage = '用戶名已被註冊，請換一個用戶名'
+		            } else if (errorDetail.includes('邮箱') || errorDetail.includes('email')) {
+		                errorMessage = '郵箱已被註冊，請使用其他郵箱'
+		            } else {
+		                errorMessage = errorDetail || '註冊失敗，請檢查輸入信息'
+		            }
+		            
+		            uni.showToast({
+		                title: errorMessage,
+		                icon: 'none',
+		                duration: 3000
+		            })
+		        } else if (res.statusCode === 500) {
+		            // 服务器错误
+		            const errorDetail = res.data?.message || ''
+		            let errorMessage = '服務器錯誤，請稍後重試'
+		            
+		            if (errorDetail.includes('create_user')) {
+		                errorMessage = '服務器配置錯誤，請聯繫管理員'
+		            }
+		            
+		            uni.showToast({
+		                title: errorMessage,
+		                icon: 'none',
+		                duration: 3000
+		            })
+		        } else {
+		            // 其他状态码
+		            const errorDetail = res.data?.message || res.data?.detail || ''
+		            uni.showToast({
+		                title: `註冊失敗: ${errorDetail || res.statusCode}`,
+		                icon: 'none',
+		                duration: 3000
+		            })
+		        }
+		        
+		    } catch (error) {
+		        uni.hideLoading()
+		        isLoading.value = false
+		        
+		        console.error('註冊請求異常:', error)
+		        
+		        let errorMessage = '註冊失敗，請稍後重試'
+		        
+		        // 根据错误类型显示不同的提示
+		        if (error.errMsg) {
+		            if (error.errMsg.includes('timeout')) {
+		                errorMessage = '請求超時，請檢查網絡連接'
+		            } else if (error.errMsg.includes('fail')) {
+		                errorMessage = '網絡請求失敗，請檢查後端服務是否啟動'
+		            }
+		        }
+		        
+		        uni.showToast({
+		            title: errorMessage,
+		            icon: 'none',
+		            duration: 3000
+		        })
+		    }
+		}
+
 
 const activeTab = ref('register')
-const isLeaving = ref(false)
-const isEntering = ref(false)
 
 onMounted(() => {
   // 页面加载时添加淡入动画

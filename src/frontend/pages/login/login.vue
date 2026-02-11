@@ -84,6 +84,7 @@
 					
 					<button class="login-btn" @click="handleLogin">Login</button>
 				</view>
+				
 			</view>
 		</view>
 	</view>
@@ -113,36 +114,127 @@ const toggleRemember = () => {
 	formData.value.remember = !formData.value.remember
 }
 
+
+
 const handleLogin = () => {
 	if (!formData.value.username) {
 		uni.showToast({
-			title: '请输入用户名',
+			title: '請輸入用戶名',
 			icon: 'none'
 		})
 		return
 	}
 	if (!formData.value.password) {
 		uni.showToast({
-			title: '请输入密码',
+			title: '請輸入密碼',
 			icon: 'none'
 		})
 		return
 	}
 	
-	// TODO: 實現登錄邏輯
-	console.log('登录', formData.value)
-	uni.showToast({
-		title: '登陆成功',
-		icon: 'success',
-		duration: 1500
-	})
+	uni.showLoading({
+	        title: '登录中...',
+	        mask: true
+	    })
+		
+	uni.request({
+	        url: 'http://localhost:8000/api/auth/login',
+	        method: 'POST',
+	        header: {
+	            'Content-Type': 'application/json',
+				'Accept': 'application/json'
+	        },
+	        data: {
+	            username: formData.value.username,
+	            password: formData.value.password,
+	            remember: formData.value.remember
+	        },
+	        success: (res) => {
+	            uni.hideLoading()
+	            
+	            if (res.statusCode === 200) {
+	                if (res.data && res.data.success === true) {
+						console.log('登录成功，获取到token')
+	                    uni.showToast({
+	                        title: '登录成功',
+	                        icon: 'success',
+	                        duration: 1500
+	                    })
+	                    
+	                    // 存储认证信息
+	                    uni.setStorageSync('auth_token', res.data.access_token)
+	                    uni.setStorageSync('user_info', {
+	                        user_id: res.data.user_id,
+	                        username: res.data.username,
+	                        email: res.data.email
+	                    })
+	                    
+	                    // 记住我选项
+	                    if (formData.value.remember) {
+	                        uni.setStorageSync('remember_me', true)
+	                    }
+	                    
+	                    // 跳转到主页
+	                    setTimeout(() => {
+	                                    console.log('准备跳转到首页...')
+	                                    
+	                                    // 先尝试 reLaunch 重启应用到首页
+	                                    uni.reLaunch({
+	                                        url: '/pages/index/index',
+	                                        success: () => {
+	                                            console.log('跳转首页成功')
+	                                        },
+	                                        fail: (err) => {
+	                                            console.error('跳转首页失败:', err)
+	                                            
+	                                            // 如果 reLaunch 失败，尝试 switchTab
+	                                            uni.switchTab({
+	                                                url: '/pages/index/index',
+	                                                fail: (err2) => {
+	                                                    console.error('switchTab 也失败:', err2)
+	                                                    // 最后尝试 navigateTo
+	                                                    uni.navigateTo({
+	                                                        url: '/pages/index/index'
+	                                                    })
+	                                                }
+	                                            })
+	                                        }
+	                                    })
+	                                }, 1500)
+	                    
+	                } else {
+						console.log('登录失败:', res.data.message)
+	                    uni.showToast({
+	                        title: res.data.message || '登录失败',
+	                        icon: 'none',
+	                        duration: 3000
+	                    })
+	                }
+	            } else if (res.statusCode === 401) {
+	                uni.showToast({
+	                    title: res.data.detail || '用户名或密码错误',
+	                    icon: 'none',
+	                    duration: 3000
+	                })
+	            } else {
+	                uni.showToast({
+	                    title: `服务器错误: ${res.statusCode}`,
+	                    icon: 'none',
+	                    duration: 3000
+	                })
+	            }
+	        },
+	        fail: (err) => {
+	            uni.hideLoading()
+	            console.error('登录请求失败:', err)
+	            uni.showToast({
+	                title: '网络错误，请检查后端服务是否启动',
+	                icon: 'none',
+	                duration: 3000
+	            })
+	        }
+	    })
 	
-	// 登錄成功後跳轉到主頁
-	setTimeout(() => {
-		uni.redirectTo({
-			url: '/pages/index/index'
-		})
-	}, 1500)
 }
 
 const handleForgotPassword = () => {
@@ -197,6 +289,8 @@ const setTab = async (tab) => {
 }
 
 </script>
+
+
 
 <style scoped>
 .container {
