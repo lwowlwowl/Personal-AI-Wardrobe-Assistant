@@ -1,6 +1,5 @@
 .DS_Store
 Thumbs.db
-.jbeval/
 
 # Python
 __pycache__/
