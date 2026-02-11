@@ -95,7 +95,9 @@
 				<view v-show="activeMenu === 'wardrobe'" class="content-panel">
 					<WardrobeView @switch-to-tryon="handleSwitchToTryon" />
 				</view>
-				<view v-show="activeMenu === 'analysis'" class="content-panel view-placeholder">Wardrobe Analysis (Coming soon)</view>
+				<view v-show="activeMenu === 'analysis'" class="content-panel">
+					<WardrobeAnalysis />
+				</view>
 			</view>
 		</view>
 	</view>
@@ -106,6 +108,7 @@ import { ref, nextTick } from 'vue'
 import RecommendationAI from './components/RecommendationAI.vue'
 import VirtualTryOn from './components/VirtualTryOn.vue'
 import WardrobeView from './components/MyWardrobe/WardrobeView.vue'
+import WardrobeAnalysis from './components/WardrobeAnalysis/WardrobeAnalysis.vue'
 
 const activeMenu = ref('recommendation')
 const isCollapsed = ref(false)
