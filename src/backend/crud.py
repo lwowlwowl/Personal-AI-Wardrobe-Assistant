@@ -11,24 +11,22 @@
 
 import traceback
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc, asc, and_, or_
+from sqlalchemy import func, desc, asc, or_
 from typing import Tuple, Optional, List, Dict, Any
 from datetime import datetime, timedelta, date
 import jwt
 import secrets
-import json
 from passlib.context import CryptContext
 
 # 导入模型和模式
 import models
 from models import (
-    User, ClothingItem, ClothingTag, Outfit, OutfitItem, WearHistory,
-    ClothingCategory, ClothingSeason, ClothingCondition, ClothingFitType,
-    ClothingPattern, ModelPhoto
+    ClothingItem, ClothingTag, Outfit, OutfitItem, WearHistory,
+    ModelPhoto
 )
 from schemas import (
     ClothingItemCreate, ClothingItemUpdate, WearHistoryCreate,
-    OutfitCreate, OutfitUpdate, OutfitItemCreate, SearchRequest
+    OutfitCreate, OutfitUpdate
 )
 
 # ============ 密码加密配置 ============

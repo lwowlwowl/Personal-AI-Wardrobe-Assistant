@@ -7,21 +7,24 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from typing import Optional
 import traceback
 
 # 导入自定义模块
 import models, schemas, crud
 from database import engine, get_db
 
-import os
 import uuid
 from fastapi import UploadFile, File, Form, Query, Path
-from fastapi.responses import JSONResponse
 from typing import List, Optional, Dict, Any
 from datetime import date
-import shutil
 from pathlib import Path as PathLib
+
+# ============ 路径配置 ============
+# 项目根目录：.../Personal-AI-Wardrobe-Assistant
+BASE_DIR = PathLib(__file__).resolve().parents[2]
+UPLOAD_URL_PREFIX = "/Personal-AI-Wardrobe-Assistant/uploads"
+UPLOAD_DIR = BASE_DIR / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # ============ 数据库初始化 ============
 # 创建数据库表（如果不存在）
@@ -53,7 +56,7 @@ app.add_middleware(
 # 将文件上传目录挂载为静态资源，可通过HTTP直接访问
 from fastapi.staticfiles import StaticFiles
 
-app.mount("/Personal-AI-Wardrobe-Assistant/uploads", StaticFiles(directory="/Personal-AI-Wardrobe-Assistant/uploads"), name="uploads")
+app.mount(UPLOAD_URL_PREFIX, StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 
 # ============ 健康检查接口 ============
@@ -461,10 +464,6 @@ def get_current_user(token: str = Query(...), db: Session = Depends(get_db)) -> 
 
 
 # ============ 文件上传配置 ============
-# 上传文件存储目录
-UPLOAD_DIR = PathLib("/Personal-AI-Wardrobe-Assistant/uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)
-
 # 允许上传的文件扩展名
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
@@ -518,7 +517,7 @@ def save_upload_file(file: UploadFile, user_id: int, file_type: str = "clothing"
         buffer.write(content)
 
     # 返回HTTP可访问的URL路径
-    return f"/Personal-AI-Wardrobe-Assistant/uploads/{user_id}/{unique_filename}"
+    return f"{UPLOAD_URL_PREFIX}/{user_id}/{unique_filename}"
 
 
 def delete_file(file_url: str) -> bool:
@@ -529,9 +528,9 @@ def delete_file(file_url: str) -> bool:
     返回：
         是否成功删除
     """
-    if file_url.startswith("/uploads/"):
-        relative_path = file_url[1:]  # 移除开头的斜杠
-        file_path = UPLOAD_DIR.parent / relative_path
+    if file_url.startswith(f"{UPLOAD_URL_PREFIX}/"):
+        relative_path = file_url[len(UPLOAD_URL_PREFIX) + 1:]
+        file_path = UPLOAD_DIR / relative_path
         if file_path.exists():
             file_path.unlink()
             return True
