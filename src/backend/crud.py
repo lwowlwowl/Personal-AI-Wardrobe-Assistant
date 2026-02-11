@@ -30,8 +30,8 @@ from schemas import (
 )
 
 # ============ 密码加密配置 ============
-# 使用bcrypt算法进行密码哈希
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# 使用pbkdf2_sha256进行密码哈希，避免bcrypt后端兼容问题
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # ============ JWT配置 ============
 # 生产环境应该从环境变量读取
@@ -94,7 +94,7 @@ def create_user(db: Session, user_data: dict) -> Tuple[Optional[models.User], Op
                 return None, "邮箱已被注册"
 
         # 加密密码
-        hashed_password = pwd_context.hash(user_data["password"])
+        hashed_password = hash_password(user_data["password"])
 
         # 创建用户对象
         db_user = models.User(
@@ -276,7 +276,7 @@ def update_user_password(db: Session, email: str, new_password: str) -> Tuple[bo
             return False, "用户不存在"
 
         # 更新密码和修改时间
-        user.hashed_password = pwd_context.hash(new_password)
+        user.hashed_password = hash_password(new_password)
         user.updated_at = datetime.now()
 
         db.commit()

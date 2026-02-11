@@ -5,6 +5,7 @@
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from datetime import timedelta
 import traceback
@@ -110,16 +111,20 @@ async def register(
 
         if error:
             # 根据错误类型设置合适的HTTP状态码
+            status_code = status.HTTP_400_BAD_REQUEST
             if "用户名已被注册" in error:
                 status_code = status.HTTP_409_CONFLICT  # 409 Conflict
             elif "邮箱已被注册" in error:
                 status_code = status.HTTP_409_CONFLICT  # 409 Conflict
 
-            return {
-                "success": False,
-                "message": error,
-                "status_code": status_code
-            }
+            return JSONResponse(
+                status_code=status_code,
+                content={
+                    "success": False,
+                    "message": error,
+                    "status_code": status_code
+                }
+            )
 
         print(f"注册成功: {db_user.username}")
         return {
@@ -135,6 +140,8 @@ async def register(
             "status_code": status.HTTP_200_OK
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         # 打印详细的错误堆栈信息便于调试
         print(f"注册错误详情: {traceback.format_exc()}")
@@ -2025,11 +2032,14 @@ async def http_exception_handler(request, exc):
     HTTP异常处理
     将FastAPI的HTTP异常转换为统一的JSON响应格式
     """
-    return {
-        "success": False,
-        "message": exc.detail,
-        "status_code": exc.status_code
-    }
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "message": exc.detail,
+            "status_code": exc.status_code
+        }
+    )
 
 
 @app.exception_handler(Exception)
@@ -2040,11 +2050,14 @@ async def general_exception_handler(request, exc):
     """
     error_detail = traceback.format_exc()
     print(f"未处理的异常: {error_detail}")
-    return {
-        "success": False,
-        "message": "服务器内部错误",
-        "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR
-    }
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "success": False,
+            "message": "服务器内部错误",
+            "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR
+        }
+    )
 
 
 # ============ 应用启动 ============
