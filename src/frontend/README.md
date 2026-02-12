@@ -48,10 +48,7 @@ frontend/
 ├── main.js
 ├── pages.json
 ├── manifest.json
-├── uni.scss
-├── LOGIN_REGISTER.md       # 登录/注册 API 文档
-├── MY_WARDROBE.md          # 我的衣橱 API 文档
-└── VIRTUAL_TRYON.md        # 虚拟试穿 API 文档
+└── uni.scss
 ```
 
 ## 🚀 功能特性
