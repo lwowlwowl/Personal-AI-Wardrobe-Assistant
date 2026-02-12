@@ -10,9 +10,6 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
 from dotenv import load_dotenv  # 用于加载环境变量
 from passlib.context import CryptContext  # 密码哈希和验证
-from contextlib import contextmanager
-import logging
-from typing import Generator
 
 # 加载.env文件中的环境变量
 load_dotenv()

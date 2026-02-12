@@ -52,7 +52,6 @@
 - 适用场合 (occasion)
 
 输出格式示例：
-json
 {
     "category": "top",
     "subcategory": "T-shirt",
@@ -63,3 +62,5 @@ json
     "season": ["spring","summer"],
     "occasion": "party",
 }
+
+严格按照所提供的示例进行输出，不要出现多余的key

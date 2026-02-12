@@ -6,6 +6,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from datetime import timedelta
 import json
@@ -22,6 +23,7 @@ from datetime import date
 from pathlib import Path as PathLib
 
 from AIwardrobe.agent.react_agent import ReactAgent
+from AIwardrobe.agent.classify_model import ClassificationModel
 
 # ============ 路径配置 ============
 # 项目根目录：.../Personal-AI-Wardrobe-Assistant
@@ -479,6 +481,12 @@ ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
+def parse_season_form(season: Optional[str], allow_empty: bool = False) -> Optional[List[str]]:
+    if not season:
+        return None
+    return json.loads(season)
+
+
 def save_upload_file(file: UploadFile, user_id: int, file_type: str = "clothing") -> str:
     """
     保存上传的文件到服务器
@@ -552,15 +560,21 @@ def delete_file(file_url: str) -> bool:
 @app.post("/api/clothing/upload")
 async def upload_clothing_item(
         file: UploadFile = File(...),
-        name: str = Form(...),
-        category: str = Form(...),
+        name: Optional[str] = Form(None),
+        category: Optional[str] = Form(None),
+        subcategory: Optional[str] = Form(None),
+        style: Optional[str] = Form(None),
         color: Optional[str] = Form(None),
         season: Optional[str] = Form(None),
+        color_code: Optional[str] = Form(None),
+        pattern: Optional[str] = Form(None),
+        occasion: Optional[str] = Form(None),
         brand: Optional[str] = Form(None),
         tags: Optional[str] = Form(None),  # 以逗号分隔的标签字符串
         description: Optional[str] = Form(None),
         price: Optional[float] = Form(None),
         purchase_date: Optional[str] = Form(None),
+        auto_label: bool = Form(True),
         token: str = Query(...),
         db: Session = Depends(get_db)
 ):
@@ -588,11 +602,15 @@ async def upload_clothing_item(
 
         # 保存图片文件
         image_url = save_upload_file(file, current_user.id)
+        relative_path = image_url[len(UPLOAD_URL_PREFIX) + 1:]
+        local_image_path = (UPLOAD_DIR / relative_path).resolve()
 
         # 解析标签字符串为列表
         tag_list = []
         if tags:
             tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
+
+        season_list = parse_season_form(season, allow_empty=False) if season is not None else None
 
         # 解析购买日期字符串为date对象
         purchase_date_obj = None
@@ -605,21 +623,78 @@ async def upload_clothing_item(
                     detail="购买日期格式错误，请使用YYYY-MM-DD格式"
                 )
 
+        label_result: Optional[Dict[str, Any]] = None
+        if auto_label:
+            try:
+                raw_result = ClassificationModel().execute(path=str(local_image_path)) # 这里后期可以改成batch版本的上传 能便宜
+                parsed = json.loads(raw_result.strip())
+
+                label_result = {}
+                for field in ("category", "subcategory", "style", "color", "color_code", "pattern", "occasion"):
+                    value = parsed.get(field)
+                    if value is not None and str(value).strip() != "":
+                        label_result[field] = str(value).strip()
+
+                if parsed.get("season"):
+                    label_result["season"] = parsed.get("season")
+                label_result["_raw"] = parsed
+            except Exception as e:
+                if not category:
+                    delete_file(image_url)
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail=f"图片自动打标失败: {str(e)}"
+                    )
+
+        resolved = {
+            "name": name,
+            "description": description,
+            "category": category,
+            "subcategory": subcategory,
+            "style": style,
+            "color": color,
+            "color_code": color_code,
+            "pattern": pattern,
+            "season": season_list,
+            "occasion": occasion,
+            "brand": brand,
+            "price": price,
+            "purchase_date": purchase_date_obj,
+            "tags": tag_list,
+        }
+
+        if label_result:
+            for field in ("category", "subcategory", "style", "color", "color_code", "pattern", "occasion"):
+                if not resolved.get(field) and label_result.get(field):
+                    resolved[field] = label_result[field]
+            if resolved["season"] is None and label_result.get("season"):
+                resolved["season"] = label_result["season"]
+
+            if not resolved["tags"]:
+                ai_tags = []
+                for tag_field in ("subcategory", "style", "occasion", "pattern"):
+                    val = label_result.get(tag_field)
+                    if val:
+                        ai_tags.append(str(val))
+                resolved["tags"] = ai_tags
+
+        if not resolved["category"]:
+            delete_file(image_url)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="缺少 category，且自动打标未返回可用分类"
+            )
+        if not resolved["name"]:
+            fallback_name = resolved.get("subcategory") or resolved["category"]
+            resolved["name"] = str(fallback_name)
+
+        item_in = schemas.ClothingItemCreate(**resolved)
+
         # 创建衣物记录
         clothing_item, error = crud.clothing_crud.create_clothing_item(
             db=db,
             user_id=current_user.id,
-            item_in=schemas.ClothingItemCreate(
-                name=name,
-                description=description,
-                category=category,
-                color=color,
-                season=season,
-                brand=brand,
-                price=price,
-                purchase_date=purchase_date_obj,
-                tags=tag_list
-            ),
+            item_in=item_in,
             image_url=image_url,
             thumbnail_url=None  # 可以后续添加缩略图生成功能
         )
@@ -639,10 +714,16 @@ async def upload_clothing_item(
                 "id": clothing_item.id,
                 "name": clothing_item.name,
                 "image_url": clothing_item.image_url,
-                "created_at": clothing_item.created_at.isoformat()
+                "created_at": clothing_item.created_at.isoformat(),
+                "auto_label": label_result["_raw"] if label_result else None,
             }
         }
 
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors()
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -857,6 +938,8 @@ async def update_clothing_item(
         if tags is not None:
             tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
 
+        season_list = parse_season_form(season, allow_empty=True) if season is not None else None
+
         # 解析购买日期字符串为date对象
         purchase_date_obj = None
         if purchase_date:
@@ -874,7 +957,7 @@ async def update_clothing_item(
             description=description,
             category=category,
             color=color,
-            season=season,
+            season=season_list,
             brand=brand,
             price=price,
             purchase_date=purchase_date_obj,
@@ -905,6 +988,11 @@ async def update_clothing_item(
             "data": updated_item
         }
 
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors()
+        )
     except HTTPException:
         raise
     except Exception as e:

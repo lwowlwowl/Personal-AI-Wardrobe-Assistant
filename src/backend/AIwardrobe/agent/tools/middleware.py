@@ -1,5 +1,5 @@
 from typing import Callable
-from AIwardrobe.utils.prompt_loader import load_system_prompts, load_report_prompts
+from AIwardrobe.utils.prompt_loader import load_system_prompts
 from langchain.agents import AgentState
 from langchain.agents.middleware import wrap_tool_call, before_model, dynamic_prompt, ModelRequest
 from langchain_core.messages import ToolMessage

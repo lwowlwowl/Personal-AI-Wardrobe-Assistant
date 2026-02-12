@@ -434,16 +434,16 @@ class ClothingCRUD:
                 **item_in.model_dump(exclude={"tags"})
             )
             db.add(db_item)
-            db.commit()
-            db.refresh(db_item)
+            db.flush()
 
             # 添加标签
             if item_in.tags:
                 for tag_name in item_in.tags:
                     tag = ClothingTag(clothing_id=db_item.id, tag=tag_name)
                     db.add(tag)
-                db.commit()
-                db.refresh(db_item)
+
+            db.commit()
+            db.refresh(db_item)
 
             return db_item, None
 
