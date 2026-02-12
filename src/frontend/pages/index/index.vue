@@ -49,6 +49,17 @@
 				
 				<view 
 					class="nav-item" 
+					:class="{ 'active': activeMenu === 'calendar' }"
+					@click="setActiveMenu('calendar')"
+				>
+					<view class="nav-icon">
+						<image :src="activeMenu === 'calendar' ? '/static/icons/icon-calendar-active.svg' : '/static/icons/icon-calendar.svg'" mode="aspectFit" class="icon-img icon-20"></image>
+					</view>
+					<text class="nav-text" v-show="!isCollapsed">My Calendar</text>
+				</view>
+				
+				<view 
+					class="nav-item" 
 					:class="{ 'active': activeMenu === 'analysis' }"
 					@click="setActiveMenu('analysis')"
 				>
@@ -79,25 +90,29 @@
 		</view>
 		
 		<view class="main-content" ref="mainContentRef">
-			<!-- 用 v-show 替代 v-if，切换菜单时不销毁组件，从而保留衣橱内 type/color/season 等编辑结果 -->
+			<!-- 使用 transition 实现切换动画 -->
 			<view class="main-content-inner">
-				<view v-show="activeMenu === 'recommendation'" class="content-panel">
-					<RecommendationAI />
-				</view>
-				<view v-show="activeMenu === 'tryon'" class="content-panel">
-					<VirtualTryOn
-						:key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')"
-						:main-content-ref="mainContentRef"
-						:initial-clothing-image="initialClothingForTryon || null"
-						:initial-person-image="initialPersonImageForTryon || null"
-					/>
-				</view>
-				<view v-show="activeMenu === 'wardrobe'" class="content-panel">
-					<WardrobeView @switch-to-tryon="handleSwitchToTryon" />
-				</view>
-				<view v-show="activeMenu === 'analysis'" class="content-panel">
-					<WardrobeAnalysis />
-				</view>
+				<transition name="view-fade" mode="out-in">
+					<view v-if="activeMenu === 'recommendation'" class="content-panel" key="recommendation">
+						<RecommendationAI />
+					</view>
+					<view v-else-if="activeMenu === 'tryon'" class="content-panel" :key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')">
+						<VirtualTryOn
+							:main-content-ref="mainContentRef"
+							:initial-clothing-image="initialClothingForTryon || null"
+							:initial-person-image="initialPersonImageForTryon || null"
+						/>
+					</view>
+					<view v-else-if="activeMenu === 'wardrobe'" class="content-panel" key="wardrobe">
+						<WardrobeView @switch-to-tryon="handleSwitchToTryon" />
+					</view>
+					<view v-else-if="activeMenu === 'calendar'" class="content-panel" key="calendar">
+						<MyCalendar />
+					</view>
+					<view v-else-if="activeMenu === 'analysis'" class="content-panel" key="analysis">
+						<WardrobeAnalysis />
+					</view>
+				</transition>
 			</view>
 		</view>
 	</view>
@@ -108,6 +123,7 @@ import { ref, nextTick } from 'vue'
 import RecommendationAI from './components/RecommendationAI.vue'
 import VirtualTryOn from './components/VirtualTryOn.vue'
 import WardrobeView from './components/MyWardrobe/WardrobeView.vue'
+import MyCalendar from './components/MyCalendar/MyCalendar.vue'
 import WardrobeAnalysis from './components/WardrobeAnalysis/WardrobeAnalysis.vue'
 
 const activeMenu = ref('recommendation')
