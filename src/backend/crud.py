@@ -11,22 +11,24 @@
 
 import traceback
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc, asc, or_
+from sqlalchemy import func, desc, asc, and_, or_
 from typing import Tuple, Optional, List, Dict, Any
 from datetime import datetime, timedelta, date
 import jwt
 import secrets
+import json
 from passlib.context import CryptContext
 
 # 导入模型和模式
 import models
 from models import (
-    ClothingItem, ClothingTag, Outfit, OutfitItem, WearHistory,
-    ModelPhoto
+    User, ClothingItem, ClothingTag, Outfit, OutfitItem, WearHistory,
+    ClothingCategory, ClothingSeason, ClothingCondition, ClothingFitType,
+    ClothingPattern, ModelPhoto
 )
 from schemas import (
     ClothingItemCreate, ClothingItemUpdate, WearHistoryCreate,
-    OutfitCreate, OutfitUpdate
+    OutfitCreate, OutfitUpdate, OutfitItemCreate, SearchRequest
 )
 
 # ============ 密码加密配置 ============
@@ -331,7 +333,7 @@ class ClothingCRUD:
             season: Optional[str] = None,
             color: Optional[str] = None,
             brand: Optional[str] = None,
-            is_favorite: Optional[bool] = None,
+            is_favorite: Optional[int] = None,
             min_price: Optional[float] = None,
             max_price: Optional[float] = None,
             search: Optional[str] = None,

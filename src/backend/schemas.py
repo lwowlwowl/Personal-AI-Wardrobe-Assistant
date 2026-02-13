@@ -229,7 +229,7 @@ class ClothingItemBase(BaseModel):
         None, max_length=200, description="购买地点"
     )
     is_public: bool = Field(False, description="是否公开")
-    is_favorite: bool = Field(False, description="是否收藏")
+    is_favorite: int = Field(0, description="喜欢程度：0-默认，1-一般，2-喜欢，3-非常喜欢")
     condition: ClothingCondition = Field(
         ClothingCondition.NEW, description="状态"
     )
@@ -268,7 +268,7 @@ class ClothingItemUpdate(BaseModel):
     price: Optional[float] = Field(None, ge=0)
     purchase_location: Optional[str] = Field(None, max_length=200)
     is_public: Optional[bool] = None
-    is_favorite: Optional[bool] = None
+    is_favorite: Optional[int] = None
     condition: Optional[ClothingCondition] = None
     wear_count: Optional[int] = Field(None, ge=0)  # 穿着次数
     last_worn_date: Optional[date] = None  # 最后穿着日期
@@ -469,7 +469,7 @@ class SearchRequest(BaseModel):
     brand: Optional[str] = Field(None, description="品牌")
     min_price: Optional[float] = Field(None, ge=0, description="最低价格")
     max_price: Optional[float] = Field(None, ge=0, description="最高价格")
-    is_favorite: Optional[bool] = Field(None, description="是否收藏")
+    is_favorite: Optional[int] = Field(None, description="是否收藏")
     page: int = Field(1, ge=1, description="页码")  # ge=1表示最小为1
     size: int = Field(20, ge=1, le=100, description="每页数量")  # le=100表示最大100
     order_by: str = Field("created_at", description="排序字段")
