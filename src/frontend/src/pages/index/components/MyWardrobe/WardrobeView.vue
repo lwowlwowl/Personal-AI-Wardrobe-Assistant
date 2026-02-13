@@ -703,6 +703,7 @@ const testSimpleUpload = async () => {
   }
 }
 
+
 // 添加分类选择方法
 const selectCategory = (category) => {
   uploadFormData.value.category = category
@@ -755,8 +756,138 @@ const confirmUpload = async () => {
   }
 }
 
-// 执行上传的实际方法
-const performUpload = async (filePath) => {
+const performUpload = async (file) => {
+  return new Promise((resolve, reject) => {
+    // 如果已经是File对象，直接使用XHR
+    if (file instanceof File) {
+      performUploadWithXHR(file, resolve, reject)
+      return
+    }
+    
+    // 如果是字符串路径，尝试使用uni.uploadFile
+    if (typeof file === 'string') {
+      console.log('使用传统方式上传:', file)
+      performUploadLegacy(file, resolve, reject)
+      return
+    }
+    
+    // 其他情况报错
+    reject(new Error('不支持的文件格式'))
+  })
+}
+
+/**
+ * 使用XHR上传衣物（推荐）
+ */
+const performUploadWithXHR = (file, resolve, reject) => {
+  const formData = new FormData()
+  
+  // 附加文件 - 确保字段名与后端一致
+  formData.append('file', file)
+  
+  // 添加表单数据 - 确保字段名与后端完全匹配
+  // 注意：不要添加undefined或null值
+  if (uploadFormData.value.name) formData.append('name', uploadFormData.value.name)
+  if (uploadFormData.value.category) formData.append('category', uploadFormData.value.category)
+  if (uploadFormData.value.color) formData.append('color', uploadFormData.value.color)
+  if (uploadFormData.value.season) formData.append('season', uploadFormData.value.season)
+  if (uploadFormData.value.brand) formData.append('brand', uploadFormData.value.brand)
+  if (uploadFormData.value.tags) formData.append('tags', uploadFormData.value.tags)
+  if (uploadFormData.value.description) formData.append('description', uploadFormData.value.description)
+  if (uploadFormData.value.price) formData.append('price', uploadFormData.value.price)
+  if (uploadFormData.value.purchase_date) formData.append('purchase_date', uploadFormData.value.purchase_date)
+  
+  // 调试：打印FormData内容
+  console.log('=== XHR上传调试 ===')
+  for (let pair of formData.entries()) {
+    if (pair[0] === 'file') {
+      console.log('文件:', pair[1].name, pair[1].type, pair[1].size)
+    } else {
+      console.log(pair[0] + ':', pair[1])
+    }
+  }
+  
+  const xhr = new XMLHttpRequest()
+  
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) {
+      const percent = Math.round((e.loaded / e.total) * 100)
+      console.log('衣物上传进度:', percent + '%')
+    }
+  }
+  
+  xhr.onload = () => {
+    uni.hideLoading()
+    console.log('XHR响应状态:', xhr.status)
+    console.log('XHR响应头:', xhr.getAllResponseHeaders())
+    console.log('XHR响应文本:', xhr.responseText)
+    
+    if (xhr.status === 200) {
+      try {
+        const result = JSON.parse(xhr.responseText)
+        if (result.success) {
+          uni.showToast({ title: '上传成功！', icon: 'success' })
+          closeCategoryModal()
+          selectedImageFile.value = null
+          loadClothingData()
+          resolve(result)
+        } else {
+          uni.showToast({ title: result.message || '上传失败', icon: 'none' })
+          reject(new Error(result.message))
+        }
+      } catch (parseError) {
+        console.error('解析JSON失败:', parseError)
+        uni.showToast({ title: '服务器响应格式错误', icon: 'none' })
+        reject(parseError)
+      }
+    } else {
+      uni.showToast({ title: `上传失败: HTTP ${xhr.status}`, icon: 'none' })
+      reject(new Error(`HTTP ${xhr.status}`))
+    }
+  }
+  
+  xhr.onerror = (error) => {
+    uni.hideLoading()
+    console.error('XHR上传失败:', error)
+    uni.showToast({ title: '上传失败: 网络错误', icon: 'none' })
+    reject(error)
+  }
+  
+  xhr.timeout = 30000
+  xhr.ontimeout = () => {
+    uni.hideLoading()
+    uni.showToast({ title: '上传超时', icon: 'none' })
+    reject(new Error('上传超时'))
+  }
+  
+  const url = `${API_BASE_URL}/api/clothing/upload?token=${encodeURIComponent(userToken.value)}`
+  xhr.open('POST', url, true)
+  xhr.setRequestHeader('Authorization', `Bearer ${userToken.value}`)
+  // 注意：不要设置Content-Type，让浏览器自动设置
+  
+  uni.showLoading({ title: '上传中...', mask: true })
+  xhr.send(formData)
+}
+
+// 重置上传表单
+const resetUploadForm = () => {
+  uploadFormData.value = {
+    name: '',
+    category: '',
+    color: '',
+    season: '',
+    brand: '',
+    tags: '',
+    description: '',
+    price: '',
+    purchase_date: ''
+  }
+}
+
+/**
+ * 旧版上传方法（保留作为备选）
+ */
+const performUploadLegacy = async (filePath, resolve, reject) => {
   return new Promise((resolve, reject) => {
     const uploadTask = uni.uploadFile({
       url: `${API_BASE_URL}/api/clothing/upload?token=${encodeURIComponent(userToken.value)}`,
@@ -837,21 +968,6 @@ const performUpload = async (filePath) => {
   })
 }
 
-// 重置上传表单
-const resetUploadForm = () => {
-  uploadFormData.value = {
-    name: '',
-    category: '',
-    color: '',
-    season: '',
-    brand: '',
-    tags: '',
-    description: '',
-    price: '',
-    purchase_date: ''
-  }
-}
-
 // 关闭模态框
 const closeCategoryModal = () => {
   showCategoryModal.value = false
@@ -926,7 +1042,7 @@ const loadClothingData = async () => {
           date: item.created_at ? item.created_at.slice(0, 10) : item.date || '',
           color: item.color || '',
           season: item.season || '',
-          favourite: item.is_favorite ? 1 : 0,
+          favourite: item.is_favorite !== undefined ? Number(item.is_favorite) : 0,
           image: imageUrl,
           _rawImageUrl: item.image_url,
           _source: 'api',
@@ -1469,65 +1585,65 @@ const loadModelPhotos = async () => {
  */
 const openModelUpload = async () => {
   try {
-    console.log('开始模特照片上传...')
-    
-    // 1. 检查登录状态
-    if (!isLoggedIn.value) {
-      uni.showToast({
-        title: '请先登录',
-        icon: 'none'
-      })
-      return
-    }
-    
-    // 2. 选择图片
-    const chooseResult = await uni.chooseImage({
-      count: 1,
-      sizeType: ['compressed'],
-      sourceType: ['album', 'camera']
-    })
-    
-    console.log('选择的模特图片:', chooseResult)
-    
-    if (!chooseResult.tempFilePaths || chooseResult.tempFilePaths.length === 0) {
-      uni.showToast({ title: '未选择图片', icon: 'none' })
-      return
-    }
-    
-    const tempFilePath = chooseResult.tempFilePaths[0]
-    console.log('临时文件路径:', tempFilePath)
-    
-    // 3. 获取文件信息
-    const fileInfo = await uni.getFileInfo({
-      filePath: tempFilePath
-    })
-    console.log('文件信息:', fileInfo)
-    
-    // 检查文件大小（后端限制10MB）
-    if (fileInfo.size > 10 * 1024 * 1024) {
-      uni.showToast({
-        title: '文件大小不能超过10MB',
-        icon: 'none'
-      })
-      return
-    }
-    
-    // 4. 存储图片文件路径
-    selectedModelImageFile.value = tempFilePath
-    
-    // 5. 重置表单数据
-    resetModelUploadForm()
-    
-    // 6. 显示模特照片上传模态框
-    showModelUploadModal.value = true
-    
-  } catch (error) {
-    console.error('选择模特图片异常:', error)
-    uni.showToast({
-      title: '选择图片失败',
-      icon: 'none'
-    })
-  }
+     console.log('开始模特照片上传...')
+     
+     // 1. 检查登录状态
+     if (!isLoggedIn.value) {
+       uni.showToast({
+         title: '请先登录',
+         icon: 'none'
+       })
+       return
+     }
+     
+     // 2. 选择图片
+     const chooseResult = await uni.chooseImage({
+       count: 1,
+       sizeType: ['compressed'],
+       sourceType: ['album', 'camera']
+     })
+     
+     console.log('选择的模特图片:', chooseResult)
+     
+     if (!chooseResult.tempFilePaths || chooseResult.tempFilePaths.length === 0) {
+       uni.showToast({ title: '未选择图片', icon: 'none' })
+       return
+     }
+     
+     const tempFilePath = chooseResult.tempFilePaths[0]
+     console.log('临时文件路径:', tempFilePath)
+     
+     // 3. 获取文件信息
+     const fileInfo = await uni.getFileInfo({
+       filePath: tempFilePath
+     })
+     console.log('文件信息:', fileInfo)
+     
+     // 检查文件大小（后端限制10MB）
+     if (fileInfo.size > 10 * 1024 * 1024) {
+       uni.showToast({
+         title: '文件大小不能超过10MB',
+         icon: 'none'
+       })
+       return
+     }
+     
+     // 4. 存储图片文件路径
+     selectedModelImageFile.value = tempFilePath
+     
+     // 5. 重置表单数据
+     resetModelUploadForm()
+     
+     // 6. 显示模特照片上传模态框
+     showModelUploadModal.value = true
+     
+   } catch (error) {
+     console.error('选择模特图片异常:', error)
+     uni.showToast({
+       title: '选择图片失败',
+       icon: 'none'
+     })
+   }
 }
 
 /**
@@ -1543,6 +1659,9 @@ const resetModelUploadForm = () => {
 
 /**
  * 确认上传模特照片
+ */
+/**
+ * 修改confirmModelUpload，支持File对象
  */
 const confirmModelUpload = async () => {
   // 验证必填字段
@@ -1569,7 +1688,7 @@ const confirmModelUpload = async () => {
       mask: true
     })
     
-    // 执行上传
+    // 执行上传 - 直接传递File对象
     await performModelUpload(selectedModelImageFile.value)
     
   } catch (error) {
@@ -1585,78 +1704,211 @@ const confirmModelUpload = async () => {
 /**
  * 执行模特照片上传的实际方法
  */
-const performModelUpload = async (filePath) => {
+/**
+ * 执行模特照片上传 - 支持File对象
+ */
+const performModelUpload = async (file) => {
   return new Promise((resolve, reject) => {
-    const uploadTask = uni.uploadFile({
-      url: `${API_BASE_URL}/api/model-photos/upload?token=${encodeURIComponent(userToken.value)}`,
-      filePath: filePath,
-      name: 'file',
-      formData: {
-        photo_name: modelUploadFormData.value.photo_name,
-        description: modelUploadFormData.value.description || '',
-        is_primary: modelUploadFormData.value.is_primary ? 'true' : 'false'
-      },
-      header: {
-        'Authorization': `Bearer ${userToken.value}`
-      },
-      success: (uploadRes) => {
-        console.log('模特照片上传成功响应状态码:', uploadRes.statusCode)
-        console.log('响应数据:', uploadRes.data)
+    
+    // 判断是File对象还是字符串路径
+    if (file instanceof File) {
+      // 使用XMLHttpRequest上传
+      performModelUploadWithXHR(file, resolve, reject)
+    } else {
+      // 退回到uni.uploadFile
+      performModelUploadLegacy(file, resolve, reject)
+    }
+  })
+}
+
+/**
+ * 使用XHR上传模特照片（推荐）
+ */
+const performModelUploadWithXHR = (file, resolve, reject) => {
+  // 创建FormData
+  const formData = new FormData()
+  
+  // 附加文件
+  formData.append('file', file)
+  
+  // 添加表单数据
+  formData.append('photo_name', modelUploadFormData.value.photo_name)
+  formData.append('description', modelUploadFormData.value.description || '')
+  formData.append('is_primary', modelUploadFormData.value.is_primary ? 'true' : 'false')
+  
+  // 创建XMLHttpRequest
+  const xhr = new XMLHttpRequest()
+  
+  // 监听上传进度
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) {
+      const percent = Math.round((e.loaded / e.total) * 100)
+      console.log('模特照片上传进度:', percent + '%')
+    }
+  }
+  
+  // 完成回调
+  xhr.onload = () => {
+    uni.hideLoading()
+    
+    if (xhr.status === 200) {
+      try {
+        const result = JSON.parse(xhr.responseText)
         
-        try {
-          const result = JSON.parse(uploadRes.data)
-          
-          if (uploadRes.statusCode === 200 && result.success) {
-            uni.showToast({
-              title: '模特照片上传成功！',
-              icon: 'success'
-            })
-            
-            // 关闭模态框
-            closeModelUploadModal()
-            
-            // 清空选择的文件
-            selectedModelImageFile.value = null
-            
-            // 刷新模特照片列表
-            loadModelPhotos()
-            
-            resolve(result)
-          } else {
-            const errorMsg = result.message || '上传失败'
-            uni.showToast({
-              title: errorMsg,
-              icon: 'none'
-            })
-            reject(new Error(errorMsg))
-          }
-        } catch (parseError) {
-          console.error('解析JSON失败:', parseError)
-          console.log('原始响应:', uploadRes.data)
+        if (result.success) {
           uni.showToast({
-            title: '服务器响应格式错误',
+            title: '模特照片上传成功！',
+            icon: 'success'
+          })
+          
+          // 关闭模态框
+          closeModelUploadModal()
+          
+          // 清空选择的文件
+          selectedModelImageFile.value = null
+          
+          // 刷新模特照片列表
+          loadModelPhotos()
+          
+          resolve(result)
+        } else {
+          const errorMsg = result.message || '上传失败'
+          uni.showToast({
+            title: errorMsg,
             icon: 'none'
           })
-          reject(parseError)
+          reject(new Error(errorMsg))
         }
-      },
-      fail: (error) => {
-        console.error('模特照片上传失败:', error)
+      } catch (parseError) {
+        console.error('解析JSON失败:', parseError)
+        console.log('原始响应:', xhr.responseText)
         uni.showToast({
-          title: `上传失败: ${error.errMsg || '网络错误'}`,
+          title: '服务器响应格式错误',
           icon: 'none'
         })
-        reject(error)
-      },
-      complete: () => {
-        uni.hideLoading()
+        reject(parseError)
       }
+    } else {
+      uni.showToast({
+        title: `上传失败: HTTP ${xhr.status}`,
+        icon: 'none'
+      })
+      reject(new Error(`HTTP ${xhr.status}`))
+    }
+  }
+  
+  // 错误回调
+  xhr.onerror = (error) => {
+    uni.hideLoading()
+    console.error('模特照片上传失败:', error)
+    uni.showToast({
+      title: '上传失败: 网络错误',
+      icon: 'none'
     })
-    
-    // 监听进度
-    uploadTask.onProgressUpdate((res) => {
-      console.log('模特照片上传进度:', res.progress + '%')
+    reject(error)
+  }
+  
+  // 超时设置（30秒）
+  xhr.timeout = 30000
+  xhr.ontimeout = () => {
+    uni.hideLoading()
+    uni.showToast({
+      title: '上传超时',
+      icon: 'none'
     })
+    reject(new Error('上传超时'))
+  }
+  
+  // 构建URL
+  const url = `${API_BASE_URL}/api/model-photos/upload?token=${encodeURIComponent(userToken.value)}`
+  
+  // 打开连接
+  xhr.open('POST', url, true)
+  
+  // 设置请求头
+  xhr.setRequestHeader('Authorization', `Bearer ${userToken.value}`)
+  // 注意：不要设置Content-Type，浏览器会自动设置为multipart/form-data并附带boundary
+  
+  // 显示加载提示
+  uni.showLoading({
+    title: '上传中...',
+    mask: true
+  })
+  
+  // 发送请求
+  xhr.send(formData)
+}
+
+/**
+ * 旧版模特照片上传方法（保留作为备选）
+ */
+const performModelUploadLegacy = (filePath, resolve, reject) => {
+  console.log('使用传统方式上传模特照片:', filePath)
+  
+  const uploadTask = uni.uploadFile({
+    url: `${API_BASE_URL}/api/model-photos/upload?token=${encodeURIComponent(userToken.value)}`,
+    filePath: filePath,
+    name: 'file',
+    formData: {
+      photo_name: modelUploadFormData.value.photo_name,
+      description: modelUploadFormData.value.description || '',
+      is_primary: modelUploadFormData.value.is_primary ? 'true' : 'false'
+    },
+    header: {
+      'Authorization': `Bearer ${userToken.value}`
+    },
+    success: (uploadRes) => {
+      console.log('模特照片上传成功响应状态码:', uploadRes.statusCode)
+      console.log('响应数据:', uploadRes.data)
+      
+      try {
+        const result = JSON.parse(uploadRes.data)
+        
+        if (uploadRes.statusCode === 200 && result.success) {
+          uni.showToast({
+            title: '模特照片上传成功！',
+            icon: 'success'
+          })
+          
+          closeModelUploadModal()
+          selectedModelImageFile.value = null
+          loadModelPhotos()
+          
+          resolve(result)
+        } else {
+          const errorMsg = result.message || '上传失败'
+          uni.showToast({
+            title: errorMsg,
+            icon: 'none'
+          })
+          reject(new Error(errorMsg))
+        }
+      } catch (parseError) {
+        console.error('解析JSON失败:', parseError)
+        console.log('原始响应:', uploadRes.data)
+        uni.showToast({
+          title: '服务器响应格式错误',
+          icon: 'none'
+        })
+        reject(parseError)
+      }
+    },
+    fail: (error) => {
+      console.error('模特照片上传失败:', error)
+      uni.showToast({
+        title: `上传失败: ${error.errMsg || '网络错误'}`,
+        icon: 'none'
+      })
+      reject(error)
+    },
+    complete: () => {
+      uni.hideLoading()
+    }
+  })
+  
+  // 监听进度
+  uploadTask.onProgressUpdate((res) => {
+    console.log('模特照片上传进度:', res.progress + '%')
   })
 }
 
@@ -2182,11 +2434,65 @@ const handleVirtualTryOn = (item) => {
 	emit('switch-to-tryon', item, defaultModelImage)
 }
 
+// 修改 handleItemUpdate 函数 - 移除嵌套结构
 const handleItemUpdate = ({ id, field, value }) => {
-	const idx = clothes.value.findIndex((c) => c.id === id)
-	if (idx < 0) return
-	clothes.value[idx] = { ...clothes.value[idx], [field]: value }
-	selectedItem.value = { ...clothes.value[idx] }
+  console.log('handleItemUpdate 收到:', { id, field, value })
+  
+  const idx = clothes.value.findIndex((c) => c.id === id)
+  if (idx < 0) {
+    console.warn('未找到衣物:', id)
+    return
+  }
+  
+  console.log('更新前:', {
+    favourite: clothes.value[idx].favourite,
+    is_favorite: clothes.value[idx].is_favorite,
+    name: clothes.value[idx].name,
+    type: clothes.value[idx].type
+  })
+  
+  // 更新衣物列表中的数据
+  clothes.value[idx] = { 
+    ...clothes.value[idx], 
+    [field]: value 
+  }
+  
+  // 特殊处理：如果是 type 字段，同时更新 category 字段
+  if (field === 'type') {
+    clothes.value[idx].category = value
+  }
+  
+  // 如果是 favourite 字段，同时更新 is_favorite
+  if (field === 'favourite') {
+    clothes.value[idx].is_favorite = value
+  }
+  
+  // 更新当前选中的衣物（如果正在编辑）
+  if (selectedItem.value && selectedItem.value.id === id) {
+    selectedItem.value = { 
+      ...selectedItem.value,
+      [field]: value
+    }
+    
+    // 同样处理特殊字段
+    if (field === 'type') {
+      selectedItem.value.category = value
+    }
+    if (field === 'favourite') {
+      selectedItem.value.is_favorite = value
+    }
+  }
+  
+  console.log('更新后:', {
+    favourite: clothes.value[idx].favourite,
+    is_favorite: clothes.value[idx].is_favorite,
+    name: clothes.value[idx].name,
+    type: clothes.value[idx].type
+  })
+  
+  // 强制刷新当前页面的显示
+  // 通过重新赋值触发 computed 更新
+  currentPage.value = currentPage.value
 }
 
 const uploadDragging = ref(false)
@@ -2202,42 +2508,125 @@ const handleUploadDragLeave = () => {
 	uploadDragging.value = false
 }
 
-const handleUploadDrop = (event) => {
-	uploadDragging.value = false
-	if (event && event.preventDefault) event.preventDefault()
-	if (event && event.stopPropagation) event.stopPropagation()
-	const dataTransfer = event?.dataTransfer || event?.originalEvent?.dataTransfer
-	const files = dataTransfer?.files
-	if (!files || files.length === 0) return
-	const file = files[0]
-	if (!file.type || !file.type.startsWith('image/')) {
-		uni.showToast({ title: 'Please drop an image file', icon: 'none' })
-		return
-	}
-	const url = URL.createObjectURL(file)
-	const newItem = viewMode.value === 'Model'
-		? {
-			id: Date.now(),
-			posture: 'New Model',
-			date: new Date().toISOString().slice(0, 10),
-			favourite: 0,
-			image: url,
-		}
-		: {
-			id: Date.now(),
-			name: 'New Item',
-			type: 'blouse',
-			date: new Date().toISOString().slice(0, 10),
-			color: '',
-			season: '',
-			favourite: 0,
-			image: url,
-		}
-	if (viewMode.value === 'Model') {
-		models.value = [newItem, ...models.value]
-	} else {
-		clothes.value = [newItem, ...clothes.value]
-	}
+const handleUploadDrop = async (event) => {
+  uploadDragging.value = false
+  if (event && event.preventDefault) event.preventDefault()
+  if (event && event.stopPropagation) event.stopPropagation()
+  
+  const dataTransfer = event?.dataTransfer || event?.originalEvent?.dataTransfer
+  const files = dataTransfer?.files
+  
+  if (!files || files.length === 0) return
+  
+  const file = files[0]
+  
+  // 检查文件类型
+  if (!file.type || !file.type.startsWith('image/')) {
+    uni.showToast({ 
+      title: '请拖拽图片文件', 
+      icon: 'none' 
+    })
+    return
+  }
+  
+  // 检查文件大小（限制10MB）
+  if (file.size > 10 * 1024 * 1024) {
+    uni.showToast({
+      title: '文件大小不能超过10MB',
+      icon: 'none'
+    })
+    return
+  }
+  
+  // 根据当前视图模式处理上传
+  if (viewMode.value === 'Cloth') {
+    await handleClothDragUpload(file)
+  } else {
+    await handleModelDragUpload(file)
+  }
+}
+
+/**
+ * 处理衣物拖拽上传 - 无弹窗版
+ */
+const handleClothDragUpload = async (file) => {
+  try {
+    // 1. 检查登录状态
+    if (!isLoggedIn.value) {
+      uni.showToast({ title: '请先登录', icon: 'none' })
+      return
+    }
+    
+    // 2. 保存文件对象本身（不是路径）
+    // 直接保存File对象，后续上传时使用
+    selectedImageFile.value = file  // 直接保存File对象
+    
+    console.log('拖拽文件信息:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      isFile: file instanceof File
+    })
+    
+    // 3. 重置表单
+    resetUploadForm()
+    
+    // 4. 自动生成衣物名称（使用文件名）
+    if (file.name) {
+      uploadFormData.value.name = file.name.replace(/\.[^/.]+$/, '')
+    }
+    
+    // 5. 显示分类选择模态框
+    showCategoryModal.value = true
+    
+  } catch (error) {
+    console.error('处理拖拽文件失败:', error)
+    uni.showToast({ title: '处理文件失败', icon: 'none' })
+  }
+}
+
+/**
+ * 处理模特照片拖拽上传
+ */
+const handleModelDragUpload = async (file) => {
+  try {
+    // 1. 检查登录状态
+    if (!isLoggedIn.value) {
+      uni.showToast({
+        title: '请先登录',
+        icon: 'none'
+      })
+      return
+    }
+    
+    // 2. 直接保存File对象
+    selectedModelImageFile.value = file
+    
+    console.log('拖拽模特照片信息:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      isFile: file instanceof File
+    })
+    
+    // 3. 重置表单
+    resetModelUploadForm()
+    
+    // 4. 自动生成模特照片名称（使用文件名）
+    if (file.name) {
+      modelUploadFormData.value.photo_name = file.name.replace(/\.[^/.]+$/, '')
+    }
+    
+    // 5. 显示模特照片上传模态框
+    showModelUploadModal.value = true
+    
+  } catch (error) {
+    console.error('处理拖拽模特照片失败:', error)
+    uni.showToast({
+      title: '处理文件失败',
+      icon: 'none'
+    })
+  }
 }
 
 const handleUpload = () => {
