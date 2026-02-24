@@ -1,4 +1,4 @@
-<!-- Recommendation AI 專用：側欄「新建会话」+「你的对话」列表 + Rename/Delete 彈窗；狀態與方法均在此組件內 -->
+<!-- Recommendation AI 专用：侧栏「新建会话」+「你的对话」列表 + Rename/Delete 弹窗；状态与方法均在此组件内 -->
 <template>
 	<view class="conversation-side-block">
 		<view class="btn-new-session" @click="handleNewSession">
@@ -49,7 +49,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import RenameModal from './RenameModal.vue'
 import DeleteModal from './DeleteModal.vue'
 
-// 僅「點擊主內容區關閉選單」需由 index 控制；conversationState 由 index 傳入以便 collapse 時不丟失
+// 仅「点击主内容区关闭选单」需由 index 控制；conversationState 由 index 传入以便 collapse 时不丢失
 const props = defineProps({
 	conversationState: { type: Object, default: () => ({ conversations: [], currentConversationId: null, currentConversation: null }) },
 	openMenuConvId: { type: String, default: null }
@@ -74,7 +74,7 @@ const renamingInitialTitle = computed(() => {
 	return (conv?.title || 'New conversation').slice(0, 36)
 })
 
-// 同步到 index，供傳給 RecommendationAI
+// 同步到 index，供传给 RecommendationAI
 function syncState() {
 	emit('update:conversationState', {
 		conversations: conversations.value,
@@ -94,7 +94,7 @@ onMounted(() => {
 	syncState()
 })
 
-// 與 index 的 openMenuConvId 雙向同步（index 可透過 closeConvMenu 清空）
+// 与 index 的 openMenuConvId 双向同步（index 可通过 closeConvMenu 清空）
 watch(() => props.openMenuConvId, (v) => { openConvMenuId.value = v ?? null }, { immediate: true })
 watch(openConvMenuId, (v) => { emit('update:openMenuConvId', v ?? null) })
 

@@ -220,7 +220,7 @@
  * - 初始 / 聊天两种布局切换
  * - 用户消息支持文字 + 图片
  * - 推荐数据 reactive 结构，v-for 渲染，RecommendationCard 独立组件
- * - 支援多會話：由父組件傳入 currentConversationId / currentConversation，並 emit create/update
+ * - 支持多会话：由父组件传入 currentConversationId / currentConversation，并 emit create/update
  */
 import { ref, watch, nextTick } from 'vue'
 import RecommendationCard from './RecommendationCard.vue'
@@ -237,7 +237,7 @@ const searchQuery = ref('')
 const hasSearched = ref(false) // 状态管理：是否已搜索
 const chatHistory = ref([]) // 聊天历史记录
 const scrollTarget = ref('') // 用于自动滚动
-const justCreatedConversation = ref(false) // 剛建立會話尚未收到 AI 回覆，避免被 prop 覆蓋
+const justCreatedConversation = ref(false) // 刚建立会话尚未收到 AI 回复，避免被 prop 覆盖
 const loadingStep = ref(0) // 加载过程步骤，用于展示「分析中」文案
 const LOADING_STEPS = ['Analyzing weather…', 'Matching wardrobe…', 'Generating recommendations…']
 
@@ -287,7 +287,7 @@ const handleRegenerate = (msgIdx) => {
 	}, 2000)
 }
 
-// 依當前會話同步本地狀態：新建會話則清空；切換會話則載入該會話訊息
+// 依当前会话同步本地状态：新建会话则清空；切换会话则载入该会话消息
 watch(
 	() => [props.currentConversationId, props.currentConversation],
 	([cid, conv]) => {
@@ -343,7 +343,7 @@ const handleSearch = async () => {
 
 	// 首次进入直接输入 或 点击新建会话后首次输入：通知父组件建立会话并加入列表
 	if (isNewSession || isPendingSession) {
-		const title = (query || '新對話').slice(0, 36)
+		const title = (query || '新对话').slice(0, 36)
 		const payload = { title, firstMessage: userMsg }
 		if (isPendingSession) payload.id = props.currentConversationId
 		emit('create-conversation', payload)
@@ -403,7 +403,7 @@ const handleSearch = async () => {
 		const cid = props.currentConversationId
 		if (cid) {
 			const payload = { id: cid, messages: [...chatHistory.value] }
-			if (isFirstMessageInConversation) payload.title = (query || '新對話').slice(0, 36)
+			if (isFirstMessageInConversation) payload.title = (query || '新对话').slice(0, 36)
 			emit('update-conversation', payload)
 		}
 
