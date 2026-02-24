@@ -26,7 +26,12 @@ frontend/
 │   └── index/              # 首页（主应用）
 │       ├── index.vue       # 侧栏 + 主内容切换
 │       └── components/
-│           ├── RecommendationAI.vue   # 推荐 AI
+│           ├── RecommendationAI/       # 推荐 AI（多会话 + 侧栏对话列表）
+│           │   ├── RecommendationAI.vue   # 主聊天组件（问候、输入、消息、推荐卡片）
+│           │   ├── ConversationSidebar.vue # 侧栏「新建会话」+ 对话列表 + Rename/Delete 弹窗
+│           │   ├── RecommendationCard.vue # 单条推荐卡片展示
+│           │   ├── RenameModal.vue        # 会话重命名弹窗
+│           │   └── DeleteModal.vue        # 会话删除确认弹窗
 │           ├── VirtualTryOn.vue       # 虚拟试穿
 │           ├── MyWardrobe/            # 我的衣橱
 │           │   ├── WardrobeView.vue   # 衣橱列表与筛选
@@ -61,6 +66,7 @@ frontend/
 ### 首页与导航
 
 - 侧栏导航：推荐 AI、虚拟试穿、我的衣橱、我的日历、衣橱分析等，可折叠。
+- 选中「推荐 AI」且侧栏未折叠时，侧栏会显示「新建会话」与对话列表（`ConversationSidebar`），可新建/切换/重命名/删除会话。
 - 主内容区根据菜单切换对应组件，支持过渡动画。
 
 ### 我的衣橱 (`My Wardrobe`)
@@ -88,9 +94,20 @@ frontend/
 - **热门统计**：显示最常用颜色和最常用风格及其占比。
 - **建议添加**：基于衣橱数据提供建议添加的物品类型，支持展开查看详情。
 
-### 推荐 AI / 虚拟试穿
+### 推荐 AI (`Recommendation AI`)
 
-- 推荐 AI、虚拟试穿组件位于首页；虚拟试穿可从衣橱详情一键带入衣服图与默认模特图。接口约定见 `VIRTUAL_TRYON.md`。
+- **主聊天区**（`RecommendationAI.vue`）：初始问候、多行输入、图片上传；用户/AI 消息展示；推荐结果以多套推荐卡片 + 左右滑动展示。
+- **多会话**：由父级 `index.vue` 同步 `conversationState`；支持 `currentConversationId` / `currentConversation` 与 `create-conversation` / `update-conversation` 事件。
+- **侧栏对话列表**（`ConversationSidebar.vue`）：选中推荐 AI 且侧栏未折叠时显示「新建会话」按钮与「你的对话」列表；支持切换会话、重命名（RenameModal）、删除（DeleteModal）；状态与逻辑集中在 ConversationSidebar，通过 `update:conversationState` 回传 index 再传给主聊天组件。
+
+### 虚拟试穿 (`Virtual Try-On`)
+
+- **入口**：首页侧栏「Virtual Try-On」；也可从「我的衣橱」衣服详情中一键跳转并带入当前衣服图与默认模特图（`initialClothingImage` / `initialPersonImage`）。
+- **上传区**（`VirtualTryOn.vue`）：
+  - **Person Model**：上传人物/模特图，支持点击或拖拽，建议竖版 JPG/PNG；可预览、移除。
+  - **Try-On Clothing**：上传待试穿服装图，支持点击或拖拽，建议平铺 JPG/PNG；可预览、移除。
+- **生成**：两个图都上传后「Generate」按钮可用，点击后进入加载态（Shimmer 动画），生成结果展示在「Generation Result」区域。
+- **结果区**：展示试穿结果图；无结果时显示占位。接口与上传约定见 `VIRTUAL_TRYON.md`。
 
 ## 🛠️ 技术栈
 
