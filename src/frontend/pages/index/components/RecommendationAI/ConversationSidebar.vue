@@ -2,9 +2,9 @@
 <template>
 	<view class="conversation-side-block">
 		<view class="btn-new-session" @click="handleNewSession">
-			<text class="btn-new-session-text">新建会话</text>
+			<text class="btn-new-session-text">New Conversation</text>
 		</view>
-		<text class="conversation-label">你的对话</text>
+		<text class="conversation-label">Your conversations</text>
 		<view class="conversation-list">
 			<view
 				v-for="conv in conversations"

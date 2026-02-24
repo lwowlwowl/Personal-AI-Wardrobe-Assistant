@@ -27,6 +27,14 @@
 				</view>
 				<view class="input-container input-in-flow">
 					<view class="search-bar">
+						<div 
+							class="search-bar-drop-zone"
+							:class="{ 'drag-over': isDragOverInput }"
+							@drop.prevent="handleDropImage"
+							@dragover.prevent="handleDragOverInput"
+							@dragleave.prevent="handleDragLeaveInput"
+							@dragenter.prevent
+						>
 						<!-- 图片预览区：在输入行上方，仍属于输入框内部 -->
 						<view v-if="uploadedImages.length > 0" class="input-thumb-row">
 							<scroll-view class="input-thumb-wrap" scroll-x :show-scrollbar="false">
@@ -59,6 +67,7 @@
 								<image src="/static/icons/icon-send.svg" mode="aspectFit" class="icon-search-btn"></image>
 							</view>
 						</view>
+						</div>
 					</view>
 				</view>
 				<view class="search-tabs">
@@ -163,6 +172,14 @@
 		<view v-if="hasSearched" class="input-box-wrapper">
 			<view class="input-container fixed-bottom">
 				<view class="search-bar">
+					<div 
+						class="search-bar-drop-zone"
+						:class="{ 'drag-over': isDragOverInput }"
+						@drop.prevent="handleDropImage"
+						@dragover.prevent="handleDragOverInput"
+						@dragleave.prevent="handleDragLeaveInput"
+						@dragenter.prevent
+					>
 				<!-- 图片预览区：在输入行上方，仍属于输入框内部 -->
 				<view v-if="uploadedImages.length > 0" class="input-thumb-row">
 					<scroll-view class="input-thumb-wrap" scroll-x :show-scrollbar="false">
@@ -195,6 +212,8 @@
 						<image src="/static/icons/icon-send.svg" mode="aspectFit" class="icon-search-btn"></image>
 					</view>
 				</view>
+					</div>
+				</view>
 			</view>
 			<view class="search-tabs">
 				<text 
@@ -208,7 +227,6 @@
 					:class="{ 'active': activeTab === 'online' }"
 					@click="setActiveTab('online')"
 				>Online Search</text>
-			</view>
 			</view>
 		</view>
 	</view>
@@ -414,6 +432,38 @@ const handleSearch = async () => {
 // 本地上传图片（输入框内缩略图，最多 8 张）
 const MAX_UPLOAD_IMAGES = 8
 const uploadedImages = ref([])
+const isDragOverInput = ref(false)
+
+const handleDragOverInput = (e) => {
+	e.preventDefault()
+	if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+	isDragOverInput.value = true
+}
+
+const handleDragLeaveInput = () => {
+	isDragOverInput.value = false
+}
+
+const handleDropImage = (e) => {
+	e.preventDefault()
+	isDragOverInput.value = false
+	// 与 VirtualTryOn 一致：兼容各种 event 结构
+	const rawFiles = e.dataTransfer?.files || e.originalEvent?.dataTransfer?.files
+	if (!rawFiles || !rawFiles.length) return
+	const remain = MAX_UPLOAD_IMAGES - uploadedImages.value.length
+	if (remain <= 0) {
+		uni.showToast({ title: `最多只能上传 ${MAX_UPLOAD_IMAGES} 张图片`, icon: 'none' })
+		return
+	}
+	const files = Array.from(rawFiles).filter(f => f.type && f.type.startsWith('image/')).slice(0, remain)
+	if (files.length === 0) {
+		uni.showToast({ title: '请拖入图片文件', icon: 'none' })
+		return
+	}
+	if (typeof URL === 'undefined' || !URL.createObjectURL) return
+	const add = files.map(f => URL.createObjectURL(f))
+	uploadedImages.value = [...uploadedImages.value, ...add]
+}
 
 const handleAdd = () => {
 	const remain = MAX_UPLOAD_IMAGES - uploadedImages.value.length
@@ -988,6 +1038,25 @@ const previewImages = (urls, index = 0) => {
 	border: 2rpx solid #1D1D1F; 
 	box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.08); 
 	transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.search-bar-drop-zone {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	min-height: 100%;
+	border-radius: inherit;
+	transition: background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.search-bar-drop-zone:hover {
+	background-color: rgba(0, 0, 0, 0.02);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.06);
+}
+
+.search-bar-drop-zone.drag-over {
+	background-color: rgba(157, 139, 112, 0.12);
+	box-shadow: inset 0 0 0 3rpx #9D8B70, 0 4rpx 20rpx rgba(157, 139, 112, 0.25);
 }
 
 /* 输入行：+ | 文字 | 发送 */
