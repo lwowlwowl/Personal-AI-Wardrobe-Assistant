@@ -13,6 +13,7 @@
 			
 			<view class="divider"></view>
 			
+			<view class="nav-and-conversation">
 			<view class="nav-menu">
 				<view 
 					class="nav-item" 
@@ -70,6 +71,18 @@
 				</view>
 			</view>
 			
+			<!-- Recommendation AI 專用：由 ConversationSidebar 組件負責 -->
+			<template v-if="activeMenu === 'recommendation' && !isCollapsed">
+				<view class="divider"></view>
+				<ConversationSidebar
+					ref="conversationSidebarRef"
+					:conversation-state="conversationState"
+					@update:conversation-state="onConversationStateUpdate"
+					v-model:open-menu-conv-id="openConvMenuId"
+				/>
+			</template>
+			</view>
+			
 			<view class="divider"></view>
 			
 			<view class="sidebar-footer">
@@ -89,29 +102,32 @@
 			</view>
 		</view>
 		
-		<view class="main-content" ref="mainContentRef">
-			<!-- 使用 transition 实现切换动画 -->
+		<view class="main-content" ref="mainContentRef" @click="closeConvMenu">
+			<!-- 根据选中的菜单项切换显示不同的组件，带切换动画 -->
 			<view class="main-content-inner">
 				<transition name="view-fade" mode="out-in">
-					<view v-if="activeMenu === 'recommendation'" class="content-panel" key="recommendation">
-						<RecommendationAI />
-					</view>
-					<view v-else-if="activeMenu === 'tryon'" class="content-panel" :key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')">
-						<VirtualTryOn
-							:main-content-ref="mainContentRef"
-							:initial-clothing-image="initialClothingForTryon || null"
-							:initial-person-image="initialPersonImageForTryon || null"
-						/>
-					</view>
-					<view v-else-if="activeMenu === 'wardrobe'" class="content-panel" key="wardrobe">
-						<WardrobeView @switch-to-tryon="handleSwitchToTryon" />
-					</view>
-					<view v-else-if="activeMenu === 'calendar'" class="content-panel" key="calendar">
-						<MyCalendar />
-					</view>
-					<view v-else-if="activeMenu === 'analysis'" class="content-panel" key="analysis">
-						<WardrobeAnalysis />
-					</view>
+					<RecommendationAI
+						v-if="activeMenu === 'recommendation'"
+						key="recommendation"
+						:current-conversation-id="conversationState.currentConversationId"
+						:current-conversation="conversationState.currentConversation"
+						@create-conversation="(e) => conversationSidebarRef?.handleCreateConversation(e)"
+						@update-conversation="(e) => conversationSidebarRef?.handleUpdateConversation(e)"
+					/>
+					<VirtualTryOn
+					v-else-if="activeMenu === 'tryon'"
+					:key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')"
+					:main-content-ref="mainContentRef"
+					:initial-clothing-image="initialClothingForTryon || null"
+					:initial-person-image="initialPersonImageForTryon || null"
+				/>
+					<WardrobeView
+						v-else-if="activeMenu === 'wardrobe'"
+						key="wardrobe"
+						@switch-to-tryon="handleSwitchToTryon"
+					/>
+					<MyCalendar v-else-if="activeMenu === 'calendar'" key="calendar" />
+					<WardrobeAnalysis v-else-if="activeMenu === 'analysis'" key="analysis" />
 				</transition>
 			</view>
 		</view>
@@ -120,7 +136,8 @@
 
 <script setup>
 import { ref, nextTick } from 'vue'
-import RecommendationAI from './components/RecommendationAI.vue'
+import RecommendationAI from './components/RecommendationAI/RecommendationAI.vue'
+import ConversationSidebar from './components/RecommendationAI/ConversationSidebar.vue'
 import VirtualTryOn from './components/VirtualTryOn.vue'
 import WardrobeView from './components/MyWardrobe/WardrobeView.vue'
 import MyCalendar from './components/MyCalendar/MyCalendar.vue'
@@ -129,8 +146,24 @@ import WardrobeAnalysis from './components/WardrobeAnalysis/WardrobeAnalysis.vue
 const activeMenu = ref('recommendation')
 const isCollapsed = ref(false)
 const mainContentRef = ref(null)
+const conversationSidebarRef = ref(null)
 const initialClothingForTryon = ref(null)
 const initialPersonImageForTryon = ref(null)
+
+// 由 ConversationSidebar 同步過來，僅用於傳給 RecommendationAI
+const conversationState = ref({
+	conversations: [],
+	currentConversationId: null,
+	currentConversation: null
+})
+
+const openConvMenuId = ref(null)
+const closeConvMenu = () => {
+	openConvMenuId.value = null
+}
+const onConversationStateUpdate = (v) => {
+	if (v && Array.isArray(v.conversations)) conversationState.value = v
+}
 
 const setActiveMenu = (menu) => {
 	activeMenu.value = menu
@@ -144,8 +177,8 @@ const toggleSidebar = () => {
 	isCollapsed.value = !isCollapsed.value
 }
 
-// 後端聯調保留：訪客/設置的 Toast 提示
 const handleGuestUser = () => {
+	// 後端聯調保留：訪客用戶
 	uni.showToast({
 		title: '訪客用戶功能開發中',
 		icon: 'none'
@@ -153,6 +186,7 @@ const handleGuestUser = () => {
 }
 
 const handleSetting = () => {
+	// 後端聯調保留：設置
 	uni.showToast({
 		title: '設置功能開發中',
 		icon: 'none'
@@ -248,8 +282,16 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	transition: width 0.3s ease, margin 0.3s ease;
 }
 
-.nav-menu {
+.nav-and-conversation {
 	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.nav-menu {
+	flex-shrink: 0;
 	display: flex;
 	flex-direction: column;
 	gap: 16rpx;
@@ -337,6 +379,7 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 }
 
 .sidebar-footer {
+	flex-shrink: 0;
 	margin-top: auto;
 	display: flex;
 	flex-direction: column;
@@ -374,12 +417,7 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	position: relative;
 }
 
-.content-panel {
-	width: 100%;
-	height: 100%;
-}
-
-/* 视图切换动画（当前使用 v-show 保留状态，未使用 transition） */
+/* 视图切换动画 */
 .view-fade-enter-active,
 .view-fade-leave-active {
 	transition: opacity 0.28s ease, transform 0.28s ease;
