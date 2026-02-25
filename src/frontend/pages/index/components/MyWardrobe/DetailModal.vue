@@ -233,9 +233,22 @@ const handleTryOn = () => {
 	emit('try-on', props.item)
 }
 
-const handleDelete = () => {
-	emit('delete', props.item.id)
-	close()
+const handleDelete = async () => {
+  try {
+    const result = await uni.showModal({
+      title: '确认删除',
+      content: '确定要删除这件衣物吗？',
+      confirmText: '删除',
+      confirmColor: '#ff4444',
+      cancelText: '取消'
+    })
+    
+    if (result.confirm) {
+      emit('delete', props.item.id)
+    }
+  } catch (error) {
+    console.error('删除确认失败:', error)
+  }
 }
 </script>
 
