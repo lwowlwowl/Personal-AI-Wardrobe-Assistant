@@ -493,10 +493,23 @@ import { ref, computed, watch, onMounted } from 'vue'
 import DetailModal from './DetailModal.vue'
 import ModelDetailModal from './ModelDetailModal.vue'
 import { TYPE_OPTIONS, COLOR_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
+import {
+  API_BASE_URL,
+  authVerify,
+  healthCheck,
+  getClothingList,
+  uploadClothing,
+  deleteClothing,
+  updateClothing,
+  getModelPhotos,
+  uploadModelPhoto,
+  deleteModelPhoto,
+  setModelPhotoPrimary,
+  updateModelPhoto
+} from '@/api/wardrobe.js'
 
 const emit = defineEmits(['switch-to-tryon'])
 
-const API_BASE_URL = 'http://localhost:8000' 
 
 
 
@@ -550,17 +563,7 @@ async function checkAuthStatus() {
   isCheckingAuth.value = true
   
   try {
-    // 调用后端验证token的接口
-    const response = await uni.request({
-      url: `${API_BASE_URL}/api/auth/verify`,
-      method: 'GET',
-      header: {
-        'Content-Type': 'application/json'
-      },
-      data: {
-        token: userToken.value
-      }
-    })
+    const response = await authVerify(userToken.value)
 
     if (response.statusCode === 200 && response.data.valid) {
       // token有效
@@ -601,24 +604,15 @@ function clearAuthData() {
 const testBackendConnection = async () => {
   try {
     console.log('测试后端连接...')
-    
-    // 1. 测试健康检查
-    const healthResponse = await uni.request({
-      url: `${API_BASE_URL}/api/health`,
-      method: 'GET'
-    })
-    console.log('健康检查响应:', healthResponse)
+    const healthResponse = await healthCheck()
     
     // 2. 测试登录（如果有测试账号）
+    console.log('健康检查响应:', healthResponse)
+    
     if (userToken.value) {
-      const verifyResponse = await uni.request({
-        url: `${API_BASE_URL}/api/auth/verify`,
-        method: 'GET',
-        data: { token: userToken.value }
-      })
+      const verifyResponse = await authVerify(userToken.value)
       console.log('Token验证响应:', verifyResponse)
     }
-    
   } catch (error) {
     console.error('后端连接测试失败:', error)
   }
@@ -757,84 +751,24 @@ const confirmUpload = async () => {
 
 // 执行上传的实际方法
 const performUpload = async (filePath) => {
-  return new Promise((resolve, reject) => {
-    const uploadTask = uni.uploadFile({
-      url: `${API_BASE_URL}/api/clothing/upload?token=${encodeURIComponent(userToken.value)}`,
-      filePath: filePath,
-      name: 'file',
-      formData: {
-        name: uploadFormData.value.name,
-        category: uploadFormData.value.category, // 对应数据库枚举
-        color: uploadFormData.value.color || '',
-        season: uploadFormData.value.season || '',
-        brand: uploadFormData.value.brand || '',
-        tags: uploadFormData.value.tags || '',
-        description: uploadFormData.value.description || '',
-        price: uploadFormData.value.price || '',
-        purchase_date: uploadFormData.value.purchase_date || ''
-      },
-      header: {
-        'Authorization': `Bearer ${userToken.value}`
-      },
-      success: (uploadRes) => {
-        console.log('上传成功响应状态码:', uploadRes.statusCode)
-        console.log('响应数据:', uploadRes.data)
-        
-        try {
-          const result = JSON.parse(uploadRes.data)
-          
-          if (uploadRes.statusCode === 200 && result.success) {
-            uni.showToast({
-              title: '上传成功！',
-              icon: 'success'
-            })
-            
-            // 关闭模态框
-            closeCategoryModal()
-            
-            // 清空选择的文件
-            selectedImageFile.value = null
-            
-            // 刷新衣物列表
-            loadClothingData()
-            
-            resolve(result)
-          } else {
-            const errorMsg = result.message || '上传失败'
-            uni.showToast({
-              title: errorMsg,
-              icon: 'none'
-            })
-            reject(new Error(errorMsg))
-          }
-        } catch (parseError) {
-          console.error('解析JSON失败:', parseError)
-          console.log('原始响应:', uploadRes.data)
-          uni.showToast({
-            title: '服务器响应格式错误',
-            icon: 'none'
-          })
-          reject(parseError)
-        }
-      },
-      fail: (error) => {
-        console.error('上传失败:', error)
-        uni.showToast({
-          title: `上传失败: ${error.errMsg || '网络错误'}`,
-          icon: 'none'
-        })
-        reject(error)
-      },
-      complete: () => {
-        uni.hideLoading()
-      }
+  try {
+    const result = await uploadClothing({
+      token: userToken.value,
+      filePath,
+      formData: uploadFormData.value
     })
-    
-    // 监听进度
-    uploadTask.onProgressUpdate((res) => {
-      console.log('上传进度:', res.progress + '%')
-    })
-  })
+    uni.showToast({ title: '上传成功！', icon: 'success' })
+    closeCategoryModal()
+    selectedImageFile.value = null
+    loadClothingData()
+    return result
+  } catch (err) {
+    const errorMsg = err.message || err.errMsg || '网络错误'
+    uni.showToast({ title: errorMsg, icon: 'none' })
+    throw err
+  } finally {
+    uni.hideLoading()
+  }
 }
 
 // 重置上传表单
@@ -865,9 +799,6 @@ const closeCategoryModal = () => {
 const loadClothingData = async () => {
   try {
     if (!isLoggedIn.value) return
-    
-    console.log('=== 加载衣物数据（带自动修复）===')
-    
     const queryParams = {
       token: userToken.value,
       page: currentPage.value,
@@ -876,19 +807,15 @@ const loadClothingData = async () => {
       order_desc: true
     }
     
-    const queryString = Object.keys(queryParams)
-      .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)
-      .join('&')
     
-    const url = `${API_BASE_URL}/api/clothing?${queryString}`
+    console.log('=== 加载衣物数据（带自动修复）===')
     
-    const response = await uni.request({
-      url: url,
-      method: 'GET',
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${userToken.value}`
-      }
+    const response = await getClothingList({
+      token: userToken.value,
+      page: currentPage.value,
+      page_size: PAGE_SIZE,
+      order_by: 'created_at',
+      order_desc: true
     })
     
     if (response.statusCode === 200 && response.data.success) {
@@ -1289,15 +1216,7 @@ const handleDeleteItem = async (id) => {
       mask: true
     })
     
-    // 调用后端删除API
-    const response = await uni.request({
-      url: `${API_BASE_URL}/api/clothing/${id}?token=${encodeURIComponent(userToken.value)}`,
-      method: 'DELETE',
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${userToken.value}`
-      },
-    })
+    const response = await deleteClothing(userToken.value, id)
 	console.log('删除响应:', response)
 	console.log('状态码:', response.statusCode)
 	console.log('响应数据:', response.data)
@@ -1377,9 +1296,6 @@ const showModelModal = ref(false)
 const loadModelPhotos = async () => {
   try {
     if (!isLoggedIn.value) return
-    
-    console.log('=== 加载模特照片数据 ===')
-    
     const queryParams = {
       token: userToken.value,
       page: modelCurrentPage.value,
@@ -1389,19 +1305,16 @@ const loadModelPhotos = async () => {
       is_active: true
     }
     
-    const queryString = Object.keys(queryParams)
-      .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)
-      .join('&')
     
-    const url = `${API_BASE_URL}/api/model-photos?${queryString}`
+    console.log('=== 加载模特照片数据 ===')
     
-    const response = await uni.request({
-      url: url,
-      method: 'GET',
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${userToken.value}`
-      }
+    const response = await getModelPhotos({
+      token: userToken.value,
+      page: modelCurrentPage.value,
+      page_size: PAGE_SIZE,
+      order_by: 'created_at',
+      order_desc: true,
+      is_active: true
     })
     
     if (response.statusCode === 200 && response.data.success) {
@@ -1586,78 +1499,24 @@ const confirmModelUpload = async () => {
  * 执行模特照片上传的实际方法
  */
 const performModelUpload = async (filePath) => {
-  return new Promise((resolve, reject) => {
-    const uploadTask = uni.uploadFile({
-      url: `${API_BASE_URL}/api/model-photos/upload?token=${encodeURIComponent(userToken.value)}`,
-      filePath: filePath,
-      name: 'file',
-      formData: {
-        photo_name: modelUploadFormData.value.photo_name,
-        description: modelUploadFormData.value.description || '',
-        is_primary: modelUploadFormData.value.is_primary ? 'true' : 'false'
-      },
-      header: {
-        'Authorization': `Bearer ${userToken.value}`
-      },
-      success: (uploadRes) => {
-        console.log('模特照片上传成功响应状态码:', uploadRes.statusCode)
-        console.log('响应数据:', uploadRes.data)
-        
-        try {
-          const result = JSON.parse(uploadRes.data)
-          
-          if (uploadRes.statusCode === 200 && result.success) {
-            uni.showToast({
-              title: '模特照片上传成功！',
-              icon: 'success'
-            })
-            
-            // 关闭模态框
-            closeModelUploadModal()
-            
-            // 清空选择的文件
-            selectedModelImageFile.value = null
-            
-            // 刷新模特照片列表
-            loadModelPhotos()
-            
-            resolve(result)
-          } else {
-            const errorMsg = result.message || '上传失败'
-            uni.showToast({
-              title: errorMsg,
-              icon: 'none'
-            })
-            reject(new Error(errorMsg))
-          }
-        } catch (parseError) {
-          console.error('解析JSON失败:', parseError)
-          console.log('原始响应:', uploadRes.data)
-          uni.showToast({
-            title: '服务器响应格式错误',
-            icon: 'none'
-          })
-          reject(parseError)
-        }
-      },
-      fail: (error) => {
-        console.error('模特照片上传失败:', error)
-        uni.showToast({
-          title: `上传失败: ${error.errMsg || '网络错误'}`,
-          icon: 'none'
-        })
-        reject(error)
-      },
-      complete: () => {
-        uni.hideLoading()
-      }
+  try {
+    const result = await uploadModelPhoto({
+      token: userToken.value,
+      filePath,
+      formData: modelUploadFormData.value
     })
-    
-    // 监听进度
-    uploadTask.onProgressUpdate((res) => {
-      console.log('模特照片上传进度:', res.progress + '%')
-    })
-  })
+    uni.showToast({ title: '模特照片上传成功！', icon: 'success' })
+    closeModelUploadModal()
+    selectedModelImageFile.value = null
+    loadModelPhotos()
+    return result
+  } catch (err) {
+    const errorMsg = err.message || err.errMsg || '网络错误'
+    uni.showToast({ title: errorMsg, icon: 'none' })
+    throw err
+  } finally {
+    uni.hideLoading()
+  }
 }
 
 /**
@@ -1695,15 +1554,7 @@ const handleModelDelete = async (id) => {
       mask: true
     })
     
-    // 调用后端删除API（软删除）
-    const response = await uni.request({
-      url: `${API_BASE_URL}/api/model-photos/${id}?token=${encodeURIComponent(userToken.value)}&hard_delete=false`,
-      method: 'DELETE',
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${userToken.value}`
-      }
-    })
+    const response = await deleteModelPhoto(userToken.value, id, false)
     
     console.log('删除响应:', response)
     console.log('状态码:', response.statusCode)
@@ -1769,15 +1620,7 @@ const handleSetDefaultModel = async (id) => {
       mask: true
     })
     
-    // 调用后端API设置主要照片
-    const response = await uni.request({
-      url: `${API_BASE_URL}/api/model-photos/${id}/set-primary?token=${encodeURIComponent(userToken.value)}`,
-      method: 'POST',
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${userToken.value}`
-      }
-    })
+    const response = await setModelPhotoPrimary(userToken.value, id)
     
     uni.hideLoading()
     
@@ -1838,16 +1681,7 @@ const handleModelUpdate = async ({ id, field, value }) => {
     // 构建更新数据
     const updateData = { [field]: value }
     
-    // 调用后端更新API
-    const response = await uni.request({
-      url: `${API_BASE_URL}/api/model-photos/${id}?token=${encodeURIComponent(userToken.value)}`,
-      method: 'PUT',
-      header: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Bearer ${userToken.value}`
-      },
-      data: updateData
-    })
+    const response = await updateModelPhoto(userToken.value, id, updateData)
     
     uni.hideLoading()
     
@@ -2182,11 +2016,29 @@ const handleVirtualTryOn = (item) => {
 	emit('switch-to-tryon', item, defaultModelImage)
 }
 
-const handleItemUpdate = ({ id, field, value }) => {
+// 衣物編輯：同步到後端並更新本地
+const handleItemUpdate = async ({ id, field, value }) => {
 	const idx = clothes.value.findIndex((c) => c.id === id)
 	if (idx < 0) return
-	clothes.value[idx] = { ...clothes.value[idx], [field]: value }
+	// 先樂觀更新本地
+	const prev = { ...clothes.value[idx] }
+	clothes.value[idx] = { ...prev, [field]: value }
 	selectedItem.value = { ...clothes.value[idx] }
+	// 後端欄位對應：type -> category，favourite -> is_favorite（0 為 false，1~3 為 true）
+	const backendField = field === 'type' ? 'category' : field === 'favourite' ? 'is_favorite' : field
+	const backendValue = field === 'favourite' ? (value > 0) : value
+	try {
+		const res = await updateClothing(userToken.value, id, { [backendField]: backendValue })
+		if (res.statusCode !== 200 || !res.data?.success) {
+			clothes.value[idx] = prev
+			selectedItem.value = { ...prev }
+			uni.showToast({ title: res.data?.message || '更新失敗', icon: 'none' })
+		}
+	} catch (err) {
+		clothes.value[idx] = prev
+		selectedItem.value = { ...prev }
+		uni.showToast({ title: '網絡錯誤，未同步到後端', icon: 'none' })
+	}
 }
 
 const uploadDragging = ref(false)
