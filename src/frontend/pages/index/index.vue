@@ -71,7 +71,7 @@
 				</view>
 			</view>
 			
-			<!-- Recommendation AI 專用：由 ConversationSidebar 組件負責 -->
+			<!-- Recommendation AI 专用：由 ConversationSidebar 组件负责 -->
 			<template v-if="activeMenu === 'recommendation' && !isCollapsed">
 				<view class="divider"></view>
 				<ConversationSidebar
@@ -86,23 +86,27 @@
 			<view class="divider"></view>
 			
 			<view class="sidebar-footer">
-				<view class="nav-item footer-item" @click="handleGuestUser">
-					<view class="nav-icon">
-						<image src="/static/icons/icon-user.svg" mode="aspectFit" class="icon-img icon-20"></image>
+				<!-- 状态卡片：点击后上方浮出小浮层，浮层宽度略小于触发块 -->
+				<view class="user-status-card">
+					<transition name="user-menu-fade">
+						<view v-if="showUserMenu" class="user-menu-popup" @click.stop>
+							<view class="user-menu-item" @click="handleLogout">
+								<image src="/static/icons/icon-logout.svg" mode="aspectFit" class="user-menu-item-icon"></image>
+								<text class="user-menu-item-text">退出登录</text>
+							</view>
+						</view>
+					</transition>
+					<view class="footer-item user-status-trigger" @click.stop="toggleUserMenu">
+						<view class="nav-icon">
+							<image src="/static/icons/icon-user.svg" mode="aspectFit" class="icon-img icon-20"></image>
+						</view>
+						<text class="nav-text" v-show="!isCollapsed">{{ displayUserName }}</text>
 					</view>
-					<text class="nav-text" v-show="!isCollapsed">Guest User</text>
-				</view>
-				
-				<view class="nav-item footer-item" @click="handleSetting">
-					<view class="nav-icon">
-						<image src="/static/icons/icon-setting.svg" mode="aspectFit" class="icon-img icon-20"></image>
-					</view>
-					<text class="nav-text" v-show="!isCollapsed">Setting</text>
 				</view>
 			</view>
 		</view>
 		
-		<view class="main-content" ref="mainContentRef" @click="closeConvMenu">
+		<view class="main-content" ref="mainContentRef" @click="closeMenus">
 			<!-- 根据选中的菜单项切换显示不同的组件，带切换动画 -->
 			<view class="main-content-inner">
 				<transition name="view-fade" mode="out-in">
@@ -136,6 +140,7 @@
 
 <script setup>
 import { ref, nextTick } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import RecommendationAI from './components/RecommendationAI/RecommendationAI.vue'
 import ConversationSidebar from './components/RecommendationAI/ConversationSidebar.vue'
 import VirtualTryOn from './components/VirtualTryOn.vue'
@@ -150,16 +155,42 @@ const conversationSidebarRef = ref(null)
 const initialClothingForTryon = ref(null)
 const initialPersonImageForTryon = ref(null)
 
-// 由 ConversationSidebar 同步過來，僅用於傳給 RecommendationAI
+// 由 ConversationSidebar 同步过来，仅用于传给 RecommendationAI
 const conversationState = ref({
 	conversations: [],
 	currentConversationId: null,
 	currentConversation: null
 })
 
+// 侧边栏显示的用户名：登录后显示用户名，否则显示 Guest User
+const displayUserName = ref('Guest User')
+const refreshDisplayUserName = () => {
+	const userInfo = uni.getStorageSync('user_info')
+	const token = uni.getStorageSync('auth_token')
+	displayUserName.value = (token && userInfo && userInfo.username) ? userInfo.username : 'Guest User'
+}
+refreshDisplayUserName() // 初始化时读取一次
+onShow(() => {
+	refreshDisplayUserName() // 每次页面显示时更新（例如从登录页返回）
+})
+
 const openConvMenuId = ref(null)
-const closeConvMenu = () => {
+const showUserMenu = ref(false)
+const closeMenus = () => {
 	openConvMenuId.value = null
+	showUserMenu.value = false
+}
+const toggleUserMenu = () => {
+	showUserMenu.value = !showUserMenu.value
+}
+const handleLogout = () => {
+	uni.removeStorageSync('auth_token')
+	uni.removeStorageSync('user_info')
+	refreshDisplayUserName()
+	showUserMenu.value = false
+	uni.reLaunch({
+		url: '/pages/login/login'
+	})
 }
 const onConversationStateUpdate = (v) => {
 	if (v && Array.isArray(v.conversations)) conversationState.value = v
@@ -175,22 +206,6 @@ const setActiveMenu = (menu) => {
 
 const toggleSidebar = () => {
 	isCollapsed.value = !isCollapsed.value
-}
-
-const handleGuestUser = () => {
-	// 後端聯調保留：訪客用戶
-	uni.showToast({
-		title: '訪客用戶功能開發中',
-		icon: 'none'
-	})
-}
-
-const handleSetting = () => {
-	// 後端聯調保留：設置
-	uni.showToast({
-		title: '設置功能開發中',
-		icon: 'none'
-	})
 }
 
 const handleSwitchToTryon = (item, defaultModelImage) => {
@@ -366,37 +381,117 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 
 .nav-text {
 	font-size: 28rpx;
-	/* 英文用系统无衬线体更易读，或者也用 Didot 保持一致，这里推荐无衬线体搭配 */
 	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
 	font-weight: 550;
-	color: #48484a; /* 稍微柔和一点的黑 */
+	color: #48484a;
 	letter-spacing: 0.3px;
 	white-space: nowrap;
 	opacity: 1;
 	transition: opacity 0.3s ease, width 0.3s ease;
 	overflow: hidden;
-	white-space: nowrap;
 }
 
+/* 底部用户行容器：margin-top: auto 贴底；上下间距在此或 .footer-item 调整 */
 .sidebar-footer {
+	position: relative;
 	flex-shrink: 0;
 	margin-top: auto;
+	padding-top: 5rpx;
+	padding-bottom: 13rpx;
 	display: flex;
 	flex-direction: column;
 	gap: 10rpx;
 }
 
-.footer-item {
-	padding-left: 0; /* 底部菜单靠左对齐，不需要胶囊背景 */
+/* 状态卡片容器（相对定位，供浮层对齐） */
+.user-status-card {
+	position: relative;
+	width: 100%;
 }
 
-.sidebar.collapsed .footer-item {
+/* 触发块：平时无框，hover 时才显示框，背景与侧栏一致不改变 */
+.footer-item.user-status-trigger {
+	display: flex;
+	align-items: center;
+	padding: 20rpx 24rpx;
+	min-height: 72rpx;
+	box-sizing: border-box;
+	cursor: pointer;
+	transition: border-color 0.2s, box-shadow 0.2s;
+	border-radius: 16rpx;
+	border: 1px solid transparent;
+	background: transparent;
+	box-shadow: none;
+}
+.footer-item.user-status-trigger:hover {
+	border-color: rgba(0, 0, 0, 0.1);
+	box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+.footer-item.user-status-trigger:active {
+	border-color: rgba(0, 0, 0, 0.12);
+	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+}
+
+.sidebar.collapsed .footer-item.user-status-trigger {
 	justify-content: center;
+	padding: 24rpx 0;
 }
 
-.footer-item:hover {
-	background-color: transparent;
-	opacity: 0.7;
+/* 浮层出现/消失动效：opacity + translateY，120ms ease-out，无 scale/弹性 */
+.user-menu-fade-enter-active,
+.user-menu-fade-leave-active {
+	transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+.user-menu-fade-enter-from,
+.user-menu-fade-leave-to {
+	opacity: 0;
+	transform: translateY(6px);
+}
+.user-menu-fade-enter-to,
+.user-menu-fade-leave-from {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+/* 上方浮层：宽度与触发块一致（左右不缩进），字体黑色 */
+.user-menu-popup {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 100%;
+	margin-bottom: 10rpx;
+	background: #fff;
+	border-radius: 14rpx;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	box-shadow: 0 8rpx 28rpx rgba(0, 0, 0, 0.12);
+	overflow: hidden;
+	z-index: 100;
+}
+.user-menu-item {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 12rpx;
+	padding: 20rpx 28rpx;
+	font-size: 26rpx;
+	font-weight: 500;
+	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+.user-menu-item-icon {
+	width: 32rpx;
+	height: 32rpx;
+	flex-shrink: 0;
+}
+.user-menu-item-text {
+	color: #1D1D1F;
+}
+.user-menu-item:hover {
+	background-color: rgba(0, 0, 0, 0.05);
+}
+.user-menu-item:active {
+	background-color: rgba(0, 0, 0, 0.08);
 }
 
 /* 主内容区 */
@@ -434,17 +529,6 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 .view-fade-leave-from {
 	opacity: 1;
 	transform: translateX(0);
-}
-
-.view-placeholder {
-	width: 100%;
-	height: 100%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-family: "Didot", "Bodoni MT", "Noto Serif", "Songti SC", serif;
-	font-size: 36rpx;
-	color: #9D8B70;
 }
 
 </style>
