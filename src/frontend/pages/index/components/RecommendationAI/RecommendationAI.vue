@@ -242,6 +242,8 @@
  */
 import { ref, watch, nextTick } from 'vue'
 import RecommendationCard from './RecommendationCard.vue'
+import { LOADING_STEPS, getMockAiResponse, MOCK_DELAY_MS, USE_RECOMMENDATION_MOCK, normalizeChatResponse } from './mockData.js'
+import { chatRecommendation } from '@/api/recommendationApi.js'
 
 const props = defineProps({
 	currentConversationId: { type: String, default: null },
@@ -257,7 +259,6 @@ const chatHistory = ref([]) // 聊天历史记录
 const scrollTarget = ref('') // 用于自动滚动
 const justCreatedConversation = ref(false) // 刚建立会话尚未收到 AI 回复，避免被 prop 覆盖
 const loadingStep = ref(0) // 加载过程步骤，用于展示「分析中」文案
-const LOADING_STEPS = ['Analyzing weather…', 'Matching wardrobe…', 'Generating recommendations…']
 
 /** 将 AI 消息转为 recommendation 数组，支持多套推荐与 swiper 滑动 */
 const getRecommendations = (msg) => {
@@ -286,7 +287,8 @@ const getRecommendations = (msg) => {
 		whyThisWorks: msg.whyThisWorks || [],
 		images: msg.images || []
 	}
-	return items.length > 0 || rec.content || rec.images.length > 0 ? [rec] : []
+	// 有 items 或 images 才当推荐卡片；仅 content 时返回 []，由模板以纯文字展示（联调第一阶段）
+	return items.length > 0 || (rec.images && rec.images.length > 0) ? [rec] : []
 }
 const handleRegenerate = (msgIdx) => {
 	const msg = chatHistory.value[msgIdx]
@@ -383,40 +385,11 @@ const handleSearch = async () => {
 		loadingStep.value = (loadingStep.value + 1) % LOADING_STEPS.length
 	}, 500)
 
-	// 模拟后端 LLM 生成（2.5 秒后返回，留足过程感）
-	setTimeout(() => {
+	// 获取 AI 回复：USE_RECOMMENDATION_MOCK 为 true 用 mock，否则请求后端 /api/chat（见 backend/AIwardrobe/README.md）
+	const finishLoading = (aiMessage) => {
 		clearInterval(stepInterval)
 		chatHistory.value = chatHistory.value.filter(msg => msg.role !== 'loading')
-
-		// 添加 AI 回复：使用 recommendation 结构，不写死在 template
-		const recommendation = {
-			title: 'Campus Casual',
-			temperature: '18-22°C',
-			styleTags: ['Light Layering', 'Casual'],
-			content: '🌤 Tomorrow looks perfect for light layering.\n\nWe styled a campus-ready outfit that keeps you warm in the morning and breathable at noon.',
-			items: [
-				{ type: 'Top', name: 'Thin Knit Sweater', reason: 'Warm & breathable', details: '建议选择羊绒或美利奴羊毛混纺，透气且保暖。色彩与下装形成层次对比。' },
-				{ type: 'Bottom', name: 'Straight Jeans', reason: 'Versatile fit', details: '直筒版型平衡上身宽松感，深色系与米色针织形成经典搭配。' },
-				{ type: 'Outerwear', name: 'Softshell Jacket', reason: 'Morning warmth, noon off', details: '轻薄防风，叠穿不臃肿。建议选择与针织同色系。' },
-				{ type: 'Shoes', name: 'White Sneakers', reason: 'Clean & fresh look', details: '白色鞋款打破深色主导，呼应针织的清爽感，比例更协调。' },
-				{ type: 'Accessories', name: 'Light Scarf', reason: 'Wind-break accent', details: '浅色围巾与上衣同色系，避免视觉割裂。' }
-			],
-			whyThisWorks: [
-				'Soft knit keeps warmth without bulk',
-				'Straight jeans balance proportions',
-				'White sneakers brighten the look'
-			],
-			images: [
-				'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?q=80&w=400',
-				'https://images.unsplash.com/photo-1542272454315-4c01d7abdf4a?q=80&w=400',
-				'https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=400'
-			]
-		}
-		chatHistory.value.push({
-			role: 'ai',
-			recommendations: [recommendation]
-		})
-
+		chatHistory.value.push(aiMessage)
 		justCreatedConversation.value = false
 		const cid = props.currentConversationId
 		if (cid) {
@@ -424,9 +397,27 @@ const handleSearch = async () => {
 			if (isFirstMessageInConversation) payload.title = (query || '新对话').slice(0, 36)
 			emit('update-conversation', payload)
 		}
-
 		scrollToBottom()
-	}, 2500)
+	}
+
+	if (USE_RECOMMENDATION_MOCK) {
+		setTimeout(() => {
+			finishLoading(getMockAiResponse())
+		}, MOCK_DELAY_MS)
+		return
+	}
+
+	// 联调：请求后端，支持第一阶段纯文字 { content } 与第二阶段 { content, recommendations }
+	try {
+		const res = await chatRecommendation(query)
+		finishLoading(normalizeChatResponse(res))
+	} catch (err) {
+		finishLoading({
+			role: 'ai',
+			content: '请求失败：' + (err && err.message ? err.message : '网络错误')
+		})
+		uni.showToast({ title: '推荐请求失败', icon: 'none' })
+	}
 }
 
 // 本地上传图片（输入框内缩略图，最多 8 张）
