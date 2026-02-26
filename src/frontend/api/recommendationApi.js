@@ -35,4 +35,22 @@ export function chatRecommendation(query) {
   })
 }
 
+/**
+ * 根据经纬度获取当前天气（穿衣建议用）
+ * @param {number} lat - 纬度
+ * @param {number} lon - 经度
+ * @returns {Promise<{ temp?: string, text?: string, windDesc?: string }>}
+ */
+export function getWeatherNow(lat, lon) {
+  const url = `${API_BASE_URL}/api/weather/now?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`
+  return request({
+    url,
+    method: 'GET'
+  }).then(res => {
+    if (res.statusCode === 200) return res.data || {}
+    const msg = (res.data && (res.data.detail || res.data.message)) || '天气请求失败'
+    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+  })
+}
+
 export { API_BASE_URL }

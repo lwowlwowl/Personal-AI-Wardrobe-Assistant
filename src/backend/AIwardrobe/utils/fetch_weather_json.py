@@ -33,11 +33,11 @@ def _build_auth_headers() -> dict:
         private_key = f.read()
 
     now = int(time.time())
-
+    # 和风要求：sub=ProjectID，iat=当前时间，exp=当前时间+600；Header 含 kid
     payload = {
         "sub": project_id,
-        "iat": now - 30,
-        "exp": now + 900,
+        "iat": now,
+        "exp": now + 600,
     }
     encoded_jwt = jwt.encode(
         payload, private_key, algorithm="EdDSA", headers={"kid": kid}
@@ -78,6 +78,33 @@ def _lookup_location_id(
         return None
 
     return locations[0].get("id")
+
+
+def _lookup_location_id_by_coords(
+    host: str, headers: dict, lat: float, lon: float, lang: str | None = None
+) -> str | None:
+    """
+    Lookup location id via GeoAPI by coordinates (经度,纬度).
+    """
+    location_param = f"{lon},{lat}"
+    return _lookup_location_id(host, headers, location_param, lang)
+
+
+def get_location_id_by_coords(
+    lat: float,
+    lon: float,
+    lang: str | None = "en",
+    host: str | None = None,
+) -> str | None:
+    """
+    仅用经纬度查 location_id，供外部做缓存 key 等。不查天气。
+    """
+    if not host:
+        host = DEFAULT_HOST
+    if not host:
+        raise RuntimeError("未配置QWEATHER_API_HOST，请在 .env 中设置")
+    headers = _build_auth_headers()
+    return _lookup_location_id_by_coords(host, headers, lat, lon, lang)
 
 
 def fetch_weather_json_now(

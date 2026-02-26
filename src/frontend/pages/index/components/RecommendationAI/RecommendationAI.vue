@@ -17,12 +17,16 @@
 						<text class="wave-emoji">👋</text>
 						<text class="greeting-text">Hi! Good Afternoon</text>
 					</view>
-					<view class="weather-row">
-						<text class="weather-info">Today 21°C</text>
-						<text class="weather-divider">|</text>
-						<text class="weather-info">Light Breeze</text>
-						<text class="weather-divider">|</text>
-						<text class="weather-info">Ideal for a Light Jacket</text>
+					<view class="weather-card" :class="{ ready: !loadingWeather }">
+						<view class="weather-row">
+							<text class="weather-info">Today {{ weatherTempDisplay }}{{ loadingWeather ? '' : '°C' }}</text>
+							<text class="weather-divider">|</text>
+							<text class="weather-info">{{ weatherTextDisplay }}</text>
+							<text class="weather-divider">|</text>
+							<text class="weather-info">{{ weatherWindDisplay }}</text>
+							<text class="weather-divider">|</text>
+							<text class="weather-info">Ideal for a Light Jacket</text>
+						</view>
 					</view>
 				</view>
 				<view class="input-container input-in-flow">
@@ -240,10 +244,10 @@
  * - 推荐数据 reactive 结构，v-for 渲染，RecommendationCard 独立组件
  * - 支持多会话：由父组件传入 currentConversationId / currentConversation，并 emit create/update
  */
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onMounted, computed } from 'vue'
 import RecommendationCard from './RecommendationCard.vue'
 import { LOADING_STEPS, getMockAiResponse, MOCK_DELAY_MS, USE_RECOMMENDATION_MOCK, normalizeChatResponse } from './mockData.js'
-import { chatRecommendation } from '@/api/recommendationApi.js'
+import { chatRecommendation, getWeatherNow } from '@/api/recommendationApi.js'
 
 const props = defineProps({
 	currentConversationId: { type: String, default: null },
@@ -255,6 +259,75 @@ const emit = defineEmits(['create-conversation', 'update-conversation'])
 const activeTab = ref('wardrobe') // 当前标签：wardrobe | online
 const searchQuery = ref('')
 const hasSearched = ref(false) // 状态管理：是否已搜索
+
+// 天气：由经纬度请求后端获取；加载前显示 —，加载完淡入；半小时内同位置复用
+const WEATHER_REUSE_MS = 30 * 60 * 1000
+const WEATHER_MIN_LOADING_MS = 300
+const weatherCache = { key: '', at: 0, data: null }
+const loadingWeather = ref(true)
+const weatherTemp = ref('')
+const weatherText = ref('')
+const weatherWindDesc = ref('')
+const weatherTempDisplay = computed(() => (loadingWeather.value ? '—' : (weatherTemp.value || '—')))
+const weatherTextDisplay = computed(() => (loadingWeather.value ? '—' : (weatherText.value || '—')))
+const weatherWindDisplay = computed(() => (loadingWeather.value ? '—' : (weatherWindDesc.value || '—')))
+
+function applyWeatherData(data) {
+  if (data.temp != null && data.temp !== '') weatherTemp.value = String(data.temp)
+  if (data.text != null && data.text !== '') weatherText.value = String(data.text)
+  if (data.windDesc) weatherWindDesc.value = data.windDesc
+}
+
+function setWeatherReady() {
+  loadingWeather.value = false
+}
+
+const DEFAULT_LAT = 29.87
+const DEFAULT_LON = 121.55
+
+async function fetchWeatherForCoords(lat, lon) {
+  const key = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`
+  const now = Date.now()
+  const t0 = Date.now()
+
+  if (weatherCache.key === key && (now - weatherCache.at) < WEATHER_REUSE_MS && weatherCache.data) {
+    applyWeatherData(weatherCache.data)
+    const dt = Date.now() - t0
+    if (dt < WEATHER_MIN_LOADING_MS) {
+      await new Promise(r => setTimeout(r, WEATHER_MIN_LOADING_MS - dt))
+    }
+    setWeatherReady()
+    return
+  }
+
+  try {
+    const data = await getWeatherNow(lat, lon)
+    weatherCache.key = key
+    weatherCache.at = Date.now()
+    weatherCache.data = data
+    applyWeatherData(data)
+    const dt = Date.now() - t0
+    if (dt < WEATHER_MIN_LOADING_MS) {
+      await new Promise(r => setTimeout(r, WEATHER_MIN_LOADING_MS - dt))
+    }
+    setWeatherReady()
+  } catch (err) {
+    console.warn('[RecommendationAI] 天气请求失败', err?.message || err)
+    setWeatherReady()
+  }
+}
+
+onMounted(() => {
+  uni.getLocation({
+    type: 'wgs84',
+    success: (res) => {
+      fetchWeatherForCoords(res.latitude, res.longitude)
+    },
+    fail: () => {
+      fetchWeatherForCoords(DEFAULT_LAT, DEFAULT_LON)
+    }
+  })
+})
 const chatHistory = ref([]) // 聊天历史记录
 const scrollTarget = ref('') // 用于自动滚动
 const justCreatedConversation = ref(false) // 刚建立会话尚未收到 AI 回复，避免被 prop 覆盖
@@ -615,7 +688,18 @@ const previewImages = (urls, index = 0) => {
 	color: #1D1D1F;
 }
 
-/* 天气信息行：温度 | 风力 | 推荐 */
+/* 天气卡片：加载中透明+微位移，数据回来淡入 */
+.weather-card {
+	opacity: 0;
+	transform: translateY(6px);
+	transition: opacity 260ms ease, transform 260ms ease;
+}
+.weather-card.ready {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+/* 天气信息行：温度 | 天气现象 | 风力 | 推荐 */
 .weather-row {
 	margin-top: 40rpx;
 	margin-bottom: 120rpx;

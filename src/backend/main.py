@@ -14,6 +14,9 @@ import traceback
 import models, schemas, crud
 from database import engine, get_db
 
+import os
+import sys
+import time
 import uuid
 from fastapi import UploadFile, File, Form, Query, Path
 from typing import List, Optional, Dict, Any
@@ -23,6 +26,20 @@ from pathlib import Path as PathLib
 # ============ 路径配置 ============
 # 项目根目录：.../Personal-AI-Wardrobe-Assistant
 BASE_DIR = PathLib(__file__).resolve().parents[2]
+BACKEND_DIR = PathLib(__file__).resolve().parent
+AIWARDROBE_DIR = BACKEND_DIR / "AIwardrobe"
+if str(AIWARDROBE_DIR) not in sys.path:
+    sys.path.insert(0, str(AIWARDROBE_DIR))
+
+# 加载 .env：先 backend/.env，再 AIwardrobe/config/.env，使 QWEATHER_* 对天气接口生效
+try:
+    import dotenv
+    for _env_path in (BACKEND_DIR / ".env", AIWARDROBE_DIR / "config" / ".env"):
+        if _env_path.exists():
+            dotenv.load_dotenv(_env_path, override=False)
+except Exception:
+    pass
+
 UPLOAD_URL_PREFIX = "/Personal-AI-Wardrobe-Assistant/uploads"
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -76,6 +93,114 @@ async def root():
 async def health_check():
     """健康检查接口：用于监控服务状态"""
     return {"status": "healthy", "message": "API is running"}
+
+
+# ============ 天气接口（基于用户经纬度，供前端 RecommendationAI 穿衣建议） ============
+# 半小时内同位置复用，避免重复调用和风 API；缓存 key 用 location_id，同城市/区县可复用
+_WEATHER_CACHE_TTL_SEC = 30 * 60   # 30 分钟
+_weather_cache: Dict[str, Dict[str, Any]] = {}  # key: location_id（和风 GeoAPI 返回）
+
+
+def _wind_scale_to_desc(scale: str) -> str:
+    """将和风天气风力等级转为简短描述（如 Light Breeze）。"""
+    try:
+        n = int(scale or "0")
+    except (ValueError, TypeError):
+        return "—"
+    if n <= 2:
+        return "Light Breeze"
+    if n <= 4:
+        return "Moderate Breeze"
+    if n <= 6:
+        return "Strong Breeze"
+    if n <= 8:
+        return "Near Gale"
+    if n <= 10:
+        return "Gale"
+    return "Storm"
+
+
+@app.get("/api/weather/now")
+async def get_weather_now(
+    lat: float = Query(..., description="纬度"),
+    lon: float = Query(..., description="经度"),
+):
+    """
+    根据经纬度获取当前天气（和风天气 API），供前端显示温度与风力并做穿衣建议。
+    同一 location_id（同城市/区县）30 分钟内复用缓存，不再调用和风 API。
+    """
+    # 禁止使用旧版共用域名，否则和风会 403
+    host = (os.environ.get("QWEATHER_API_HOST") or "").strip().lower()
+    if "api.qweather.com" in host and "qweatherapi.com" not in host:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "QWEATHER_API_HOST 不能使用 api.qweather.com（会 403）。"
+                "请登录 https://dev.qweather.com 控制台，在项目/认证里复制「API Host」专属域名（形如 https://xxx.def.qweatherapi.com），"
+                "填到 backend/.env 的 QWEATHER_API_HOST，保存后重启后端。"
+            ),
+        )
+
+    try:
+        from utils.fetch_weather_json import get_location_id_by_coords, fetch_weather_json_now
+    except ImportError as e:
+        print(f"天气服务 ImportError: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"天气服务未配置或无法加载: {str(e)}",
+        ) from e
+
+    # 第一步：用经纬度 lookup 出 location_id
+    try:
+        location_id = get_location_id_by_coords(lat, lon, lang="en")
+    except RuntimeError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    if not location_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="未匹配到该经纬度位置，请检查坐标",
+        )
+
+    # 第二步：缓存 key = location_id，走 30 分钟复用
+    cache_key = location_id
+    now_ts = time.time()
+    if cache_key in _weather_cache:
+        entry = _weather_cache[cache_key]
+        if now_ts - entry["fetched_at"] < _WEATHER_CACHE_TTL_SEC:
+            return entry["response"]
+
+    # 第三步：缓存 miss，用 location_id 查天气
+    try:
+        data = fetch_weather_json_now(location=location_id, lang="en")
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        print(f"天气接口异常: {traceback.format_exc()}")
+        detail = f"天气服务异常: {str(e)}"
+        if "403" in str(e):
+            detail += "。和风 403 常见原因：请将 QWEATHER_API_HOST 改为控制台「API Host」中的专属域名（如 xxx.def.qweatherapi.com），勿用 api.qweather.com；或检查账户额度与 JWT 凭据。"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=detail,
+        ) from e
+
+    now = data.get("now") or {}
+    temp = now.get("temp", "")
+    text = now.get("text", "")
+    wind_scale = now.get("windScale", "")
+    wind_desc = _wind_scale_to_desc(wind_scale)
+
+    response = {
+        "temp": temp,
+        "text": text,
+        "windScale": wind_scale,
+        "windDesc": wind_desc,
+    }
+    _weather_cache[cache_key] = {"response": response, "fetched_at": now_ts}
+    return response
 
 
 # ============ 用户认证相关接口 ============
