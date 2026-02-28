@@ -120,7 +120,10 @@
 		<view class="add-inline">
 			<view class="add-inline-list">
 				<transition name="filter-list-fade" mode="out-in">
-					<view v-if="filteredWardrobeItems.length > 0" key="filter-list" class="filter-list-container">
+					<view v-if="wardrobeLoading" key="loading" class="add-empty">
+						<text class="add-empty-text">加载衣橱中…</text>
+					</view>
+					<view v-else-if="filteredWardrobeItems.length > 0" key="filter-list" class="filter-list-container">
 						<view
 							v-for="(item, index) in filteredWardrobeItems"
 							:key="item.id"
@@ -160,10 +163,15 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { TYPE_OPTIONS, COLOR_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
+import { getClothingList, API_BASE_URL } from '@/api/wardrobe.js'
 
 const props = defineProps({
+	token: {
+		type: String,
+		default: ''
+	},
 	initialSelection: {
 		type: Array,
 		default: () => []
@@ -180,16 +188,72 @@ watch(() => props.initialSelection, (newVal) => {
 	pendingSelection.value = [...newVal]
 }, { deep: true })
 
-/** 衣柜项目（与 MyWardrobe 一致：每件用 placehold.co 色块+名称区分，不再共用一张图） */
-const wardrobeItems = ref([
-	{ id: '1', name: 'White Cotton T-shirt', image: 'https://placehold.co/400x500/E8E4E0/5c4a32?text=White+Tee', accentColor: '#E8E4E0', category: 'Tops', color: 'White', season: 'Summer' },
-	{ id: '2', name: 'Classic Denim Jacket', image: 'https://placehold.co/400x500/6B8EAD/f5f0e6?text=Denim+Jacket', accentColor: '#6B8EAD', category: 'Outerwear', color: 'Denim', season: 'Autumn' },
-	{ id: '3', name: 'Black Knit Top', image: 'https://placehold.co/400x500/4A4A4A/f5f0e6?text=Black+Top', accentColor: '#4A4A4A', category: 'Tops', color: 'Black', season: 'Winter' },
-	{ id: '4', name: 'Khaki Chino Pants', image: 'https://placehold.co/400x500/C4A574/5c4a32?text=Khaki+Pants', accentColor: '#C4A574', category: 'Pants', color: 'Khaki', season: 'Spring' },
-	{ id: '5', name: 'Navy Striped Tee', image: 'https://placehold.co/400x500/2C3E5A/f5f0e6?text=Navy+Tee', accentColor: '#2C3E5A', category: 'Tops', color: 'Navy', season: 'Summer' },
-	{ id: '6', name: 'Cream Knit Sweater', image: 'https://placehold.co/400x500/F5E6D3/5c4a32?text=Cream+Sweater', accentColor: '#F5E6D3', category: 'Outerwear', color: 'Cream', season: 'Winter' },
-	{ id: '7', name: 'Dark Denim Overshirt', image: 'https://placehold.co/400x500/5A6B7D/f5f0e6?text=Denim+Shirt', accentColor: '#5A6B7D', category: 'Outerwear', color: 'Denim', season: 'Autumn' }
-])
+/** 衣柜项目：来自 GET /api/clothing，字段映射 image_url -> image，color 可作 accentColor */
+const wardrobeItems = ref([])
+const wardrobeLoading = ref(false)
+
+async function loadWardrobe() {
+	// 优先用父组件传入的 token，否则从本地存储读取（与「我的衣柜」同源）
+	const token = props.token || uni.getStorageSync('auth_token') || ''
+	if (!token) {
+		wardrobeItems.value = []
+		wardrobeLoading.value = false
+		return
+	}
+	wardrobeLoading.value = true
+	try {
+		const res = await getClothingList({
+			token,
+			page: 1,
+			page_size: 100,
+			order_by: 'created_at',
+			order_desc: true
+		})
+		if (res.statusCode !== 200) {
+			wardrobeItems.value = []
+			return
+		}
+		// 兼容：res.data 可能为已解析对象或 JSON 字符串；后端格式为 { success, data: { items, pagination } }
+		let body = res.data
+		if (typeof body === 'string') {
+			try {
+				body = JSON.parse(body)
+			} catch (_) {
+				wardrobeItems.value = []
+				return
+			}
+		}
+		const rawItems = (body && body.data && body.data.items) || (body && body.items) || []
+		if (!Array.isArray(rawItems)) {
+			wardrobeItems.value = []
+			return
+		}
+		const items = rawItems.map((item) => {
+			let image = item.image_url || item.image || ''
+			if (image && image.startsWith('/') && !image.startsWith('//')) {
+				image = `${API_BASE_URL}${image}`
+			}
+			return {
+				id: item.id,
+				name: item.name || '未命名',
+				image,
+				accentColor: (item.color && /^#?[0-9A-Fa-f]{6}$/i.test(String(item.color).replace(/^#/, ''))) ? (item.color.startsWith('#') ? item.color : '#' + item.color) : '#8d6e63',
+				category: item.category || '',
+				color: item.color || '',
+				season: item.season || ''
+			}
+		})
+		wardrobeItems.value = items
+	} catch (e) {
+		wardrobeItems.value = []
+		console.warn('[AddOutfitPanel] loadWardrobe failed', e)
+	} finally {
+		wardrobeLoading.value = false
+	}
+}
+
+onMounted(() => loadWardrobe())
+watch(() => props.token, () => loadWardrobe())
 
 /** Filter 状态：多选数组，空数组表示「全部」 */
 const filterCategory = ref([])

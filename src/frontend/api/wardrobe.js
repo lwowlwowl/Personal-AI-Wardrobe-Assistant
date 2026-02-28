@@ -7,10 +7,11 @@ const API_BASE_URL = 'http://localhost:8000'
 
 /**
  * 封装 uni.request，返回完整 response（含 statusCode、data）供调用端判断
+ * 提取为可复用方法，供其他 API 模块（如日历模块）共用。
  * @param {Object} options - uni.request 的 options
  * @returns {Promise<{ statusCode, data }>}
  */
-function request(options) {
+export function request(options) {
   const url = options.url.startsWith('http') ? options.url : `${API_BASE_URL}${options.url.startsWith('/') ? '' : '/'}${options.url}`
   return new Promise((resolve, reject) => {
     uni.request({

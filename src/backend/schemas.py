@@ -357,6 +357,23 @@ class WearHistory(WearHistoryBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ==================== 日历穿搭（MyCalendar）模型 ====================
+
+
+class CalendarOutfitItem(BaseModel):
+    """日历中的单个穿搭单品（与前端 MyCalendar 保持字段一致）"""
+    id: int = Field(..., description="单品 id（对应衣橱中的 clothing_id）")
+    name: Optional[str] = Field(None, description="单品名称（可选）")
+    image: Optional[str] = Field(None, description="图片 URL（可选）")
+    accentColor: Optional[str] = Field(None, description="主题色（前端展示用，可选）")
+
+
+class CalendarOutfitSave(BaseModel):
+    """保存 / 更新某天日历穿搭记录的请求体"""
+    date: str = Field(..., description="日期（YYYY-MM-DD）")
+    items: List[CalendarOutfitItem] = Field(default_factory=list, description="当日穿搭单品数组（可为空数组表示清空）")
+
+
 # ==================== 搭配管理模型 ====================
 
 class OutfitItemBase(BaseModel):
