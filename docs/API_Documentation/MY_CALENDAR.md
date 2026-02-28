@@ -108,6 +108,7 @@ GET /api/calendar/outfits?token=xxx&year=2025&month=2
 | data.monthStats.daysRecorded | number | 该月有记录的天数（计算口径见下方） |
 | data.monthStats.uniqueItems | number | 该月不重复单品数（计算口径见下方） |
 | data.currentStreak | number | （可选）连续记录天数（计算口径见下方） |
+| status_code | number | HTTP 状态码（200） |
 
 **统计字段计算口径（重要）**：
 
@@ -116,7 +117,6 @@ GET /api/calendar/outfits?token=xxx&year=2025&month=2
 - **daysRecorded**：本月 `outfits` 中 `items.length > 0` 的日期数量
 - **uniqueItems**：本月内按 `item.id` 去重的数量（**必须用 id 去重，不要用 name 去重，避免冲突**）
 - **currentStreak**：从当月今天（或查看月份的最后一天）往前倒推，连续有记录的天数，遇到空日期即断开。**计算范围仅限当前请求的月份（year+month）内，跨月不连续，月初前一天不计入**。
-| status_code | number | HTTP状态码（200） |
 
 **单品对象结构**
 
@@ -517,8 +517,20 @@ GET /api/calendar/outfits?token=xxx&year=2025&month=2
 
 如有疑问，请联系前端开发团队。
 
-**文档版本**：v1.2  
-**最后更新**：2026-02-12
+**文档版本**：v1.3  
+**最后更新**：2026-02-27
+
+---
+
+## 当前实现状态（与本文档对齐）
+
+- **前端**
+  - **API 封装**：`@/api/calendarApi.js` 提供 `getCalendarOutfits`、`saveCalendarOutfits`，复用 `@/api/wardrobe.js` 的 `request` 与 `API_BASE_URL`。
+  - **MyCalendar.vue**：仅使用 GET 返回的 `data.outfits` 渲染日历；`monthStats`（daysRecorded、uniqueItems）与 `currentStreak` 均在前端按附录 A.2 口径从 `outfits` 计算；进入页面与切换月份时拉取当月数据；添加/删除/清空当日穿搭均通过 POST 全量覆盖；删除为乐观更新后再调用 POST；垃圾桶图标使用 `/static/icons/icon-trash-red.svg`。
+  - **AddOutfitPanel.vue**：衣橱列表来自 `getClothingList`（`@/api/wardrobe.js`），token 由 props 或 `uni.getStorageSync('auth_token')` 获取；衣橱项做 `image_url`→`image`、`color`→`accentColor`（十六进制时）映射。
+- **后端**
+  - 已实现 `GET /api/calendar/outfits`、`POST /api/calendar/outfits`；GET 返回 `data.outfits` 与 `data.monthStats`（daysRecorded、uniqueItems），不返回 `currentStreak`；POST 全量覆盖当日记录，响应 `data.date`、`data.items`（由衣橱表 join 补齐 name、image）。
+- **前端响应解析**：`uni.request` 的 `res.data` 即为后端 JSON body；前端以 `res.data.success`、`res.data.data` 判断成功并读取 `res.data.data.outfits` / `res.data.data.items` 等。
 
 ---
 
@@ -533,11 +545,9 @@ GET /api/calendar/outfits?token=xxx&year=2025&month=2
    - 支持筛选和搜索（详见 `MY_WARDROBE.md`）
 
 2. **字段映射（重要）**：
-   - **衣橱接口真实返回字段**（详见 `MY_WARDROBE.md`）：`image_url`、`id`、`name`、`category`、`color`、`season` 等
-   - **日历模块对外字段**：`image`（对应衣橱的 `image_url`）、`id`、`name`、`accentColor`（可选，可从 `color` 推导）
-   - **字段映射处理方式**：
-     - **方式1（推荐）**：前端在调用衣橱接口获取数据后，将 `image_url` 映射为 `image`，然后调用日历接口保存
-     - **方式2（可选）**：后端在日历接口返回时统一输出 `image` 字段（内部仍可使用 `image_url` 存储）
+   - **衣橱接口真实返回字段**（详见 `MY_WARDROBE.md`）：`image_url`、`id`、`name`、`category`、`color`、`season` 等；列表可能位于 `data.data.items` 或 `data.items`，前端已做兼容。
+   - **日历模块对外字段**：`image`（对应衣橱的 `image_url`）、`id`、`name`、`accentColor`（可选，`color` 为十六进制时直接用作 accentColor，否则默认色）
+   - **当前实现**：AddOutfitPanel 调用衣橱接口后做 `image_url`→`image`、`color`→`accentColor` 映射；日历 GET/POST 由后端从衣橱表 join 返回 `image`、`name` 等。
    - **重要说明**：衣橱接口字段（`image_url`）保持不变，无需修改。日历模块使用 `image` 字段，由前端映射或后端在日历接口返回时统一转换。
 
 ### 响应格式统一
