@@ -260,10 +260,8 @@ const activeTab = ref('wardrobe') // 当前标签：wardrobe | online
 const searchQuery = ref('')
 const hasSearched = ref(false) // 状态管理：是否已搜索
 
-// 天气：由经纬度请求后端获取；加载前显示 —，加载完淡入；半小时内同位置复用
-const WEATHER_REUSE_MS = 30 * 60 * 1000
+// 天气：由经纬度请求后端获取；加载前显示 —，加载完淡入；半小时内同位置复用（跨页面，切到我的衣柜再回来不重复请求）
 const WEATHER_MIN_LOADING_MS = 300
-const weatherCache = { key: '', at: 0, data: null }
 const loadingWeather = ref(true)
 const weatherTemp = ref('')
 const weatherText = ref('')
@@ -286,25 +284,9 @@ const DEFAULT_LAT = 29.87
 const DEFAULT_LON = 121.55
 
 async function fetchWeatherForCoords(lat, lon) {
-  const key = `${Number(lat).toFixed(3)},${Number(lon).toFixed(3)}`
-  const now = Date.now()
   const t0 = Date.now()
-
-  if (weatherCache.key === key && (now - weatherCache.at) < WEATHER_REUSE_MS && weatherCache.data) {
-    applyWeatherData(weatherCache.data)
-    const dt = Date.now() - t0
-    if (dt < WEATHER_MIN_LOADING_MS) {
-      await new Promise(r => setTimeout(r, WEATHER_MIN_LOADING_MS - dt))
-    }
-    setWeatherReady()
-    return
-  }
-
   try {
     const data = await getWeatherNow(lat, lon)
-    weatherCache.key = key
-    weatherCache.at = Date.now()
-    weatherCache.data = data
     applyWeatherData(data)
     const dt = Date.now() - t0
     if (dt < WEATHER_MIN_LOADING_MS) {

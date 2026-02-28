@@ -96,9 +96,10 @@ async def health_check():
 
 
 # ============ 天气接口（基于用户经纬度，供前端 RecommendationAI 穿衣建议） ============
-# 半小时内同位置复用，避免重复调用和风 API；缓存 key 用 location_id，同城市/区县可复用
+# 半小时内复用：GeoAPI（经纬度→location_id）、天气 API 均缓存，避免频繁调用和风
 _WEATHER_CACHE_TTL_SEC = 30 * 60   # 30 分钟
-_weather_cache: Dict[str, Dict[str, Any]] = {}  # key: location_id（和风 GeoAPI 返回）
+_geo_cache: Dict[str, Dict[str, Any]] = {}   # key: "lat,lon" 保留3位小数 → { "location_id", "fetched_at" }
+_weather_cache: Dict[str, Dict[str, Any]] = {}  # key: location_id → { "response", "fetched_at" }
 
 
 def _wind_scale_to_desc(scale: str) -> str:
@@ -150,16 +151,28 @@ async def get_weather_now(
             detail=f"天气服务未配置或无法加载: {str(e)}",
         ) from e
 
-    # 第一步：用经纬度 lookup 出 location_id
-    try:
-        location_id = get_location_id_by_coords(lat, lon, lang="en")
-    except RuntimeError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    # 第一步：经纬度 → location_id（GeoAPI 也做 30 分钟缓存，避免频繁调 GeoAPI）
+    geo_key = f"{round(lat, 3)},{round(lon, 3)}"
+    now_ts = time.time()
+    if geo_key in _geo_cache:
+        geo_entry = _geo_cache[geo_key]
+        if now_ts - geo_entry["fetched_at"] < _WEATHER_CACHE_TTL_SEC:
+            location_id = geo_entry["location_id"]
+        else:
+            location_id = None
+    else:
+        location_id = None
     if not location_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="未匹配到该经纬度位置，请检查坐标",
-        )
+        try:
+            location_id = get_location_id_by_coords(lat, lon, lang="en")
+        except RuntimeError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        if not location_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="未匹配到该经纬度位置，请检查坐标",
+            )
+        _geo_cache[geo_key] = {"location_id": location_id, "fetched_at": now_ts}
 
     # 第二步：缓存 key = location_id，走 30 分钟复用
     cache_key = location_id
