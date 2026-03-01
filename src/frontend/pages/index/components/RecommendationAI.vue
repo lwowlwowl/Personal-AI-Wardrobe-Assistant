@@ -126,6 +126,7 @@
 <script setup>
 import { ref, nextTick } from 'vue'
 
+const API_BASE_URL = 'http://localhost:8000'
 const activeTab = ref('wardrobe')
 const searchQuery = ref('')
 const hasSearched = ref(false) // 状态管理：是否已搜索
@@ -147,6 +148,61 @@ const scrollToBottom = () => {
 	})
 }
 
+const streamChat = async ({ query, history, onDelta, onError }) => {
+	const response = await fetch(`${API_BASE_URL}/api/ai/chat/stream`, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ query, history })
+	})
+
+	if (!response.ok || !response.body) {
+		throw new Error(`请求失败: ${response.status}`)
+	}
+
+	const reader = response.body.getReader()
+	const decoder = new TextDecoder('utf-8')
+	let buffer = ''
+	let finished = false
+
+	while (!finished) {
+		const { value, done } = await reader.read()
+		if (done) break
+
+		buffer += decoder.decode(value, { stream: true })
+		let sepIndex = buffer.indexOf('\n\n')
+
+		while (sepIndex !== -1) {
+			const rawEvent = buffer.slice(0, sepIndex).trim()
+			buffer = buffer.slice(sepIndex + 2)
+
+			if (rawEvent.startsWith('data:')) {
+				const dataLine = rawEvent
+					.split('\n')
+					.find(line => line.startsWith('data:'))
+				if (dataLine) {
+					const dataText = dataLine.replace(/^data:\s*/, '')
+					const payload = JSON.parse(dataText)
+
+					if (payload.type === 'delta' && payload.content) {
+						onDelta(payload.content)
+					} else if (payload.type === 'error') {
+						onError(payload.message || '流式响应异常')
+						finished = true
+						break
+					} else if (payload.type === 'done') {
+						finished = true
+						break
+					}
+				}
+			}
+
+			sepIndex = buffer.indexOf('\n\n')
+		}
+	}
+}
+
 const handleSearch = async () => {
 	const query = searchQuery.value.trim()
 	if (!query) return
@@ -166,33 +222,40 @@ const handleSearch = async () => {
 	// 3. 添加加载指示器
 	chatHistory.value.push({ role: 'loading', content: '' })
 	scrollToBottom()
-	
-	// 模拟后端 LLM 生成 (1.5秒后返回)
-	setTimeout(() => {
-		// 移除加载指示器
-		chatHistory.value = chatHistory.value.filter(msg => msg.role !== 'loading')
-		
-		// 添加 AI 回复
-		chatHistory.value.push({
-			role: 'ai',
-			content: 'Based on your wardrobe and tomorrow\'s weather (overall temperature 18-22°C, cooler in the morning and evening, and more comfortable in the midday), the following outfit suggestions are recommended:',
-			// 结构化数据：列表
-			list: [
-				'Top: Choose a thin knit sweater or long-sleeved hoodie from your wardrobe. It can keep you warm in the morning and evening, and you can take it off during midday.',
-				'Bottom: Pair with straight-leg jeans. They are durable and versatile, suitable for campus activities.',
-				'Outerwear: Carry a lightweight sports jacket/softshell coat. You can take it off when the temperature rises.',
-				'Shoes: It is recommended to wear white casual shoes or sports shoes, which are comfortable and match the overall style.',
-				'Accessories: If the wind is strong, you can add a light-colored scarf; the color should be the same as the top to avoid visual disconnection.'
-			],
-			// 结构化数据：图片
-			images: [
-				'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?q=80&w=300',
-				'https://images.unsplash.com/photo-1542272454315-4c01d7abdf4a?q=80&w=300'
-			]
+
+	// 4. 创建空白 AI 消息并接收流式内容
+	chatHistory.value = chatHistory.value.filter(msg => msg.role !== 'loading')
+	chatHistory.value.push({ role: 'ai', content: '', list: [], images: [] })
+	const aiIndex = chatHistory.value.length - 1
+
+	try {
+		const history = chatHistory.value
+			.filter(msg => msg.role === 'user' || msg.role === 'ai')
+			.slice(0, -1) // 去掉当前空白 ai 占位
+			.slice(-10)   // 仅保留最近 10 条上下文
+			.map(msg => ({ role: msg.role, content: msg.content }))
+
+		await streamChat({
+			query,
+			history,
+			onDelta: (deltaText) => {
+				chatHistory.value[aiIndex].content += deltaText
+				scrollToBottom()
+			},
+			onError: (message) => {
+				chatHistory.value[aiIndex].content = message || '模型服务异常，请稍后再试'
+				scrollToBottom()
+			}
 		})
-		
+
+		if (!chatHistory.value[aiIndex].content) {
+			chatHistory.value[aiIndex].content = '未获取到模型回复，请稍后再试'
+			scrollToBottom()
+		}
+	} catch (err) {
+		chatHistory.value[aiIndex].content = '请求失败，请检查后端服务和模型配置'
 		scrollToBottom()
-	}, 1500)
+	}
 }
 
 const handleAdd = () => {

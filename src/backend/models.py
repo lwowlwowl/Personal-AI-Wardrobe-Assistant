@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON, Numeric, Date, Enum as SQLEnum, Index, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON, Numeric, Date, \
+    Enum as SQLEnum, Index, UniqueConstraint, CheckConstraint, ARRAY
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -108,7 +109,7 @@ class ClothingItem(Base):
     fit_type = Column(SQLEnum(ClothingFitType), nullable=True)  # 版型/合身类型
 
     # ---- 使用信息 ----
-    season = Column(SQLEnum(ClothingSeason), nullable=True)     # 适用季节
+    season = Column(ARRAY(SQLEnum(ClothingSeason)), nullable=True)     # 适用季节
     occasion = Column(String(100), nullable=True)      # 适用场合
     purchase_date = Column(Date, nullable=True)        # 购买日期
     price = Column(Numeric(10, 2), nullable=True)      # 购买价格
@@ -138,7 +139,7 @@ class ClothingItem(Base):
     __table_args__ = (
         Index('idx_clothing_user_created', 'user_id', 'created_at'),  # 按用户和创建时间查询
         Index('idx_clothing_category', 'category'),                   # 按分类查询
-        Index('idx_clothing_season', 'season'),                       # 按季节查询
+        Index('idx_clothing_season', 'season', postgresql_using="gin"),                       # 按季节查询
         Index('idx_clothing_brand', 'brand'),                         # 按品牌查询
         Index('idx_clothing_color', 'color'),                         # 按颜色查询
     )

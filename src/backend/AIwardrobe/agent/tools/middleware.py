@@ -1,14 +1,12 @@
 from typing import Callable
-from utils.prompt_loader import load_system_prompts, load_report_prompts
+from AIwardrobe.utils.prompt_loader import load_system_prompts
 from langchain.agents import AgentState
 from langchain.agents.middleware import wrap_tool_call, before_model, dynamic_prompt, ModelRequest
 from langchain_core.messages import ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.runtime import Runtime
 from langgraph.types import Command
-
-
-from utils.logger_handler import logger
+from AIwardrobe.utils.logger_handler import logger
 
 
 @wrap_tool_call
@@ -47,12 +45,12 @@ def log_before_model(
     return None
 
 
-@dynamic_prompt                             # 每一次在生成提示词之前，调用此函数
-def report_prompt_switch(request: ModelRequest):                 # 动态切换提示词
+@dynamic_prompt
+def report_prompt_switch(request: ModelRequest):
     is_report = request.runtime.context.get("report", False)
 
-    if is_report:     # 是报告生成场景，返回报告生成提示词内容
-        logger.info(f"[report_prompt_switch]已切换至report模式")
+    if is_report:
+        logger.info("[report_prompt_switch]已切换至report模式")
         return load_report_prompts()
 
     return load_system_prompts()

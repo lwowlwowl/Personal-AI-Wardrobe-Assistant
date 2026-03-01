@@ -221,7 +221,7 @@ class ClothingItemBase(BaseModel):
     material: Optional[str] = Field(None, max_length=100, description="材质")
     size: Optional[str] = Field(None, max_length=20, description="尺码")
     fit_type: Optional[ClothingFitType] = Field(None, description="版型")
-    season: Optional[ClothingSeason] = Field(None, description="季节")
+    season: Optional[List[ClothingSeason]] = Field(None, description="季节列表")
     occasion: Optional[str] = Field(None, max_length=100, description="场合")
     purchase_date: Optional[date] = Field(None, description="购买日期")
     price: Optional[float] = Field(None, ge=0, description="价格")  # ge=0表示大于等于0
@@ -262,7 +262,7 @@ class ClothingItemUpdate(BaseModel):
     material: Optional[str] = Field(None, max_length=100)
     size: Optional[str] = Field(None, max_length=20)
     fit_type: Optional[ClothingFitType] = None
-    season: Optional[ClothingSeason] = None
+    season: Optional[List[ClothingSeason]] = Field(None, description="季节列表")
     occasion: Optional[str] = Field(None, max_length=100)
     purchase_date: Optional[date] = None
     price: Optional[float] = Field(None, ge=0)
@@ -384,7 +384,7 @@ class OutfitBase(BaseModel):
     name: str = Field(..., max_length=200, description="搭配名称")
     description: Optional[str] = Field(None, description="描述")
     occasion: Optional[str] = Field(None, max_length=100, description="场合")
-    season: Optional[str] = Field(None, max_length=20, description="季节")
+    season: Optional[List[ClothingSeason]] = Field(None, description="季节列表")
     style: Optional[str] = Field(None, max_length=100, description="风格")
     rating: Optional[int] = Field(None, ge=1, le=5, description="评分")
     is_public: bool = Field(False, description="是否公开")
@@ -401,7 +401,7 @@ class OutfitUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=200)
     description: Optional[str] = None
     occasion: Optional[str] = Field(None, max_length=100)
-    season: Optional[str] = Field(None, max_length=20)
+    season: Optional[List[ClothingSeason]] = Field(None, description="季节列表")
     style: Optional[str] = Field(None, max_length=100)
     rating: Optional[int] = Field(None, ge=1, le=5)
     is_public: Optional[bool] = None
@@ -453,7 +453,7 @@ class BatchDeleteClothing(BaseModel):
 class FilterOptions(BaseModel):
     """筛选选项模型"""
     categories: List[str] = Field([], description="分类列表")
-    seasons: List[str] = Field([], description="季节列表")
+    season: Optional[List[ClothingSeason]] = Field(None, description="季节列表")
     colors: List[str] = Field([], description="颜色列表")
     brands: List[str] = Field([], description="品牌列表")
     sizes: List[str] = Field([], description="尺码列表")
@@ -464,7 +464,7 @@ class SearchRequest(BaseModel):
     """搜索请求模型"""
     query: Optional[str] = Field(None, description="搜索关键词")
     category: Optional[str] = Field(None, description="分类")
-    season: Optional[str] = Field(None, description="季节")
+    season: Optional[List[ClothingSeason]] = Field(None, description="季节列表")
     color: Optional[str] = Field(None, description="颜色")
     brand: Optional[str] = Field(None, description="品牌")
     min_price: Optional[float] = Field(None, ge=0, description="最低价格")
@@ -571,3 +571,10 @@ class ExportData(BaseModel):
     total_items: int  # 总衣物数
     total_outfits: int  # 总搭配数
     total_wears: int  # 总穿着次数
+
+
+# ==================== ai对话模型 =====================
+
+class ChatReq(BaseModel):
+  query: str
+  history: list[dict] = Field(default_factory=list)
