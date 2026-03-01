@@ -1,0 +1,16 @@
+sudo docker run --runtime nvidia --gpus all \
+    --name gpt-oss \
+    -v ~/.cache/huggingface:/root/.cache/huggingface \
+    --env "HUGGING_FACE_HUB_TOKEN=<secret>" \
+    -p 8080:8000 \
+    --ipc=host \
+    vllm/vllm-openai:latest \
+    --model openai/gpt-oss-20b \
+    --enable-auto-tool-choice \
+    --tool-call-parser openai
+
+sudo docker start gpt-oss
+sudo docker logs -f gpt-oss
+sudo docker exec -it gpt-oss bash -c "vllm serve openai/gpt-oss-20b"
+
+启动gpt-oss指令
