@@ -4,7 +4,7 @@
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 
-from .vector_store import VectorStoreService
+from AIwardrobe.rag.vector_store import VectorStoreService
 from AIwardrobe.utils.prompt_loader import load_rag_prompts
 from AIwardrobe.model.factory import chat_model
 

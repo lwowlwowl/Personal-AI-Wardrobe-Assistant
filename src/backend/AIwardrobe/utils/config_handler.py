@@ -23,9 +23,9 @@ def load_agent_config(config_path: str=get_abs_path("config/agent.yml"), encodin
     with open(config_path, "r", encoding=encoding) as f:
         return yaml.load(f, Loader=yaml.FullLoader)
 
-def load_env_config(env_path: str=get_abs_path("config/.env"), override: bool=False) -> bool:
+def load_env_config(env_path: str=get_abs_path("../.env"), override: bool=False) -> bool:
     """
-    Load environment variables from config/.env by default.
+    Load environment variables from backend/.env by default.
     Returns True if the file is found and loaded, otherwise False.
     """
     return dotenv.load_dotenv(env_path, override=override)
