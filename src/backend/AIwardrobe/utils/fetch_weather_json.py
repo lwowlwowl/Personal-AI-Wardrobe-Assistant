@@ -6,7 +6,7 @@ from typing import Any
 import jwt
 import requests
 
-from utils.config_handler import load_env_config
+from AIwardrobe.utils.config_handler import load_env_config
 
 
 load_env_config()
@@ -174,7 +174,7 @@ def fetch_weather_json_days(
     return daily_resp
 
 
-def save_weather_json(city: str | None, payload: dict, output_path: str | None = None, days: str | None = None) -> str:
+def save_weather_json(city: str | None, payload: dict, output_path: str | None = None, days: str | None = "") -> str:
     """
     Save weather payload to local JSON and return its path.
     """

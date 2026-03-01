@@ -2,29 +2,67 @@ import json
 import os.path
 import random
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from langchain_core.tools import tool
-from rag.rag_service import RagSummarizeService
-from utils.config_handler import agent_conf
-from utils.logger_handler import logger
-from utils.path_tool import get_abs_path
+from AIwardrobe.rag.rag_service import RagSummarizeService
+from AIwardrobe.utils.config_handler import agent_conf
+from AIwardrobe.utils.logger_handler import logger
+from AIwardrobe.utils.path_tool import get_abs_path
+
+from AIwardrobe.utils.fetch_weather_json import fetch_weather_json_now, save_weather_json, \
+    fetch_weather_json_days
 
 rag = RagSummarizeService()
-
-user_ids = ["1001","1002","1003","1004","1005","1006","1007","1008","1009","1010"]
-
 
 @tool(description="从向量存储中检索参考资料")
 def rag_summarize(query: str) -> str:
     return rag.rag_summarize(query)
 
 
+def _is_today_weather_data(data: dict) -> bool:
+    now = datetime.now(ZoneInfo("Asia/Shanghai"))
+    obs_time = (data.get("now") or {}).get("obsTime")
+    if not obs_time:
+        return False
+    try:
+        obs_dt = datetime.fromisoformat(obs_time.replace("Z", "+00:00"))
+        if obs_dt.tzinfo is None:
+            obs_dt = obs_dt.replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+        age_seconds = (now - obs_dt.astimezone(ZoneInfo("Asia/Shanghai"))).total_seconds()
+        return 0 <= age_seconds <= 1800   # 30分钟内为有效
+    except Exception:
+        return False
+
+
+def _refresh_weather_data(city: str, days: str = "") -> None:
+    if days == "":
+        payload = fetch_weather_json_now(city)
+        output_path = save_weather_json(city, payload)
+        logger.info(f"weather json saved to: {output_path}")
+        return
+
+    payload = fetch_weather_json_days(city, days=days)
+    output_path = save_weather_json(city, payload, days=days)
+    logger.info(f"weather json saved to: {output_path}")
+
+
+
 @tool(description="根据用户城市或本地位置读取天气文件并返回实况与预报")
 def get_weather(city: str, days: str = "") -> str:
     weather_path = get_abs_path(f"data/weather{city}{days}.json")
     if not os.path.exists(weather_path):
-        return "未找到本地天气文件，请先拉取并保存天气数据"
-
+        logger.info("未找到本地天气文件，正在拉取并保存天气数据")
+        if days == "":
+            try:
+                _refresh_weather_data(city, days)
+            except Exception as exc:
+                logger.warning(f"[get_weather]拉取天气信息失败:{exc}")
+        else:
+            try:
+                _refresh_weather_data(city, days)
+            except Exception as exc:
+                logger.warning(f"[get_weather]拉取天气信息失败:{exc}")
     try:
         with open(weather_path, "r", encoding="utf-8") as f:
             content = f.read().strip()
@@ -32,8 +70,25 @@ def get_weather(city: str, days: str = "") -> str:
                 return "本地天气文件为空，请先拉取并保存天气数据"
             data = json.loads(content)
     except Exception as exc:
-        logger.warning(f"[get_qweather]读取本地天气文件失败: {exc}")
+        logger.warning(f"[get_weather]读取本地天气文件失败: {exc}")
         return "读取本地天气文件失败，请检查文件格式"
+
+    if not _is_today_weather_data(data):
+        logger.info("本地天气数据非30分钟内，正在刷新")
+        try:
+            _refresh_weather_data(city, days)
+        except Exception as exc:
+            logger.warning(f"[get_weather]天气数据刷新失败:{exc}")
+
+        try:
+            with open(weather_path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if not content:
+                    return "本地天气文件为空，请先拉取并保存天气数据"
+                data = json.loads(content)
+        except Exception as exc:
+            logger.warning(f"[get_weather]刷新后读取本地天气文件失败: {exc}")
+            return "读取本地天气文件失败，请检查文件格式"
 
     parts = []
     parts.append(f"查询时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -42,6 +97,7 @@ def get_weather(city: str, days: str = "") -> str:
     if now:
         parts.append(
             "实况："
+            f"观测时间:{now.get('obsTime')}"
             f"{now.get('text','未知')}，"
             f"{now.get('temp','?')}℃，"
             f"体感{now.get('feelsLike','?')}℃，"
@@ -56,6 +112,7 @@ def get_weather(city: str, days: str = "") -> str:
         forecast_lines = []
         for day in daily:
             forecast_lines.append(
+                f"{day.get('obsTime')}"
                 f"{day.get('fxDate','')} "
                 f"白天{day.get('textDay','未知')}{day.get('tempMax','?')}℃ "
                 f"{day.get('windDirDay','未知')}{day.get('windScaleDay','?')}级"
@@ -75,14 +132,13 @@ def get_weather(city: str, days: str = "") -> str:
     return "\n".join(parts)
 
 
-
 @tool(description="获取用户所在城市名称，以纯字符串形式返回")
 def get_user_location() -> str:
     return random.choice(["深圳","合肥","杭州"])
 
-@tool(description="获取用户ID，以纯字符串形式返回")
-def get_user_id() -> str:
-    return random.choice(user_ids)
+# @tool(description="获取用户ID，以纯字符串形式返回")
+# def get_user_id() -> str:
+#     return random.choice(user_ids)
 
 @tool(description="获取当前日期时间，以纯字符串形式返回，格式为YYYY-MM-DD HH:MM:SS")
 def get_current_datetime() -> str:

@@ -2,11 +2,11 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from model.factory import embed_model
-from utils.config_handler import chroma_conf
-from utils.path_tool import get_abs_path
-from utils.file_handler import pdf_loader, txt_loader, listdir_with_allowed_type, get_file_md5_hex
-from utils.logger_handler import logger
+from AIwardrobe.model.factory import embed_model
+from AIwardrobe.utils.config_handler import chroma_conf
+from AIwardrobe.utils.path_tool import get_abs_path
+from AIwardrobe.utils.file_handler import pdf_loader, txt_loader, listdir_with_allowed_type, get_file_md5_hex
+from AIwardrobe.utils.logger_handler import logger
 
 import os
 
