@@ -4,7 +4,7 @@
 
 ## 📋 项目简介
 
-本项目实现了虚拟衣橱助手的登录、注册、首页与衣橱管理等功能，具有优雅的用户界面和流畅的交互体验。项目采用 UniApp 框架开发，支持多端部署（H5、小程序、App）。**登录 / 注册已与后端联调完成**；首页包含推荐 AI、虚拟试穿、我的衣橱等模块。
+本项目实现了虚拟衣橱助手的登录、注册、首页与衣橱管理等功能，具有优雅的用户界面和流畅的交互体验。项目采用 UniApp 框架开发，支持多端部署（H5、小程序、App）。**登录 / 注册已与后端联调完成**；首页包含推荐 AI、虚拟试穿、我的衣橱、我的日历、衣橱分析等模块。
 
 ## 🎨 设计特点
 
@@ -26,12 +26,25 @@ frontend/
 │   └── index/              # 首页（主应用）
 │       ├── index.vue       # 侧栏 + 主内容切换
 │       └── components/
-│           ├── RecommendationAI.vue   # 推荐 AI
+│           ├── RecommendationAI/       # 推荐 AI（多会话 + 侧栏对话列表）
+│           │   ├── RecommendationAI.vue   # 主聊天组件（问候、输入、消息、推荐卡片）
+│           │   ├── ConversationSidebar.vue # 侧栏「新建会话」+ 对话列表 + Rename/Delete 弹窗
+│           │   ├── RecommendationCard.vue # 单条推荐卡片展示
+│           │   ├── RenameModal.vue        # 会话重命名弹窗
+│           │   └── DeleteModal.vue        # 会话删除确认弹窗
 │           ├── VirtualTryOn.vue       # 虚拟试穿
-│           └── MyWardrobe/            # 我的衣橱
-│               ├── WardrobeView.vue   # 衣橱列表与筛选
-│               ├── DetailModal.vue    # 衣服详情弹窗
-│               └── ModelDetailModal.vue # 模特详情弹窗
+│           ├── MyWardrobe/            # 我的衣橱
+│           │   ├── WardrobeView.vue   # 衣橱列表与筛选
+│           │   ├── DetailModal.vue    # 衣服详情弹窗
+│           │   └── ModelDetailModal.vue # 模特详情弹窗
+│           ├── MyCalendar/            # 我的日历
+│           │   ├── MyCalendar.vue     # 日历主组件
+│           │   └── AddOutfitPanel.vue # 添加穿搭面板
+│           └── WardrobeAnalysis/      # 衣橱分析
+│               ├── WardrobeAnalysis.vue # 分析主组件
+│               ├── ActivityReport.vue   # 活动报告视图
+│               ├── IdleItemsView.vue    # 闲置物品视图
+│               └── ViewByFilter.vue    # 筛选视图组件
 ├── utils/
 │   ├── request.js          # 请求封装
 │   └── wardrobeEnums.js    # 衣橱枚举（type/color/season code↔label）
@@ -40,10 +53,7 @@ frontend/
 ├── main.js
 ├── pages.json
 ├── manifest.json
-├── uni.scss
-├── LOGIN_REGISTER.md       # 登录/注册 API 文档
-├── MY_WARDROBE.md          # 我的衣橱 API 文档
-└── VIRTUAL_TRYON.md        # 虚拟试穿 API 文档
+└── uni.scss
 ```
 
 ## 🚀 功能特性
@@ -55,8 +65,9 @@ frontend/
 
 ### 首页与导航
 
-- 侧栏导航：推荐 AI、虚拟试穿、我的衣橱、衣橱分析等，可折叠。
-- 主内容区根据菜单切换对应组件。
+- 侧栏导航：推荐 AI、虚拟试穿、我的衣橱、我的日历、衣橱分析等，可折叠。
+- 选中「推荐 AI」且侧栏未折叠时，侧栏会显示「新建会话」与对话列表（`ConversationSidebar`），可新建/切换/重命名/删除会话。
+- 主内容区根据菜单切换对应组件，支持过渡动画。
 
 ### 我的衣橱 (`My Wardrobe`)
 
@@ -66,9 +77,37 @@ frontend/
 - **上传**：支持选择文件或拖拽添加新衣服/新模特图（当前为本地预览；联调时需先调用上传接口获取 fileId，再以 imageFileId 调用创建接口）。
 - **枚举与 API**：type/color/season 使用 `utils/wardrobeEnums.js` 的 code（如 `t_shirt`、`burnt_orange`），请求与筛选传 code，展示用 label。完整接口约定见 **`MY_WARDROBE.md`**。
 
-### 推荐 AI / 虚拟试穿
+### 我的日历 (`My Calendar`)
 
-- 推荐 AI、虚拟试穿组件位于首页；虚拟试穿可从衣橱详情一键带入衣服图与默认模特图。接口约定见 `VIRTUAL_TRYON.md`。
+- **日历视图**：展示月历视图，支持月份切换，显示每日穿搭记录。
+- **统计信息**：显示本月记录天数、独特单品数量、连续记录天数（streak）。
+- **穿搭记录**：点击日期可查看或添加当日穿搭，支持从衣橱选择多件衣服组合成穿搭。
+- **穿搭详情**：查看历史穿搭记录，包括日期、选择的衣服列表等信息。
+
+### 衣橱分析 (`Wardrobe Analysis`)
+
+- **Bento Grid 布局**：采用卡片式网格布局展示各项分析数据。
+- **衣橱活动度**：显示本周相比上周的活动度变化（增加/减少百分比），可查看详细活动报告。
+- **闲置率**：统计未穿过的物品数量及占比，可查看所有闲置物品列表。
+- **总物品数**：展示衣橱总物品数的历史趋势图表，支持按类型/颜色/季节筛选查看。
+- **最常穿物品**：列出最常穿着的物品及其穿着次数，支持按类型/颜色/季节筛选。
+- **热门统计**：显示最常用颜色和最常用风格及其占比。
+- **建议添加**：基于衣橱数据提供建议添加的物品类型，支持展开查看详情。
+
+### 推荐 AI (`Recommendation AI`)
+
+- **主聊天区**（`RecommendationAI.vue`）：初始问候、多行输入、图片上传；用户/AI 消息展示；推荐结果以多套推荐卡片 + 左右滑动展示。
+- **多会话**：由父级 `index.vue` 同步 `conversationState`；支持 `currentConversationId` / `currentConversation` 与 `create-conversation` / `update-conversation` 事件。
+- **侧栏对话列表**（`ConversationSidebar.vue`）：选中推荐 AI 且侧栏未折叠时显示「新建会话」按钮与「你的对话」列表；支持切换会话、重命名（RenameModal）、删除（DeleteModal）；状态与逻辑集中在 ConversationSidebar，通过 `update:conversationState` 回传 index 再传给主聊天组件。
+
+### 虚拟试穿 (`Virtual Try-On`)
+
+- **入口**：首页侧栏「Virtual Try-On」；也可从「我的衣橱」衣服详情中一键跳转并带入当前衣服图与默认模特图（`initialClothingImage` / `initialPersonImage`）。
+- **上传区**（`VirtualTryOn.vue`）：
+  - **Person Model**：上传人物/模特图，支持点击或拖拽，建议竖版 JPG/PNG；可预览、移除。
+  - **Try-On Clothing**：上传待试穿服装图，支持点击或拖拽，建议平铺 JPG/PNG；可预览、移除。
+- **生成**：两个图都上传后「Generate」按钮可用，点击后进入加载态（Shimmer 动画），生成结果展示在「Generation Result」区域。
+- **结果区**：展示试穿结果图；无结果时显示占位。接口与上传约定见 `VIRTUAL_TRYON.md`。
 
 ## 🛠️ 技术栈
 

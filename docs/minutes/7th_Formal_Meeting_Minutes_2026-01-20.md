@@ -82,7 +82,7 @@ We also discussed LLM integration, deployment options, real-time performance, an
 
 ## 4. General Action Points
 
-![image-20260120154416237](C:\Users\Haochen Wang\AppData\Roaming\Typora\typora-user-images\image-20260120154416237.png)
+![image-20260227213903004](C:\Users\Haochen Wang\AppData\Roaming\Typora\typora-user-images\image-20260227213903004.png)
 
 
 
@@ -91,6 +91,6 @@ We also discussed LLM integration, deployment options, real-time performance, an
 
 ## 5. Next Formal Meeting
 
-**Date:** Friday, 2026-01-30
-**Time:** 10:00-11:00 / 13:00-14:00
-**Place:**  online
+**Date:** Friday, 2026-02-02
+**Time:** TBC
+**Place:**  Online (Tencent Meeting)  

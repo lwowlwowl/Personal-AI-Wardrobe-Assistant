@@ -16,6 +16,9 @@ from typing import Tuple, Optional, List, Dict, Any
 from datetime import datetime, timedelta, date
 import jwt
 import secrets
+
+# PyJWT 2.8+ 使用 PyJWTError，舊版使用 JWTError，統一用此別名捕獲
+_JWTError = getattr(jwt, "PyJWTError", getattr(jwt, "JWTError", Exception))
 from passlib.context import CryptContext
 
 # 导入模型和模式
@@ -213,7 +216,7 @@ def verify_access_token(token: str) -> Optional[dict]:
     except jwt.ExpiredSignatureError:
         print("Token已过期")
         return None
-    except jwt.JWTError as e:
+    except _JWTError as e:
         print(f"Token验证失败: {e}")
         return None
 
@@ -254,7 +257,7 @@ def verify_password_reset_token(token: str) -> Optional[str]:
         return payload.get("email")
     except jwt.ExpiredSignatureError:
         return None
-    except jwt.JWTError:
+    except _JWTError:
         return None
 
 
