@@ -2,21 +2,24 @@
 主应用文件：个人AI衣柜助手API
 包含所有业务逻辑和路由定义
 """
-
+import json
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
-from datetime import timedelta
-import json
+from datetime import datetime, date, timedelta
 import traceback
-	
+
 # 导入自定义模块
 import models, schemas, crud
 from database import engine, get_db
 
+import os
+import sys
+import time
 import uuid
+import calendar
 from fastapi import UploadFile, File, Form, Query, Path
 from typing import List, Optional, Dict, Any
 from datetime import date
@@ -27,7 +30,22 @@ from AIwardrobe.agent.classify_model import ClassificationModel
 
 # ============ 路径配置 ============
 # 项目根目录：.../Personal-AI-Wardrobe-Assistant
-BASE_DIR = PathLib(__file__).resolve().parents[2]
+BASE_DIR = PathLib(__file__).resolve().parents[2]\
+# todo
+BACKEND_DIR = PathLib(__file__).resolve().parent
+AIWARDROBE_DIR = BACKEND_DIR / "AIwardrobe"
+if str(AIWARDROBE_DIR) not in sys.path:
+    sys.path.insert(0, str(AIWARDROBE_DIR))
+
+# 加载 .env：先 backend/.env，再 AIwardrobe/config/.env，使 QWEATHER_* 对天气接口生效
+try:
+    import dotenv
+    for _env_path in (BACKEND_DIR / ".env", AIWARDROBE_DIR / "config" / ".env"):
+        if _env_path.exists():
+            dotenv.load_dotenv(_env_path, override=False)
+except Exception:
+    pass
+
 UPLOAD_URL_PREFIX = "/Personal-AI-Wardrobe-Assistant/uploads"
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -81,6 +99,127 @@ async def root():
 async def health_check():
     """健康检查接口：用于监控服务状态"""
     return {"status": "healthy", "message": "API is running"}
+
+
+# ============ 天气接口（基于用户经纬度，供前端 RecommendationAI 穿衣建议） ============
+# 半小时内复用：GeoAPI（经纬度→location_id）、天气 API 均缓存，避免频繁调用和风
+_WEATHER_CACHE_TTL_SEC = 30 * 60   # 30 分钟
+_geo_cache: Dict[str, Dict[str, Any]] = {}   # key: "lat,lon" 保留3位小数 → { "location_id", "fetched_at" }
+_weather_cache: Dict[str, Dict[str, Any]] = {}  # key: location_id → { "response", "fetched_at" }
+
+
+def _wind_scale_to_desc(scale: str) -> str:
+    """将和风天气风力等级转为简短描述（如 Light Breeze）。"""
+    try:
+        n = int(scale or "0")
+    except (ValueError, TypeError):
+        return "—"
+    if n <= 2:
+        return "Light Breeze"
+    if n <= 4:
+        return "Moderate Breeze"
+    if n <= 6:
+        return "Strong Breeze"
+    if n <= 8:
+        return "Near Gale"
+    if n <= 10:
+        return "Gale"
+    return "Storm"
+
+
+@app.get("/api/weather/now")
+async def get_weather_now(
+    lat: float = Query(..., description="纬度"),
+    lon: float = Query(..., description="经度"),
+):
+    """
+    根据经纬度获取当前天气（和风天气 API），供前端显示温度与风力并做穿衣建议。
+    同一 location_id（同城市/区县）30 分钟内复用缓存，不再调用和风 API。
+    """
+    # 禁止使用旧版共用域名，否则和风会 403
+    host = (os.environ.get("QWEATHER_API_HOST") or "").strip().lower()
+    if "api.qweather.com" in host and "qweatherapi.com" not in host:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "QWEATHER_API_HOST 不能使用 api.qweather.com（会 403）。"
+                "请登录 https://dev.qweather.com 控制台，在项目/认证里复制「API Host」专属域名（形如 https://xxx.def.qweatherapi.com），"
+                "填到 backend/.env 的 QWEATHER_API_HOST，保存后重启后端。"
+            ),
+        )
+
+    try:
+        from utils.fetch_weather_json import get_location_id_by_coords, fetch_weather_json_now
+    except ImportError as e:
+        print(f"天气服务 ImportError: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"天气服务未配置或无法加载: {str(e)}",
+        ) from e
+
+    # 第一步：经纬度 → location_id（GeoAPI 也做 30 分钟缓存，避免频繁调 GeoAPI）
+    geo_key = f"{round(lat, 3)},{round(lon, 3)}"
+    now_ts = time.time()
+    if geo_key in _geo_cache:
+        geo_entry = _geo_cache[geo_key]
+        if now_ts - geo_entry["fetched_at"] < _WEATHER_CACHE_TTL_SEC:
+            location_id = geo_entry["location_id"]
+        else:
+            location_id = None
+    else:
+        location_id = None
+    if not location_id:
+        try:
+            location_id = get_location_id_by_coords(lat, lon, lang="en")
+        except RuntimeError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        if not location_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="未匹配到该经纬度位置，请检查坐标",
+            )
+        _geo_cache[geo_key] = {"location_id": location_id, "fetched_at": now_ts}
+
+    # 第二步：缓存 key = location_id，走 30 分钟复用
+    cache_key = location_id
+    now_ts = time.time()
+    if cache_key in _weather_cache:
+        entry = _weather_cache[cache_key]
+        if now_ts - entry["fetched_at"] < _WEATHER_CACHE_TTL_SEC:
+            return entry["response"]
+
+    # 第三步：缓存 miss，用 location_id 查天气
+    try:
+        data = fetch_weather_json_now(location=location_id, lang="en")
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    except Exception as e:
+        print(f"天气接口异常: {traceback.format_exc()}")
+        detail = f"天气服务异常: {str(e)}"
+        if "403" in str(e):
+            detail += "。和风 403 常见原因：请将 QWEATHER_API_HOST 改为控制台「API Host」中的专属域名（如 xxx.def.qweatherapi.com），勿用 api.qweather.com；或检查账户额度与 JWT 凭据。"
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=detail,
+        ) from e
+
+    now = data.get("now") or {}
+    temp = now.get("temp", "")
+    text = now.get("text", "")
+    wind_scale = now.get("windScale", "")
+    wind_desc = _wind_scale_to_desc(wind_scale)
+
+    response = {
+        "temp": temp,
+        "text": text,
+        "windScale": wind_scale,
+        "windDesc": wind_desc,
+    }
+    _weather_cache[cache_key] = {"response": response, "fetched_at": now_ts}
+    return response
 
 
 # ============ 用户认证相关接口 ============
@@ -556,6 +695,43 @@ def delete_file(file_url: str) -> bool:
 
 
 # ============ 服装管理API ============
+# todo
+# 前端衣橱上传使用的分类值（如 blouse, t_shirt）映射到后端 ClothingCategory 枚举值
+_FRONTEND_CATEGORY_TO_BACKEND = {
+    "blouse": "top",
+    "t_shirt": "top",
+    "top": "top",
+    "vest": "top",
+    "sweater": "top",
+    "shirt": "top",
+    "bottom": "bottom",
+    "dress": "dress",
+    "outerwear": "outerwear",
+    "footwear": "footwear",
+    "accessory": "accessory",
+    "bag": "bag",
+    "underwear": "underwear",
+    "other": "other",
+}
+
+
+def _normalize_category(category: Optional[str]) -> str:
+    """将前端传来的 category 字符串规范为后端 ClothingCategory 枚举值，避免 500。"""
+    if not category or not category.strip():
+        return "other"
+    key = category.strip().lower()
+    return _FRONTEND_CATEGORY_TO_BACKEND.get(key, "other")
+
+
+def _normalize_season(season: Optional[str]) -> Optional[str]:
+    """将前端传来的 season 规范为后端 ClothingSeason 枚举值（小写）。"""
+    if not season or not season.strip():
+        return None
+    s = season.strip().lower()
+    if s in ("spring", "summer", "autumn", "winter", "all_season"):
+        return s
+    return None
+
 
 @app.post("/api/clothing/upload")
 async def upload_clothing_item(
@@ -626,7 +802,7 @@ async def upload_clothing_item(
         label_result: Optional[Dict[str, Any]] = None
         if auto_label:
             try:
-                raw_result = ClassificationModel().execute(path=str(local_image_path)) # 这里后期可以改成batch版本的上传 能便宜
+                raw_result = ClassificationModel().execute(path=str(local_image_path))  # 这里后期可以改成batch版本的上传 能便宜
                 parsed = json.loads(raw_result.strip())
 
                 label_result = {}
@@ -1189,6 +1365,240 @@ async def record_clothing_wear(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"记录穿着时发生错误: {str(e)}"
+        )
+
+
+# ============ 日历穿搭记录 API ============
+
+
+@app.get("/api/calendar/outfits")
+async def get_calendar_outfits(
+        token: str = Query(..., description="用户认证令牌"),
+        year: int = Query(..., description="年份，例如 2025"),
+        month: int = Query(..., ge=1, le=12, description="月份，1-12")
+        , db: Session = Depends(get_db)
+):
+    """
+    获取指定月份的穿搭记录（供 MyCalendar 使用）
+    响应结构遵循 MY_CALENDAR.md：
+    {
+      success: true,
+      message: "Success",
+      data: { outfits: { "YYYY-MM-DD": [items] } },
+      status_code: 200
+    }
+    """
+    try:
+        current_user = get_current_user(token, db)
+
+        try:
+            # 计算当月第一天和最后一天
+            first_day = date(year, month, 1)
+            last_day_num = calendar.monthrange(year, month)[1]
+            last_day = date(year, month, last_day_num)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="请求参数错误"
+            )
+
+        # 查询当前用户在该月份的穿着记录（按衣物维度）
+        # 仅统计有 clothing_id 的记录，忽略 outfit_id 为主的记录
+        histories = (
+            db.query(models.WearHistory, models.ClothingItem)
+            .join(models.ClothingItem, models.WearHistory.clothing_id == models.ClothingItem.id)
+            .filter(
+                models.WearHistory.user_id == current_user.id,
+                models.WearHistory.wear_date >= first_day,
+                models.WearHistory.wear_date <= last_day,
+                models.WearHistory.clothing_id.isnot(None)
+            )
+            .all()
+        )
+
+        outfits: Dict[str, List[Dict[str, Any]]] = {}
+        unique_ids: set = set()
+
+        for history, clothing in histories:
+            date_key = history.wear_date.strftime("%Y-%m-%d")
+            image_url = clothing.image_url or ""
+            item = {
+                "id": clothing.id,
+                "name": clothing.name,
+                # 前端会按需补全为完整 URL，这里只返回后端存储的路径
+                "image": image_url,
+                # 可选字段：目前直接复用 clothing.color（如有需要前端可转为 accentColor）
+                "accentColor": None,
+            }
+            outfits.setdefault(date_key, []).append(item)
+            if clothing.id is not None:
+                unique_ids.add(clothing.id)
+
+        # 统计字段（可选，前端也会自行计算）
+        days_recorded = sum(1 for items in outfits.values() if items)
+
+        data = {
+            "outfits": outfits,
+            "monthStats": {
+                "daysRecorded": days_recorded,
+                "uniqueItems": len(unique_ids),
+            },
+        }
+
+        return {
+            "success": True,
+            "message": "Success",
+            "data": data,
+            "status_code": 200,
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        print(f"获取日历穿搭记录错误: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="服务器内部错误"
+        )
+
+
+@app.post("/api/calendar/outfits")
+async def save_calendar_outfits(
+        payload: schemas.CalendarOutfitSave,
+        token: str = Query(..., description="用户认证令牌"),
+        db: Session = Depends(get_db)
+):
+    """
+    保存 / 更新 / 删除某天的穿搭记录（全量覆盖）
+    - items 为空数组表示删除该日期记录
+    """
+    try:
+        current_user = get_current_user(token, db)
+
+        # 校验日期
+        try:
+            wear_date = datetime.strptime(payload.date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="日期格式不正确"
+            )
+
+        # 校验 items
+        if payload.items is None or not isinstance(payload.items, list):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="items 必须为数组"
+            )
+
+        clothing_ids = [item.id for item in payload.items if item.id is not None]
+        if len(clothing_ids) != len(payload.items):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="单品 id 不能为空"
+            )
+
+        # 校验衣物归属
+        if clothing_ids:
+            clothing_list = db.query(models.ClothingItem).filter(
+                models.ClothingItem.user_id == current_user.id,
+                models.ClothingItem.id.in_(clothing_ids)
+            ).all()
+            owned_ids = {c.id for c in clothing_list}
+            missing_ids = [cid for cid in clothing_ids if cid not in owned_ids]
+            if missing_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="衣橱中不存在该单品"
+                )
+
+        # 获取当前日期已存在的穿着记录（仅 clothing_id 维度）
+        existing_histories = db.query(models.WearHistory).filter(
+            models.WearHistory.user_id == current_user.id,
+            models.WearHistory.wear_date == wear_date,
+            models.WearHistory.clothing_id.isnot(None),
+            models.WearHistory.outfit_id.is_(None),
+        ).all()
+
+        existing_by_clothing = {
+            h.clothing_id: h for h in existing_histories if h.clothing_id is not None
+        }
+        new_id_set = set(clothing_ids)
+
+        # 1）删除不再包含的记录
+        for cid, history in list(existing_by_clothing.items()):
+            if cid not in new_id_set:
+                db.delete(history)
+
+        # 2）新增新的记录（使用 WearHistoryCRUD，保证 wear_count 等统计更新）
+        for cid in new_id_set:
+            if cid not in existing_by_clothing:
+                history_in = schemas.WearHistoryCreate(
+                    wear_date=wear_date,
+                    clothing_id=cid,
+                    outfit_id=None,
+                    weather=None,
+                    temperature=None,
+                    location=None,
+                    occasion=None,
+                    notes=None,
+                    rating=None,
+                )
+                _, error = crud.WearHistoryCRUD.create_wear_history(
+                    db=db,
+                    user_id=current_user.id,
+                    history_in=history_in,
+                )
+                if error:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=error
+                    )
+
+        db.commit()
+
+        # 重新查询该日期的记录并按前端需要的结构返回
+        refreshed = (
+            db.query(models.WearHistory, models.ClothingItem)
+            .join(models.ClothingItem, models.WearHistory.clothing_id == models.ClothingItem.id)
+            .filter(
+                models.WearHistory.user_id == current_user.id,
+                models.WearHistory.wear_date == wear_date,
+                models.WearHistory.clothing_id.isnot(None),
+            )
+            .all()
+        )
+
+        items: List[Dict[str, Any]] = []
+        for history, clothing in refreshed:
+            image_url = clothing.image_url or ""
+            items.append({
+                "id": clothing.id,
+                "name": clothing.name,
+                "image": image_url,
+                "accentColor": None,
+            })
+
+        message = "Deleted" if not items else "Saved"
+
+        return {
+            "success": True,
+            "message": message,
+            "data": {
+                "date": wear_date.strftime("%Y-%m-%d"),
+                "items": items,
+            },
+            "status_code": 200,
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        print(f"保存日历穿搭记录错误: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="服务器内部错误"
         )
 
 
@@ -2118,6 +2528,7 @@ async def set_primary_model_photo(
 
 react_agent = ReactAgent()
 
+
 @app.post("/api/ai/chat/stream")
 async def ai_chat_stream(req: schemas.ChatReq):
     def event_stream():
@@ -2169,6 +2580,7 @@ async def ai_chat_stream(req: schemas.ChatReq):
             "X-Accel-Buffering": "no",
         },
     )
+
 
 # ============ 错误处理 ============
 @app.exception_handler(HTTPException)
