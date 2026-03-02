@@ -87,7 +87,7 @@ export function getClothingList(params) {
  * @param {Object} opts
  * @param {string} opts.token
  * @param {string} opts.filePath - 本地暂存图片路径（uni.chooseImage 返回）
- * @param {Object} opts.formData - { name, category, color, season, brand, tags, description, price, purchase_date }
+ * @param {Object} opts.formData - { name, category, subcategory, color, season, brand, tags, description, price, purchase_date }
  * @returns {Promise<{ statusCode, data }>}
  */
 export function uploadClothing(opts) {
@@ -101,6 +101,7 @@ export function uploadClothing(opts) {
       formData: {
         name: formData?.name ?? '',
         category: formData?.category ?? '',
+        subcategory: formData?.subcategory ?? '',
         color: formData?.color ?? '',
         season: formData?.season ?? '',
         brand: formData?.brand ?? '',

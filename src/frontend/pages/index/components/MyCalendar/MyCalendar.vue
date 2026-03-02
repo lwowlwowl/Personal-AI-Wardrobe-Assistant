@@ -512,7 +512,8 @@ async function handleAddOutfitConfirm(selectedItems) {
 				outfitsByDate.value = { ...outfitsByDate.value, [key]: items }
 			}
 		} else {
-			uni.showToast({ title: res.data?.message || '保存失败', icon: 'none' })
+			// 优先展示后端返回的 detail（例如「穿着日期不能是未来日期」）
+			uni.showToast({ title: res.data?.message || res.data?.detail || '保存失败', icon: 'none' })
 		}
 	} catch (e) {
 		uni.showToast({ title: '保存失败', icon: 'none' })
@@ -555,7 +556,7 @@ async function removeOutfit(dateKey, index) {
 	try {
 		const res = await saveCalendarOutfits({ token, date: dateKey, items: payload })
 		if (!(res.statusCode === 200 && res.data && res.data.success)) {
-			uni.showToast({ title: res.data?.message || '删除失败', icon: 'none' })
+			uni.showToast({ title: res.data?.message || res.data?.detail || '删除失败', icon: 'none' })
 		}
 	} catch (e) {
 		uni.showToast({ title: '删除失败', icon: 'none' })
@@ -591,7 +592,7 @@ function clearAllOutfits() {
 				delete next[selectedDateKey.value]
 				outfitsByDate.value = next
 			} else {
-				uni.showToast({ title: res.data?.message || '清除失败', icon: 'none' })
+				uni.showToast({ title: res.data?.message || res.data?.detail || '清除失败', icon: 'none' })
 			}
 		} catch (e) {
 			uni.showToast({ title: '清除失败', icon: 'none' })

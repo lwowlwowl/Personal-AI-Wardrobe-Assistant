@@ -28,42 +28,43 @@
 							/>
 						</view>
 						<view class="info-row info-row-select">
-							<text class="label">Type:</text>
-							<view class="select-trigger" @click="openField = openField === 'type' ? null : 'type'">
-								<text class="select-value">{{ typeDisplayText }}</text>
-								<image :src="openField === 'type' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="select-arrow"></image>
+							<text class="label">Category:</text>
+							<view class="select-trigger" @click="openField = openField === 'category' ? null : 'category'">
+								<text class="select-value">{{ categoryDisplayText }}</text>
+								<image :src="openField === 'category' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="select-arrow"></image>
 							</view>
-							<view v-if="openField === 'type'" class="select-dropdown">
+							<view v-if="openField === 'category'" class="select-dropdown">
 								<view 
-									v-for="opt in typeOptions" 
+									v-for="opt in categoryOptions" 
 									:key="opt.value" 
 									class="select-option" 
-									:class="{ active: editTypes.includes(opt.value) }"
-									@click="toggleOption('type', opt)"
+									:class="{ active: editCategory === opt.value }"
+									@click="selectCategory(opt)"
 								>{{ opt.label }}</view>
-								<view class="select-apply" @click="applyField('type')">Apply</view>
+								<view class="select-apply" @click="openField = null">Close</view>
 							</view>
+						</view>
+						<view class="info-row">
+							<text class="label">SubCategory:</text>
+							<input 
+								class="info-input" 
+								v-model="editSubcategory" 
+								placeholder="e.g. T-shirt, Blouse"
+								@blur="emitField('subcategory', editSubcategory)"
+							/>
 						</view>
 						<view class="info-row info-row-readonly">
 							<text class="label">Added on:</text>
 							<text class="value">{{ item.date || '—' }}</text>
 						</view>
-						<view class="info-row info-row-select">
+						<view class="info-row">
 							<text class="label">Color:</text>
-							<view class="select-trigger" @click="openField = openField === 'color' ? null : 'color'">
-								<text class="select-value">{{ colorDisplayText }}</text>
-								<image :src="openField === 'color' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="select-arrow"></image>
-							</view>
-							<view v-if="openField === 'color'" class="select-dropdown">
-								<view 
-									v-for="opt in colorOptions" 
-									:key="opt.value" 
-									class="select-option" 
-									:class="{ active: editColors.includes(opt.value) }"
-									@click="toggleOption('color', opt)"
-								>{{ opt.label }}</view>
-								<view class="select-apply" @click="applyField('color')">Apply</view>
-							</view>
+							<input
+								class="info-input"
+								v-model="editColor"
+								placeholder="e.g. gray, navy blue"
+								@blur="emitField('color', editColor)"
+							/>
 						</view>
 						<view class="info-row info-row-select">
 							<text class="label">Season:</text>
@@ -123,7 +124,7 @@
 
 <script setup>
 import { watch, ref, nextTick, computed } from 'vue'
-import { TYPE_OPTIONS, COLOR_OPTIONS, SEASON_OPTIONS, TYPE_LABEL_BY_CODE, COLOR_LABEL_BY_CODE, SEASON_LABEL_BY_CODE, codesToLabels } from '@/utils/wardrobeEnums.js'
+import { CATEGORY_OPTIONS, SEASON_OPTIONS, TYPE_LABEL_BY_CODE, SEASON_LABEL_BY_CODE, codesToLabels } from '@/utils/wardrobeEnums.js'
 
 const props = defineProps({
 	visible: {
@@ -141,31 +142,34 @@ const emit = defineEmits(['update:visible', 'try-on', 'delete', 'update'])
 const isEnter = ref(false)
 const isLeave = ref(false)
 
-const typeOptions = TYPE_OPTIONS
-const colorOptions = COLOR_OPTIONS
+const categoryOptions = CATEGORY_OPTIONS
 const seasonOptions = SEASON_OPTIONS
 
 const editName = ref('')
-const editTypes = ref([])
-const editColors = ref([])
+const editCategory = ref('')
+const editSubcategory = ref('')
+const editColor = ref('')
 const editSeasons = ref([])
 const editFavourite = ref(0)
 const openField = ref(null)
 
-function parseMulti (str) {
-	if (!str || typeof str !== 'string') return []
-	return str.split(/[,/]+/).map(s => s.trim()).filter(Boolean)
+/** 支持后端返回的数组（如 season）或逗号分隔字符串，统一为字符串数组 */
+function parseMulti (val) {
+	if (val == null) return []
+	if (Array.isArray(val)) return val.map((s) => String(s).trim()).filter(Boolean)
+	if (typeof val !== 'string') return []
+	return val.split(/[,/]+/).map(s => s.trim()).filter(Boolean)
 }
 
-const typeDisplayText = computed(() => codesToLabels(editTypes.value, TYPE_LABEL_BY_CODE))
-const colorDisplayText = computed(() => codesToLabels(editColors.value, COLOR_LABEL_BY_CODE))
+const categoryDisplayText = computed(() => editCategory.value ? (TYPE_LABEL_BY_CODE[editCategory.value] || editCategory.value) : '—')
 const seasonDisplayText = computed(() => codesToLabels(editSeasons.value, SEASON_LABEL_BY_CODE))
 
 watch(() => props.item, (val) => {
 	if (!val) return
 	editName.value = val.name || ''
-	editTypes.value = parseMulti(val.type)
-	editColors.value = parseMulti(val.color)
+	editCategory.value = val.type || ''
+	editSubcategory.value = val.subcategory || ''
+	editColor.value = val.color || ''
 	editSeasons.value = parseMulti(val.season)
 	const f = val.favourite
 	editFavourite.value = typeof f === 'number' && f >= 0 && f <= 3 ? f : 0
@@ -178,8 +182,9 @@ watch(() => props.visible, (v) => {
 		nextTick(() => {
 			isEnter.value = true
 			editName.value = props.item?.name || ''
-			editTypes.value = parseMulti(props.item?.type)
-			editColors.value = parseMulti(props.item?.color)
+			editCategory.value = props.item?.type || ''
+			editSubcategory.value = props.item?.subcategory || ''
+			editColor.value = props.item?.color || ''
 			editSeasons.value = parseMulti(props.item?.season)
 			const f = props.item?.favourite
 			editFavourite.value = typeof f === 'number' && f >= 0 && f <= 3 ? f : 0
@@ -190,6 +195,14 @@ watch(() => props.visible, (v) => {
 		openField.value = null
 	}
 }, { immediate: true })
+
+function selectCategory(opt) {
+	if (!props.item?.id) return
+	const value = opt && typeof opt === 'object' && 'value' in opt ? opt.value : opt
+	editCategory.value = value
+	emit('update', { id: props.item.id, field: 'category', value })
+	openField.value = null
+}
 
 const close = () => {
 	isEnter.value = false
@@ -202,13 +215,15 @@ const close = () => {
 
 const emitField = (field, value) => {
 	if (!props.item?.id) return
-	const v = field === 'name' ? (value || '').trim() : value
+	const v = field === 'name' || field === 'subcategory' || field === 'color'
+		? (value || '').trim()
+		: value
 	emit('update', { id: props.item.id, field, value: v })
 }
 
 const toggleOption = (field, opt) => {
 	const code = opt && typeof opt === 'object' && 'value' in opt ? opt.value : opt
-	const arr = field === 'type' ? editTypes.value : field === 'color' ? editColors.value : editSeasons.value
+	const arr = editSeasons.value
 	const i = arr.indexOf(code)
 	if (i >= 0) arr.splice(i, 1)
 	else arr.push(code)
@@ -216,8 +231,8 @@ const toggleOption = (field, opt) => {
 
 const applyField = (field) => {
 	if (!props.item?.id) return
-	const arr = field === 'type' ? editTypes.value : field === 'color' ? editColors.value : editSeasons.value
-	const value = arr.join(',')  // 逗号分隔且不加空格，与 API 约定一致
+	if (field !== 'season') return
+	const value = editSeasons.value.join(',')
 	emit('update', { id: props.item.id, field, value })
 	openField.value = null
 }

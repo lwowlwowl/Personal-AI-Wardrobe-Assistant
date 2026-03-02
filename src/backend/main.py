@@ -695,32 +695,18 @@ def delete_file(file_url: str) -> bool:
 
 
 # ============ 服装管理API ============
-# todo
-# 前端衣橱上传使用的分类值（如 blouse, t_shirt）映射到后端 ClothingCategory 枚举值
-_FRONTEND_CATEGORY_TO_BACKEND = {
-    "blouse": "top",
-    "t_shirt": "top",
-    "top": "top",
-    "vest": "top",
-    "sweater": "top",
-    "shirt": "top",
-    "bottom": "bottom",
-    "dress": "dress",
-    "outerwear": "outerwear",
-    "footwear": "footwear",
-    "accessory": "accessory",
-    "bag": "bag",
-    "underwear": "underwear",
-    "other": "other",
-}
-
-
 def _normalize_category(category: Optional[str]) -> str:
-    """将前端传来的 category 字符串规范为后端 ClothingCategory 枚举值，避免 500。"""
+    """
+    将传入的 category 规范为后端 ClothingCategory 枚举值字符串。
+    - 空值 → "other"
+    - 非法值 → "other"
+    - 合法值：top/bottom/dress/outerwear/footwear/accessory/bag/underwear/other
+    """
     if not category or not category.strip():
         return "other"
     key = category.strip().lower()
-    return _FRONTEND_CATEGORY_TO_BACKEND.get(key, "other")
+    allowed = {c.value for c in models.ClothingCategory}
+    return key if key in allowed else "other"
 
 
 def _normalize_season(season: Optional[str]) -> Optional[str]:
@@ -860,6 +846,7 @@ async def upload_clothing_item(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="缺少 category，且自动打标未返回可用分类"
             )
+        resolved["category"] = _normalize_category(resolved["category"])
         if not resolved["name"]:
             fallback_name = resolved.get("subcategory") or resolved["category"]
             resolved["name"] = str(fallback_name)
@@ -1053,6 +1040,7 @@ async def update_clothing_item(
         db: Session = Depends(get_db),
         name: Optional[str] = Form(None),
         category: Optional[str] = Form(None),
+        subcategory: Optional[str] = Form(None),
         color: Optional[str] = Form(None),
         season: Optional[str] = Form(None),
         brand: Optional[str] = Form(None),
@@ -1071,7 +1059,8 @@ async def update_clothing_item(
         token: 用户认证令牌
         db: 数据库会话
         name: 新名称（可选）
-        category: 新分类（可选）
+        category: 新主分类（可选，后端 9 个枚举之一）
+        subcategory: 新子分类（可选，用户自定义）
         color: 新颜色（可选）
         season: 新季节（可选）
         brand: 新品牌（可选）
@@ -1131,7 +1120,8 @@ async def update_clothing_item(
         update_data = schemas.ClothingItemUpdate(
             name=name,
             description=description,
-            category=category,
+            category=_normalize_category(category) if category is not None else None,
+            subcategory=subcategory,
             color=color,
             season=season_list,
             brand=brand,
@@ -1593,6 +1583,24 @@ async def save_calendar_outfits(
 
     except HTTPException:
         raise
+    except ValidationError as e:
+        # 如 wear_date 为未来日期等 Pydantic 校验错误，返回 400；去掉 "Value error, " 等前缀，只给用户看人话
+        try:
+            msg_list = [err.get("msg", "") for err in e.errors()]  # type: ignore[attr-defined]
+            raw = "；".join([m for m in msg_list if m]) or "请求数据不合法"
+            s = raw.strip()
+            if s.lower().startswith("value error"):
+                # 去掉 "Value error, " / "value error，" 等前缀
+                rest = s[11:].lstrip(" ,，:：")
+                detail = rest if rest else "请求数据不合法"
+            else:
+                detail = s or "请求数据不合法"
+        except Exception:
+            detail = "请求数据不合法"
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=detail
+        )
     except Exception:
         db.rollback()
         print(f"保存日历穿搭记录错误: {traceback.format_exc()}")

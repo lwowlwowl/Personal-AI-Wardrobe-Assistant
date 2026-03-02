@@ -3,7 +3,7 @@
 		<view class="wardrobe-inner">
 			<!-- 添加上传状态提示 -->
 			<view v-if="uploadLoading" class="upload-loading">
-				<text>上传中...</text>
+				<text>上传并打标中...</text>
 				<view class="loading-spinner"></view>
 			</view>
 			
@@ -232,7 +232,7 @@
 			      </view>
 			      
 			      <view class="form-group">
-			        <text class="form-label">分类 *</text>
+			        <text class="form-label">主分类 (Category) *</text>
 			        <view class="category-options">
 			          <view 
 			            v-for="opt in typeOptions" 
@@ -245,20 +245,22 @@
 			          </view>
 			        </view>
 			      </view>
+			      <view class="form-group">
+			        <text class="form-label">子分类 (SubCategory)</text>
+			        <input 
+			          class="form-input" 
+			          v-model="uploadFormData.subcategory" 
+			          placeholder="例如：T恤、衬衫、牛仔裤"
+			        />
+			      </view>
 			      
 			      <view class="form-group">
 			        <text class="form-label">颜色</text>
-			        <view class="color-options">
-			          <view 
-			            v-for="opt in colorOptions" 
-			            :key="opt.value"
-			            class="color-option"
-			            :class="{ active: uploadFormData.color === opt.value }"
-			            @click="uploadFormData.color = opt.value"
-			          >
-			            <text>{{ opt.label }}</text>
-			          </view>
-			        </view>
+			        <input 
+			          class="form-input" 
+			          v-model="uploadFormData.color" 
+			          placeholder="输入颜色，如 red、navy blue"
+			        />
 			      </view>
 			      
 			      <view class="form-group">
@@ -317,7 +319,7 @@
 			    
 			    <view class="modal-actions">
 			      <view class="btn-cancel" @click="closeCategoryModal">取消</view>
-			      <view class="btn-confirm" @click="confirmUpload">确认上传</view>
+			      <view class="btn-confirm" @click="confirmUpload">确认并保存</view>
 			    </view>
 			  </view>
 			</view>
@@ -492,7 +494,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import DetailModal from './DetailModal.vue'
 import ModelDetailModal from './ModelDetailModal.vue'
-import { TYPE_OPTIONS, COLOR_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
+import { TYPE_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
 import {
   API_BASE_URL,
   authVerify,
@@ -536,10 +538,13 @@ const uploadLoading = ref(false)
 const uploadError = ref('')
 const showCategoryModal = ref(false)
 const selectedImageFile = ref(null)
+/** 上传并打标成功后要编辑的衣物 id，确认时走 update 而非再次上传 */
+const createdItemIdForEdit = ref(null)
 
 const uploadFormData = ref({
   name: '',
-  category: '',  // 对应数据库的 category 枚举值
+  category: '',   // 后端 9 个主分类之一
+  subcategory: '', // 用户可自由输入的子分类
   color: '',
   season: '',
   brand: '',
@@ -679,14 +684,55 @@ const testSimpleUpload = async () => {
       return
     }
     
-    // 4. 存储图片文件路径
-    selectedImageFile.value = tempFilePath
-    
-    // 5. 重置表单数据
-    resetUploadForm()
-    
-    // 6. 显示分类选择模态框
-    showCategoryModal.value = true
+    // 4. 立即上传并让后端打标，显示加载中（使用 uni 原生 loading 确保用户可见）
+    uploadLoading.value = true
+    createdItemIdForEdit.value = null
+    uni.showLoading({ title: '上传并打标中...', mask: true })
+    try {
+      const result = await uploadClothing({
+        token: userToken.value,
+        filePath: tempFilePath,
+        formData: {
+          name: '',
+          category: '',
+          subcategory: '',
+          color: '',
+          season: '',
+          brand: '',
+          tags: '',
+          description: '',
+          price: '',
+          purchase_date: ''
+        }
+      })
+      if (result.statusCode !== 200 || !result.data?.success) {
+        throw new Error(result.data?.message || result.data?.detail || '上传失败')
+      }
+      const data = result.data?.data || result.data
+      const raw = data.auto_label || {}
+      // 用后端返回的数据（含打标结果）预填表单
+      const tagParts = [raw.style, raw.occasion].filter(Boolean).map(String)
+      uploadFormData.value = {
+        name: data.name || raw.subcategory || raw.category || '未命名',
+        category: raw.category || data.category || '',
+        subcategory: raw.subcategory || '',
+        color: typeof raw.color === 'string' ? raw.color : (raw.color || ''),
+        season: Array.isArray(raw.season) ? (raw.season[0] || '') : (raw.season || ''),
+        brand: raw.brand || '',
+        tags: tagParts.join(','),
+        description: '',
+        price: uploadFormData.value.price || '',
+        purchase_date: uploadFormData.value.purchase_date || ''
+      }
+      createdItemIdForEdit.value = data.id
+      showCategoryModal.value = true
+    } catch (err) {
+      const msg = err.message || err.errMsg || '上传失败'
+      uni.showToast({ title: msg, icon: 'none' })
+    } finally {
+      uploadLoading.value = false
+      uni.hideLoading()
+    }
     
   } catch (error) {
     console.error('选择图片异常:', error)
@@ -702,72 +748,47 @@ const selectCategory = (category) => {
   uploadFormData.value.category = category
 }
 
-// 确认上传
+// 确认：编辑模式下为 update，否则不再走上传（上传已在选图后完成）
 const confirmUpload = async () => {
-  // 验证必填字段
-  if (!uploadFormData.value.category) {
-    uni.showToast({
-      title: '请选择衣物分类',
-      icon: 'none'
-    })
-    return
-  }
-  
-  if (!uploadFormData.value.name) {
-    uni.showToast({
-      title: '请输入衣物名称',
-      icon: 'none'
-    })
-    return
-  }
-  
-  if (!selectedImageFile.value) {
-    uni.showToast({
-      title: '未选择图片',
-      icon: 'none'
-    })
-    return
-  }
-  
-  try {
-    // 显示加载提示
-    uni.showLoading({
-      title: '上传中...',
-      mask: true
-    })
-    
-    // 执行上传
-    await performUpload(selectedImageFile.value)
-    
-  } catch (error) {
-    console.error('上传失败:', error)
-    uni.hideLoading()
-    uni.showToast({
-      title: '上传失败',
-      icon: 'none'
-    })
-  }
-}
-
-// 执行上传的实际方法
-const performUpload = async (filePath) => {
-  try {
-    const result = await uploadClothing({
-      token: userToken.value,
-      filePath,
-      formData: uploadFormData.value
-    })
-    uni.showToast({ title: '上传成功！', icon: 'success' })
+  if (createdItemIdForEdit.value == null) {
     closeCategoryModal()
-    selectedImageFile.value = null
-    loadClothingData()
-    return result
-  } catch (err) {
-    const errorMsg = err.message || err.errMsg || '网络错误'
-    uni.showToast({ title: errorMsg, icon: 'none' })
-    throw err
-  } finally {
+    return
+  }
+  if (!uploadFormData.value.category) {
+    uni.showToast({ title: '请选择主分类', icon: 'none' })
+    return
+  }
+  if (!uploadFormData.value.name || !uploadFormData.value.name.trim()) {
+    uni.showToast({ title: '请输入衣物名称', icon: 'none' })
+    return
+  }
+  try {
+    uni.showLoading({ title: '保存中...', mask: true })
+    const seasonVal = uploadFormData.value.season
+    const seasonPayload = seasonVal ? JSON.stringify(Array.isArray(seasonVal) ? seasonVal : [seasonVal]) : undefined
+    const result = await updateClothing(userToken.value, createdItemIdForEdit.value, {
+      name: uploadFormData.value.name.trim(),
+      category: uploadFormData.value.category,
+      subcategory: uploadFormData.value.subcategory || undefined,
+      color: uploadFormData.value.color || undefined,
+      season: seasonPayload,
+      brand: uploadFormData.value.brand || undefined,
+      tags: uploadFormData.value.tags || undefined,
+      description: uploadFormData.value.description || undefined,
+      price: uploadFormData.value.price !== '' ? uploadFormData.value.price : undefined
+    })
     uni.hideLoading()
+    if (result.statusCode === 200 && result.data?.success !== false) {
+      uni.showToast({ title: '保存成功', icon: 'success' })
+      closeCategoryModal()
+      createdItemIdForEdit.value = null
+      loadClothingData()
+    } else {
+      uni.showToast({ title: result.data?.message || '保存失败', icon: 'none' })
+    }
+  } catch (err) {
+    uni.hideLoading()
+    uni.showToast({ title: err.message || err.errMsg || '网络错误', icon: 'none' })
   }
 }
 
@@ -776,6 +797,7 @@ const resetUploadForm = () => {
   uploadFormData.value = {
     name: '',
     category: '',
+    subcategory: '',
     color: '',
     season: '',
     brand: '',
@@ -790,6 +812,7 @@ const resetUploadForm = () => {
 const closeCategoryModal = () => {
   showCategoryModal.value = false
   selectedImageFile.value = null
+  createdItemIdForEdit.value = null
   resetUploadForm()
 }
 
@@ -801,8 +824,9 @@ const loadClothingData = async () => {
     if (!isLoggedIn.value) return
     const queryParams = {
       token: userToken.value,
-      page: currentPage.value,
-      page_size: PAGE_SIZE,
+      // 后端分页只用于限制最大返回数量，这里一次拉取尽量多的数据，前端再做分页
+      page: 1,
+      page_size: 100,
       order_by: 'created_at',
       order_desc: true
     }
@@ -812,8 +836,8 @@ const loadClothingData = async () => {
     
     const response = await getClothingList({
       token: userToken.value,
-      page: currentPage.value,
-      page_size: PAGE_SIZE,
+      page: queryParams.page,
+      page_size: queryParams.page_size,
       order_by: 'created_at',
       order_desc: true
     })
@@ -846,13 +870,18 @@ const loadClothingData = async () => {
           imageUrl = 'https://placehold.co/400x500/f5f0e6/8c7b60?text=No+Image'
         }
         
+        // 后端 season 为数组 ["autumn","winter"]，前端筛选/详情用逗号分隔字符串，此处统一成字符串
+        const seasonVal = item.season
+        const seasonStr = Array.isArray(seasonVal) ? seasonVal.join(',') : (seasonVal || '')
+
         return {
           id: item.id,
           name: item.name || '未命名衣物',
           type: item.category || '',
+          subcategory: item.subcategory || '',
           date: item.created_at ? item.created_at.slice(0, 10) : item.date || '',
           color: item.color || '',
-          season: item.season || '',
+          season: seasonStr,
           favourite: item.is_favorite ? 1 : 0,
           image: imageUrl,
           _rawImageUrl: item.image_url,
@@ -1774,8 +1803,7 @@ const typeOptions = TYPE_OPTIONS
 const selectedTypes = ref([])
 const appliedTypes = ref([])
 
-// Color（多选，存 code）
-const colorOptions = COLOR_OPTIONS
+// Color（多选，存 code）；选项由当前衣物列表的颜色动态推导
 const selectedColors = ref([])
 const appliedColors = ref([])
 
@@ -1784,18 +1812,22 @@ const seasonOptions = SEASON_OPTIONS
 const selectedSeasons = ref([])
 const appliedSeasons = ref([])
 
-// Mock 資料（type/color/season 使用 API code，與 MY_WARDROBE.md 附錄一致）
-const clothes = ref([
-	{ id: 1, name: 'Basic White Tee', type: 't_shirt', date: '2024-01-10', color: 'white', season: 'summer', favourite: 0, image: 'https://placehold.co/400x500/f5f0e6/8c7b60?text=White+Tee' },
-	{ id: 2, name: 'Pumpkin Puff Sleeve Top', type: 'blouse', date: '2024-11-18', color: 'burnt_orange', season: 'summer', favourite: 1, image: 'https://placehold.co/400x500/e8a857/5c4a32?text=Pumpkin+Top' },
-	{ id: 3, name: 'Black Camisole', type: 'top', date: '2024-02-15', color: 'black', season: 'summer', favourite: 2, image: 'https://placehold.co/400x500/2c2c2c/fff?text=Black+Camisole' },
-	{ id: 4, name: 'Striped Long Sleeve', type: 'top', date: '2023-12-05', color: 'black_white', season: 'autumn', favourite: 1, image: 'https://placehold.co/400x500/f5f0e6/2c2c2c?text=Striped' },
-	{ id: 5, name: 'Brown Tank', type: 'vest', date: '2023-08-20', color: 'brown', season: 'summer', favourite: 0, image: 'https://placehold.co/400x500/8b6914/f5f0e6?text=Brown+Tank' },
-	{ id: 6, name: 'Navy V-Neck', type: 'sweater', date: '2024-01-05', color: 'navy', season: 'winter', favourite: 3, image: 'https://placehold.co/400x500/1e3a5f/f5f0e6?text=Navy+V-Neck' },
-	{ id: 7, name: 'Beige Button Up', type: 'shirt', date: '2024-03-01', color: 'beige', season: 'spring', favourite: 1, image: 'https://placehold.co/400x500/d4b896/5c4a32?text=Beige+Shirt' },
-	{ id: 8, name: 'Olive Wrap Top', type: 'blouse', date: '2023-10-12', color: 'olive', season: 'autumn', favourite: 0, image: 'https://placehold.co/400x500/6b7c3c/f5f0e6?text=Olive+Wrap' },
-	{ id: 9, name: 'Example Cloth', type: 'blouse', date: '2024-12-01', color: 'white', season: 'spring', favourite: 0, image: '/static/cloth_example.png' },
-])
+// 衣物列表：初始为空，登录后由 loadClothingData 从接口拉取
+const clothes = ref([])
+
+// 颜色筛选选项：根据当前衣物列表的颜色动态推导（去重 + 排序）
+const colorOptions = computed(() => {
+	const set = new Set()
+	for (const c of clothes.value) {
+		const str = (c.color || '')
+		if (!str) continue
+		str.split(/[,/]+/).map((s) => s.trim()).filter(Boolean).forEach((code) => set.add(code))
+	}
+	return Array.from(set).sort((a, b) => String(a).localeCompare(String(b))).map((code) => ({
+		label: code,
+		value: code
+	}))
+})
 
 
 const displayList = computed(() => {
@@ -2020,12 +2052,13 @@ const handleVirtualTryOn = (item) => {
 const handleItemUpdate = async ({ id, field, value }) => {
 	const idx = clothes.value.findIndex((c) => c.id === id)
 	if (idx < 0) return
-	// 先樂觀更新本地
 	const prev = { ...clothes.value[idx] }
-	clothes.value[idx] = { ...prev, [field]: value }
+	// 本地欄位：category 對應列表的 type（篩選用），subcategory 對應 subcategory
+	const localField = field === 'category' ? 'type' : field
+	clothes.value[idx] = { ...prev, [localField]: value }
 	selectedItem.value = { ...clothes.value[idx] }
-	// 後端欄位對應：type -> category，favourite -> is_favorite（0 為 false，1~3 為 true）
-	const backendField = field === 'type' ? 'category' : field === 'favourite' ? 'is_favorite' : field
+	// 後端欄位：category / subcategory 直傳，favourite -> is_favorite（0 為 false，1~3 為 true）
+	const backendField = field === 'favourite' ? 'is_favorite' : field
 	const backendValue = field === 'favourite' ? (value > 0) : value
 	try {
 		const res = await updateClothing(userToken.value, id, { [backendField]: backendValue })
@@ -2078,7 +2111,8 @@ const handleUploadDrop = (event) => {
 		: {
 			id: Date.now(),
 			name: 'New Item',
-			type: 'blouse',
+			type: 'top',
+			subcategory: '',
 			date: new Date().toISOString().slice(0, 10),
 			color: '',
 			season: '',
@@ -2111,7 +2145,8 @@ const handleUpload = () => {
 				clothes.value.unshift({
 					id: Date.now(),
 					name: 'New Item',
-					type: 'blouse',
+					type: 'top',
+					subcategory: '',
 					date: new Date().toISOString().slice(0, 10),
 					color: '',
 					season: '',
@@ -2394,7 +2429,7 @@ const handleUpload = () => {
 }
 
 .upload-widget {
-	width: 520rpx;
+	width: 560rpx;
 	flex-shrink: 0;
 	min-width: 320rpx;
 }
