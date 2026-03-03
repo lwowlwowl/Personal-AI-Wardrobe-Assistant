@@ -2,14 +2,12 @@
  * 推荐 AI 的 Mock 数据与常量
  * 与后端 AIwardrobe 联调约定见：backend/AIwardrobe/README.md
  *
- * API 约定：
- * - 接口：POST /api/chat，body: { query: string }
- * - 第一阶段（纯文字）：返回 { content: string }
- * - 第二阶段（结构化）：返回 { content?: string, recommendations?: Array }
+ * API 约定（真实接口为 POST /api/ai/chat/stream，SSE 流式）：
+ * - Mock 与 normalizeChatResponse 兼容：{ content?: string, recommendations?: Array }
  * 单条 recommendation：{ title, temperature, styleTags, content, items, whyThisWorks, images }
  */
 
-/** 是否使用 Mock（true=本地 mock，false=请求后端 /api/chat） */
+/** 是否使用 Mock（true=本地 mock，false=请求后端 /api/ai/chat/stream） */
 export const USE_RECOMMENDATION_MOCK = true
 
 /** 加载过程展示文案（轮播） */

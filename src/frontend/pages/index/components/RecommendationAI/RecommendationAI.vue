@@ -462,9 +462,14 @@ const handleSearch = async () => {
 		return
 	}
 
-	// 联调：请求后端，支持第一阶段纯文字 { content } 与第二阶段 { content, recommendations }
+	// 联调：请求后端 /api/ai/chat/stream，传入历史对话以支持多轮上下文
+	const history = chatHistory.value
+		.slice(0, -2) // 排除刚加入的 userMsg 与 loading
+		.filter(m => m.role === 'user' || m.role === 'ai')
+		.map(m => ({ role: m.role, content: (m.content || '').trim() }))
+		.filter(m => m.content)
 	try {
-		const res = await chatRecommendation(query)
+		const res = await chatRecommendation(query, history)
 		finishLoading(normalizeChatResponse(res))
 	} catch (err) {
 		finishLoading({
@@ -861,30 +866,10 @@ const previewImages = (urls, index = 0) => {
 	animation: aiFadeIn 0.5s ease-out forwards;
 }
 
-.ai-fade-block {
-	opacity: 0;
-	animation: aiBlockFade 0.4s ease-out forwards;
-}
-
-.ai-list-item.ai-fade-block {
-	opacity: 0;
-}
-
 @keyframes aiFadeIn {
 	from {
 		opacity: 0;
 		transform: translateY(8rpx);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
-}
-
-@keyframes aiBlockFade {
-	from {
-		opacity: 0;
-		transform: translateY(6rpx);
 	}
 	to {
 		opacity: 1;
@@ -926,59 +911,6 @@ const previewImages = (urls, index = 0) => {
 .recommend-swiper swiper-item {
 	height: auto;
 	padding-bottom: 60rpx;
-}
-
-/* AI 列表样式（兼容旧格式，无 RecommendationCard 时） */
-.ai-list {
-	display: flex;
-	flex-direction: column;
-	gap: 12rpx;
-	margin-top: 8rpx;
-}
-
-.ai-list-item {
-	display: flex;
-	align-items: flex-start;
-	gap: 12rpx;
-}
-
-.list-bullet {
-	font-size: 32rpx;
-	color: #9D8B70;
-	flex-shrink: 0;
-	line-height: 1.4;
-}
-
-/* AI 推荐列表项（与 message-text 统一，采用图二风格） */
-.list-text {
-	font-size: 30rpx;
-	color: #1D1D1F;
-	font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Microsoft YaHei", sans-serif;
-	font-weight: 400;
-	line-height: 1.6;
-	flex: 1;
-	/* 确保文本可被选择和复制 */
-	user-select: text;
-	-webkit-user-select: text;
-	-moz-user-select: text;
-	-ms-user-select: text;
-}
-
-/* AI 图片组样式 */
-.ai-image-group {
-	display: flex;
-	gap: 16rpx;
-	margin-top: 16rpx;
-	flex-wrap: wrap;
-}
-
-.rec-img {
-	width: 200rpx;
-	height: 260rpx;
-	border-radius: 12rpx;
-	background-color: #EEE;
-	border: 2rpx solid #E5E5EA;
-	object-fit: cover;
 }
 
 /* 输入框外层 box：铺满右侧、背景与页面一致、上方留白 */

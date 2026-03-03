@@ -30,114 +30,55 @@
 
 ---
 
-## 三、在后端（main.py）中如何使用
+## 三、在后端（main.py）中的使用
 
-目前 **main.py 尚未引用 AIwardrobe**。要接入，需做两件事：
+**main.py 已接入 AIwardrobe**，通过 `sys.path` 引入 AIwardrobe 目录，并对外提供流式接口。
 
-### 3.1 让 main.py 能 import AIwardrobe 内的模块
+### 3.1 现有接口
 
-因为 AIwardrobe 内部用相对 import（`model`、`rag`、`agent` 等），有两种常见做法：
+| 接口 | 说明 |
+|------|------|
+| `POST /api/ai/chat/stream` | AI 穿搭建议流式接口，SSE 格式 |
 
-**方式 A：把 AIwardrobe 目录加入 sys.path（推荐）**
+**请求体**（`ChatReq`）：
 
-在 `main.py` 顶部（在 import 业务代码之后、在 import AIwardrobe 之前）加入：
-
-```python
-import sys
-from pathlib import Path as PathLib
-
-# 项目 backend 目录
-BACKEND_DIR = PathLib(__file__).resolve().parent
-AIWARDROBE_DIR = BACKEND_DIR / "AIwardrobe"
-if str(AIWARDROBE_DIR) not in sys.path:
-    sys.path.insert(0, str(AIWARDROBE_DIR))
+```json
+{
+  "query": "用户输入文本",
+  "history": [
+    { "role": "user", "content": "..." },
+    { "role": "ai", "content": "..." }
+  ]
+}
 ```
 
-之后即可：
+**响应**：SSE 流式，每行 `data: {"type":"delta","content":"..."}`，结束 `data: {"type":"done"}`，错误 `data: {"type":"error","message":"..."}`。
 
-```python
-from agent.react_agent import ReactAgent
-```
+### 3.2 若需自行接入（参考）
 
-**方式 B：以包形式 import（需改 AIwardrobe 内部为相对包路径）**
-
-若希望用 `from backend.AIwardrobe.agent.react_agent import ReactAgent`，需要把 AIwardrobe 内所有 `from model.xxx`、`from rag.xxx` 等改为 `from AIwardrobe.model.xxx` 或使用相对 import（`from ..model import xxx`）。改动较多，一般先用方式 A 即可。
-
-### 3.2 新增一个聊天/推荐接口
-
-例如 **流式接口**（与 `execute_stream` 对应）：
-
-```python
-from fastapi.responses import StreamingResponse
-
-@app.post("/api/chat/stream")
-async def chat_stream(query: str = Body(..., embed=True)):
-    """AI 穿搭建议流式；请求体: {"query": "用户输入"}"""
-    try:
-        agent = ReactAgent(lang="zh")
-        def generate():
-            for chunk in agent.execute_stream(query):
-                yield chunk
-        return StreamingResponse(
-            generate(),
-            media_type="text/plain; charset=utf-8",
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-```
-
-若希望 **一次性返回**（不流式），可以先把流式结果拼成字符串再返回：
-
-```python
-@app.post("/api/chat")
-async def chat(query: str = Body(..., embed=True)):
-    try:
-        agent = ReactAgent(lang="zh")
-        full = "".join(agent.execute_stream(query))
-        return {"content": full}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-```
-
-按需选择流式或一次性；前端 RecommendationAI 可依此对接。
+AIwardrobe 内部用相对 import（`model`、`rag`、`agent` 等），需把 **AIwardrobe 目录加入 `sys.path`** 后再 `from agent.react_agent import ReactAgent`。main.py 已按此方式配置。
 
 ---
 
 ## 四、与前端 RecommendationAI 联调
 
-### 4.1 前端现状
+### 4.1 联调状态
 
-- **RecommendationAI.vue**：用户发送消息后，目前用 **setTimeout 2.5 秒** 模拟延迟，然后 push 一笔 **写死的推荐**（`msg.recommendations`），**没有调用后端 API**。
-- 后端 **main.py 目前没有** `/api/chat` 或 `/api/recommend` 这类 AI 接口。
+- **后端**：已提供 `POST /api/ai/chat/stream`，接收 `{ query, history }`，返回 SSE 流式。
+- **前端**：`api/recommendationApi.js` 的 `chatRecommendation(query, history)` 已对接该接口，解析 SSE 并累积为完整 `content`。
+- **Mock 开关**：`RecommendationAI/mockData.js` 中 `USE_RECOMMENDATION_MOCK = true` 时用本地 Mock，设为 `false` 时请求后端。
 
-### 4.2 联调要做的事
+### 4.2 使用真实接口
 
-1. **后端**  
-   - 按上面「三」在 main.py 中加入 `sys.path` 与 `ReactAgent` 的 import。  
-   - 新增一个接口，例如：  
-     - `POST /api/chat/stream`（流式），或  
-     - `POST /api/chat`（一次性 JSON，如 `{"content": "..."}`）。  
+1. 确保 **gpt-oss**（或配置的 chat 模型）在 `rag.yml` 的 `base_url` 所指地址运行（如 `http://localhost:8080/v1`）。
+2. 启动后端 `main.py`（端口 8000）。
+3. 将 `mockData.js` 中 `USE_RECOMMENDATION_MOCK` 设为 `false`。
+4. 前端 `recommendationApi.js` 的 `API_BASE_URL` 为 `http://localhost:8000`，与后端一致。
 
-2. **前端**  
-   - 在 **RecommendationAI.vue** 的发送逻辑里（目前是 `setTimeout` 那段），改为调用上述 API：  
-     - 用 `uni.request` 或项目里的 `request`（`utils/request.js`）发 `POST`，body 为 `{ query: 用户输入 }`。  
-   - 若后端返回的是 **纯文字**：  
-     - 可先把整段文字当成一条 AI 消息的 `content` 显示（不带 `recommendations`），或  
-     - 等后端日后改为返回结构化 `recommendations` 再对接卡片。  
-   - 若后端日后改为返回 **结构化推荐**（例如 `{ content, recommendations: [...] }`），前端只要把 `recommendations` 赋给 `msg.recommendations`，现有 `RecommendationCard` 与 swiper 即可复用。
+### 4.3 数据格式
 
-3. **端口与 BASE_URL**  
-   - 后端：main.py 使用 **8000** 端口。  
-   - 前端：`api/wardrobe.js` 使用 `API_BASE_URL = 'http://localhost:8000'`；`utils/request.js` 的 `BASE_URL` 为 `http://localhost:3000`。  
-   - 若 RecommendationAI 通过 `request.js` 调用后端，请把 **request.js 的 BASE_URL 改为 `http://localhost:8000`**，或改为使用 `wardrobe.js` 的 `API_BASE_URL`，避免请求打到错误的端口。
-
-### 4.3 数据格式对齐
-
-- **目前 Agent 输出**：`execute_stream` 只会 yield **纯文字**（模型最终回复内容），没有 JSON。  
-- **前端 RecommendationAI**：期望一条 AI 消息带 `recommendations` 数组，每项有 `title`、`temperature`、`styleTags`、`content`、`items`、`whyThisWorks`、`images` 等。  
-- **联调建议**：  
-  - **第一阶段**：后端先只返回文字，前端先以「纯文字 AI 消息」显示，确认打通。  
-  - **第二阶段**：再在后端加一层（例如提示词 + 解析），让模型输出结构化 JSON，或后端用正则/解析从文字中抽出推荐结构，返回 `{ content, recommendations }`，前端再赋给 `msg.recommendations`。
+- **目前 Agent 输出**：`execute_stream` 只 yield **纯文字**，前端以 `{ role: 'ai', content: '...' }` 展示。
+- **未来扩展**：若后端返回结构化 `{ content, recommendations: [...] }`，前端 `normalizeChatResponse` 已支持，可直接赋给 `msg.recommendations` 展示推荐卡片。
 
 ---
 
@@ -146,7 +87,5 @@ async def chat(query: str = Body(..., embed=True)):
 | 问题 | 说明 |
 |------|------|
 | **AIwardrobe 是什么** | 后端的 AI 智能衣橱模块：LangChain ReAct Agent + RAG + 天气等工具，用于生成穿搭建议。 |
-| **在后端怎么用** | 把 AIwardrobe 目录加入 `sys.path`，`from agent.react_agent import ReactAgent`，在 FastAPI 中新增路由调用 `agent.execute_stream(query)`，用 StreamingResponse 或拼成字符串返回。 |
-| **与 RecommendationAI 联调** | 后端新增 `/api/chat` 或 `/api/chat/stream`；前端把现有 setTimeout 改为调用该 API；注意 BASE_URL 用 8000；先对接纯文字，再考虑结构化 `recommendations`。 |
-
-若你希望，我可以再根据你当前的 main.py 和 RecommendationAI.vue 写出具体补丁（含 sys.path、路由和前端 request 范例）。
+| **在后端怎么用** | main.py 已接入，对外提供 `POST /api/ai/chat/stream`，请求体 `{ query, history }`，返回 SSE 流式。 |
+| **与 RecommendationAI 联调** | 已对接。前端 `chatRecommendation(query, history)` 调用该接口；`USE_RECOMMENDATION_MOCK = false` 时使用真实后端。 |

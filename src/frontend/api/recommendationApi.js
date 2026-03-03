@@ -18,20 +18,47 @@ function request(options) {
 }
 
 /**
- * 推荐 AI 对话接口，对接后端 POST /api/chat
+ * 推荐 AI 对话接口（流式），对接后端 POST /api/ai/chat/stream
  * @param {string} query - 用户输入文本
- * @returns {Promise<{ content?: string, recommendations?: Array }>}
+ * @param {Array<{role: string, content: string}>} history - 历史对话（可选），格式 [{ role: 'user'|'ai', content: '...' }]
+ * @returns {Promise<{ content: string }>} 累积后的完整回复
  */
-export function chatRecommendation(query) {
-  return request({
-    url: '/api/chat',
+export function chatRecommendation(query, history = []) {
+  const url = `${API_BASE_URL}/api/ai/chat/stream`
+  return fetch(url, {
     method: 'POST',
-    data: { query },
-    header: { 'Content-Type': 'application/json' }
-  }).then(res => {
-    if (res.statusCode === 200) return res.data || {}
-    const msg = (res.data && (res.data.detail || res.data.message)) || '请求失败'
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, history })
+  }).then(async (res) => {
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      const msg = errData.detail || errData.message || `HTTP ${res.status}`
+      throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+    }
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let fullContent = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const json = JSON.parse(line.slice(6))
+            if (json.type === 'delta' && json.content) fullContent += json.content
+            if (json.type === 'error') throw new Error(json.message || 'Stream error')
+          } catch (e) {
+            if (e instanceof SyntaxError) continue
+            throw e
+          }
+        }
+      }
+    }
+    return { content: fullContent.trim() }
   })
 }
 

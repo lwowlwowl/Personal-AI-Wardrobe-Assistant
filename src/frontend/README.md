@@ -99,6 +99,7 @@ frontend/
 - **主聊天区**（`RecommendationAI.vue`）：初始问候、多行输入、图片上传；用户/AI 消息展示；推荐结果以多套推荐卡片 + 左右滑动展示。
 - **多会话**：由父级 `index.vue` 同步 `conversationState`；支持 `currentConversationId` / `currentConversation` 与 `create-conversation` / `update-conversation` 事件。
 - **侧栏对话列表**（`ConversationSidebar.vue`）：选中推荐 AI 且侧栏未折叠时显示「新建会话」按钮与「你的对话」列表；支持切换会话、重命名（RenameModal）、删除（DeleteModal）；状态与逻辑集中在 ConversationSidebar，通过 `update:conversationState` 回传 index 再传给主聊天组件。
+- **API 联调**：默认使用 Mock 数据；将 `RecommendationAI/mockData.js` 中 `USE_RECOMMENDATION_MOCK = false` 可请求后端 `POST /api/ai/chat/stream`。详见 `pages/index/components/RecommendationAI/RECOMMENDATION_AI.md`。
 
 ### 虚拟试穿 (`Virtual Try-On`)
 
@@ -163,10 +164,11 @@ npm run build:mp-weixin
 | 模块 | 文档 | 说明 |
 |------|------|------|
 | 登录 / 注册 | `LOGIN_REGISTER.md` | 已联调；登录、注册接口与请求/响应格式 |
+| 推荐 AI | `pages/index/components/RecommendationAI/RECOMMENDATION_AI.md` | 已联调；`POST /api/ai/chat/stream`，Mock 开关、SSE 流式约定 |
 | 我的衣橱 | `MY_WARDROBE.md` | 衣橱列表、筛选、增删改、默认模特、枚举 code、imageFileId 约定等 |
 | 虚拟试穿 | `VIRTUAL_TRYON.md` | 虚拟试穿相关接口与上传约定 |
 
-后端实现时请以上述文档为准；请求基址等可在 `utils/request.js` 或环境变量中配置。
+后端实现时请以上述文档为准；请求基址等可在 `utils/request.js`、`api/recommendationApi.js` 或环境变量中配置。
 
 ## 🎯 待完成 / 可选事项
 
