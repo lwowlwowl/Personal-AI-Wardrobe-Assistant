@@ -11,7 +11,7 @@
 				<text>{{ uploadError }}</text>
 				<text class="close-error" @click="uploadError = ''">×</text>
 			</view>
-			<!-- Header: 標題可選，設計圖上有的寫 Wardrobe Management -->
+			<!-- Header: 标题可选，设计图上有的写 Wardrobe Management -->
 			<view class="header">
 				<view class="toggle-switch">
 					<view 
@@ -512,7 +512,7 @@ import {
 
 const emit = defineEmits(['switch-to-tryon'])
 
-// 注入父組件提供的 auth 狀態同步函數，用於同步側邊欄顯示
+// 注入父组件提供的 auth 状态同步函数，用于同步侧边栏显示
 const updateAuthState = inject('updateAuthState', null)
 
 // ============ 用户认证状态 ============
@@ -877,6 +877,7 @@ const loadClothingData = async () => {
         const seasonVal = item.season
         const seasonStr = Array.isArray(seasonVal) ? seasonVal.join(',') : (seasonVal || '')
 
+        const tagsArr = (item.tags || []).map((t) => (typeof t === 'string' ? t : (t?.tag || t))).filter(Boolean)
         return {
           id: item.id,
           name: item.name || '未命名衣物',
@@ -885,6 +886,7 @@ const loadClothingData = async () => {
           date: item.created_at ? item.created_at.slice(0, 10) : item.date || '',
           color: item.color || '',
           season: seasonStr,
+          tags: tagsArr,
           favourite: item.is_favorite ? 1 : 0,
           image: imageUrl,
           _rawImageUrl: item.image_url,
@@ -1833,7 +1835,7 @@ const colorOptions = computed(() => {
 })
 
 
-// 搜尋：僅匹配名稱，允許前綴匹配，不允許任意子串（swea/swe ✅ sweater，we ❌ sweater）
+// 搜索：仅匹配名称，允许前缀匹配，不允许任意子串（swea/swe ✅ sweater，we ❌ sweater）
 const nameMatchesSearch = (name, searchTerm) => {
 	const nameWords = (name || '').toLowerCase().split(/\s+/).filter(Boolean)
 	const searchWords = searchTerm.trim().toLowerCase().split(/\s+/).filter(Boolean)
@@ -2052,18 +2054,22 @@ const handleVirtualTryOn = (item) => {
 	emit('switch-to-tryon', item, defaultModelImage)
 }
 
-// 衣物編輯：同步到後端並更新本地
+// 衣物编辑：同步到后端并更新本地
 const handleItemUpdate = async ({ id, field, value }) => {
 	const idx = clothes.value.findIndex((c) => c.id === id)
 	if (idx < 0) return
 	const prev = { ...clothes.value[idx] }
-	// 本地欄位：category 對應列表的 type（篩選用），subcategory 對應 subcategory
+	// 本地字段：category 对应列表的 type（筛选用），subcategory 对应 subcategory
 	const localField = field === 'category' ? 'type' : field
 	clothes.value[idx] = { ...prev, [localField]: value }
 	selectedItem.value = { ...clothes.value[idx] }
-	// 後端欄位：category / subcategory 直傳，favourite -> is_favorite（0 為 false，1~3 為 true）
+	// 后端字段：category / subcategory 直传，favourite -> is_favorite（0 为 false，1~3 为 true），season 需为 JSON 数组字符串
 	const backendField = field === 'favourite' ? 'is_favorite' : field
-	const backendValue = field === 'favourite' ? (value > 0) : value
+	let backendValue = field === 'favourite' ? (value > 0) : value
+	if (field === 'season') {
+		const arr = (typeof value === 'string' ? value.split(',') : Array.isArray(value) ? value : []).map((s) => String(s).trim()).filter(Boolean)
+		backendValue = JSON.stringify(arr)
+	}
 	try {
 		const res = await updateClothing(userToken.value, id, { [backendField]: backendValue })
 		if (res.statusCode !== 200 || !res.data?.success) {
@@ -2074,7 +2080,7 @@ const handleItemUpdate = async ({ id, field, value }) => {
 	} catch (err) {
 		clothes.value[idx] = prev
 		selectedItem.value = { ...prev }
-		uni.showToast({ title: '網絡錯誤，未同步到後端', icon: 'none' })
+		uni.showToast({ title: '网络错误，未同步到后端', icon: 'none' })
 	}
 }
 

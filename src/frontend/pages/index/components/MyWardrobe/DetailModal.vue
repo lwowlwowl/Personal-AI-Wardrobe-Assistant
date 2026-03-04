@@ -83,6 +83,10 @@
 								<view class="select-apply" @click="applyField('season')">Apply</view>
 							</view>
 						</view>
+						<view class="info-row info-row-readonly">
+							<text class="label">Tags:</text>
+							<text class="value">{{ tagsDisplayText }}</text>
+						</view>
 						<view class="info-row info-row-favourite">
 							<text class="label">Favourite:</text>
 							<view class="hearts">
@@ -163,6 +167,18 @@ function parseMulti (val) {
 
 const categoryDisplayText = computed(() => editCategory.value ? (TYPE_LABEL_BY_CODE[editCategory.value] || editCategory.value) : '—')
 const seasonDisplayText = computed(() => codesToLabels(editSeasons.value, SEASON_LABEL_BY_CODE))
+
+/** 解析 tags：支持数组字符串、数组对象 {tag}、逗号分隔字符串 */
+const tagsDisplayText = computed(() => {
+	const val = props.item?.tags
+	if (!val) return '—'
+	if (Array.isArray(val)) {
+		const arr = val.map((t) => (typeof t === 'string' ? t : (t?.tag || t))).filter(Boolean)
+		return arr.length ? arr.join(', ') : '—'
+	}
+	if (typeof val === 'string') return val.trim() || '—'
+	return '—'
+})
 
 watch(() => props.item, (val) => {
 	if (!val) return

@@ -363,8 +363,8 @@ class ClothingCRUD:
         返回:
             Tuple[衣物列表, 总记录数]
         """
-        # 基础查询：只查询当前用户的衣物
-        query = db.query(ClothingItem).filter(ClothingItem.user_id == user_id)
+        # 基础查询：只查询当前用户的衣物，预加载 tags 供列表展示
+        query = db.query(ClothingItem).options(joinedload(ClothingItem.tags)).filter(ClothingItem.user_id == user_id)
 
         # 应用过滤器
         if category:
