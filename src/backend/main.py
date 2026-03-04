@@ -792,7 +792,7 @@ async def upload_clothing_item(
                 parsed = json.loads(raw_result.strip())
 
                 label_result = {}
-                for field in ("category", "subcategory", "style", "color", "color_code", "pattern", "occasion"):
+                for field in ("category", "subcategory", "style", "color", "color_code", "pattern", "occasion", "description"):
                     value = parsed.get(field)
                     if value is not None and str(value).strip() != "":
                         label_result[field] = str(value).strip()
@@ -826,7 +826,7 @@ async def upload_clothing_item(
         }
 
         if label_result:
-            for field in ("category", "subcategory", "style", "color", "color_code", "pattern", "occasion"):
+            for field in ("category", "subcategory", "style", "color", "color_code", "pattern", "occasion", "description"):
                 if not resolved.get(field) and label_result.get(field):
                     resolved[field] = label_result[field]
             if resolved["season"] is None and label_result.get("season"):

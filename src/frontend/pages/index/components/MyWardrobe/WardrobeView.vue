@@ -491,7 +491,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, inject } from 'vue'
 import DetailModal from './DetailModal.vue'
 import ModelDetailModal from './ModelDetailModal.vue'
 import { TYPE_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
@@ -512,9 +512,8 @@ import {
 
 const emit = defineEmits(['switch-to-tryon'])
 
-
-
-
+// 注入父組件提供的 auth 狀態同步函數，用於同步側邊欄顯示
+const updateAuthState = inject('updateAuthState', null)
 
 // ============ 用户认证状态 ============
 // 从本地存储获取token和用户信息
@@ -562,6 +561,7 @@ const uploadFormData = ref({
 async function checkAuthStatus() {
   if (!userToken.value) {
     isLoggedIn.value = false
+    updateAuthState?.(false)
     return false
   }
 
@@ -579,10 +579,12 @@ async function checkAuthStatus() {
         email: response.data.email
       }
       uni.setStorageSync('user_info', userInfo.value)
+      updateAuthState?.(true, userInfo.value.username)
       return true
     } else {
       // token无效，清除本地存储
       clearAuthData()
+      updateAuthState?.(false)
       return false
     }
   } catch (error) {
@@ -603,6 +605,7 @@ function clearAuthData() {
   userToken.value = ''
   userInfo.value = null
   isLoggedIn.value = false
+  updateAuthState?.(false)
 }
 
 // ============ 调试方法 ============
@@ -720,7 +723,7 @@ const testSimpleUpload = async () => {
         season: Array.isArray(raw.season) ? (raw.season[0] || '') : (raw.season || ''),
         brand: raw.brand || '',
         tags: tagParts.join(','),
-        description: '',
+        description: raw.description || '',
         price: uploadFormData.value.price || '',
         purchase_date: uploadFormData.value.purchase_date || ''
       }
@@ -1830,16 +1833,21 @@ const colorOptions = computed(() => {
 })
 
 
+// 搜尋：僅匹配名稱，允許前綴匹配，不允許任意子串（swea/swe ✅ sweater，we ❌ sweater）
+const nameMatchesSearch = (name, searchTerm) => {
+	const nameWords = (name || '').toLowerCase().split(/\s+/).filter(Boolean)
+	const searchWords = searchTerm.trim().toLowerCase().split(/\s+/).filter(Boolean)
+	if (searchWords.length === 0) return true
+	return searchWords.every((searchWord) =>
+		nameWords.some((nameWord) => nameWord.startsWith(searchWord))
+	)
+}
+
 const displayList = computed(() => {
 	let list = [...clothes.value]
 	if (searchQuery.value.trim()) {
-		const q = searchQuery.value.trim().toLowerCase()
-		list = list.filter(
-			(c) =>
-				(c.name || '').toLowerCase().includes(q) ||
-				(c.type || '').toLowerCase().includes(q) ||
-				(c.color || '').toLowerCase().includes(q)
-		)
+		const q = searchQuery.value.trim()
+		list = list.filter((c) => nameMatchesSearch(c.name, q))
 	}
 	const dateOrder = appliedDate.value
 	if (dateOrder === 'asc' || dateOrder === 'desc') {
@@ -1892,14 +1900,10 @@ const modelDisplayList = computed(() => {
       return (b.date || '').localeCompare(a.date || '')
     })
   
-  // 应用搜索过滤
-  const q = modelSearchQuery.value.trim().toLowerCase()
+  // 应用搜索过滤：仅匹配名称（photo_name），且搜索词须为完整单词
+  const q = modelSearchQuery.value.trim()
   if (q) {
-    return sortedModels.filter((m) => 
-      (m.photo_name || '').toLowerCase().includes(q) ||
-      (m.description || '').toLowerCase().includes(q) ||
-      (m.posture || '').toLowerCase().includes(q)
-    )
+    return sortedModels.filter((m) => nameMatchesSearch(m.photo_name, q))
   }
   
   return sortedModels

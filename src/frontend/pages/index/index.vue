@@ -90,9 +90,13 @@
 				<view class="user-status-card">
 					<transition name="user-menu-fade">
 						<view v-if="showUserMenu" class="user-menu-popup" @click.stop>
-							<view class="user-menu-item" @click="handleLogout">
+							<view v-if="isLoggedIn" class="user-menu-item" @click="handleLogout">
 								<image src="/static/icons/icon-logout.svg" mode="aspectFit" class="user-menu-item-icon"></image>
 								<text class="user-menu-item-text">退出登录</text>
+							</view>
+							<view v-else class="user-menu-item" @click="handleGoToLogin">
+								<image src="/static/icons/icon-logout.svg" mode="aspectFit" class="user-menu-item-icon"></image>
+								<text class="user-menu-item-text">前往登录</text>
 							</view>
 						</view>
 					</transition>
@@ -139,8 +143,9 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, provide } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
+import { authVerify } from '@/api/wardrobe.js'
 import RecommendationAI from './components/RecommendationAI/RecommendationAI.vue'
 import ConversationSidebar from './components/RecommendationAI/ConversationSidebar.vue'
 import VirtualTryOn from './components/VirtualTryOn.vue'
@@ -164,15 +169,45 @@ const conversationState = ref({
 
 // 侧边栏显示的用户名：登录后显示用户名，否则显示 Guest User
 const displayUserName = ref('Guest User')
-const refreshDisplayUserName = () => {
-	const userInfo = uni.getStorageSync('user_info')
-	const token = uni.getStorageSync('auth_token')
-	displayUserName.value = (token && userInfo && userInfo.username) ? userInfo.username : 'Guest User'
+const isLoggedIn = ref(false)
+
+// 供子组件（如 WardrobeView）在 checkAuthStatus 后同步登入状态
+const updateAuthState = (loggedIn, username) => {
+	isLoggedIn.value = !!loggedIn
+	displayUserName.value = loggedIn && username ? username : 'Guest User'
 }
-refreshDisplayUserName() // 初始化时读取一次
+
+const refreshDisplayUserName = async () => {
+	const token = uni.getStorageSync('auth_token')
+	if (!token) {
+		displayUserName.value = 'Guest User'
+		isLoggedIn.value = false
+		return
+	}
+	try {
+		const res = await authVerify(token)
+		if (res.statusCode === 200 && res.data?.valid) {
+			const username = res.data?.username || uni.getStorageSync('user_info')?.username
+			displayUserName.value = username || 'Guest User'
+			isLoggedIn.value = true
+		} else {
+			uni.removeStorageSync('auth_token')
+			uni.removeStorageSync('user_info')
+			displayUserName.value = 'Guest User'
+			isLoggedIn.value = false
+		}
+	} catch {
+		// 网络错误等保持当前显示，不强制清除
+		displayUserName.value = uni.getStorageSync('user_info')?.username || 'Guest User'
+		isLoggedIn.value = !!(token && uni.getStorageSync('user_info'))
+	}
+}
+;(async () => { await refreshDisplayUserName() })()
 onShow(() => {
-	refreshDisplayUserName() // 每次页面显示时更新（例如从登录页返回）
+	refreshDisplayUserName()
 })
+
+provide('updateAuthState', updateAuthState)
 
 const openConvMenuId = ref(null)
 const showUserMenu = ref(false)
@@ -186,9 +221,17 @@ const toggleUserMenu = () => {
 const handleLogout = () => {
 	uni.removeStorageSync('auth_token')
 	uni.removeStorageSync('user_info')
-	refreshDisplayUserName()
+	displayUserName.value = 'Guest User'
+	isLoggedIn.value = false
 	showUserMenu.value = false
 	uni.reLaunch({
+		url: '/pages/login/login'
+	})
+}
+
+const handleGoToLogin = () => {
+	showUserMenu.value = false
+	uni.navigateTo({
 		url: '/pages/login/login'
 	})
 }
