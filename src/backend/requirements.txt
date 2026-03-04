@@ -12,6 +12,9 @@ pydantic-settings>=2.1.0
 requests>=2.28.0
 PyJWT[crypto]>=2.6.0
 
+# Windows 上 zoneinfo 需要 tzdata 才能解析 Asia/Shanghai 等时区
+tzdata>=2024.1
+
 # AIwardrobe / LangChain（与 pydantic 2.x 兼容）
 langchain>=0.3.0
 langchain-core>=0.3.0

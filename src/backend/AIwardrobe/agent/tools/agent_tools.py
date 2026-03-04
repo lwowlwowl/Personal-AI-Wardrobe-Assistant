@@ -1,8 +1,7 @@
 import json
 import os.path
 import random
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 
 from langchain_core.tools import tool
 from AIwardrobe.rag.rag_service import RagSummarizeService
@@ -15,21 +14,31 @@ from AIwardrobe.utils.fetch_weather_json import fetch_weather_json_now, save_wea
 
 rag = RagSummarizeService()
 
+# 中國時區：Windows 上若無 tzdata 則 ZoneInfo("Asia/Shanghai") 會失敗，改用 UTC+8
+def _china_tz():
+    try:
+        from zoneinfo import ZoneInfo
+        return ZoneInfo("Asia/Shanghai")
+    except Exception:
+        return timezone(timedelta(hours=8))
+
+
 @tool(description="从向量存储中检索参考资料")
 def rag_summarize(query: str) -> str:
     return rag.rag_summarize(query)
 
 
 def _is_today_weather_data(data: dict) -> bool:
-    now = datetime.now(ZoneInfo("Asia/Shanghai"))
+    tz = _china_tz()
+    now = datetime.now(tz)
     obs_time = (data.get("now") or {}).get("obsTime")
     if not obs_time:
         return False
     try:
         obs_dt = datetime.fromisoformat(obs_time.replace("Z", "+00:00"))
         if obs_dt.tzinfo is None:
-            obs_dt = obs_dt.replace(tzinfo=ZoneInfo("Asia/Shanghai"))
-        age_seconds = (now - obs_dt.astimezone(ZoneInfo("Asia/Shanghai"))).total_seconds()
+            obs_dt = obs_dt.replace(tzinfo=tz)
+        age_seconds = (now - obs_dt.astimezone(tz)).total_seconds()
         return 0 <= age_seconds <= 1800   # 30分钟内为有效
     except Exception:
         return False
