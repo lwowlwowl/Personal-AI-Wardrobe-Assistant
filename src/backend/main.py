@@ -27,6 +27,14 @@ from pathlib import Path as PathLib
 
 from AIwardrobe.agent.react_agent import ReactAgent
 from AIwardrobe.agent.classify_model import ClassificationModel
+from AIwardrobe.agent.tools.agent_tools import (
+    set_agent_request_user_id,
+    reset_agent_request_user_id,
+)
+from AIwardrobe.services.weather_cache import (
+    get_cached_location_by_coords,
+    set_user_location_cache,
+)
 
 # ============ 路径配置 ============
 # 项目根目录：.../Personal-AI-Wardrobe-Assistant
@@ -104,7 +112,6 @@ async def health_check():
 # ============ 天气接口（基于用户经纬度，供前端 RecommendationAI 穿衣建议） ============
 # 半小时内复用：GeoAPI（经纬度→location_id）、天气 API 均缓存，避免频繁调用和风
 _WEATHER_CACHE_TTL_SEC = 30 * 60   # 30 分钟
-_geo_cache: Dict[str, Dict[str, Any]] = {}   # key: "lat,lon" 保留3位小数 → { "location_id", "fetched_at" }
 _weather_cache: Dict[str, Dict[str, Any]] = {}  # key: location_id → { "response", "fetched_at" }
 
 
@@ -131,12 +138,12 @@ def _wind_scale_to_desc(scale: str) -> str:
 async def get_weather_now(
     lat: float = Query(..., description="纬度"),
     lon: float = Query(..., description="经度"),
+    token: Optional[str] = Query(None, description="用户认证令牌（用于按用户隔离天气地理缓存）"),
 ):
     """
     根据经纬度获取当前天气（和风天气 API），供前端显示温度与风力并做穿衣建议。
     同一 location_id（同城市/区县）30 分钟内复用缓存，不再调用和风 API。
     """
-    # 禁止使用旧版共用域名，否则和风会 403
     host = (os.environ.get("QWEATHER_API_HOST") or "").strip().lower()
     if "api.qweather.com" in host and "qweatherapi.com" not in host:
         raise HTTPException(
@@ -149,7 +156,7 @@ async def get_weather_now(
         )
 
     try:
-        from utils.fetch_weather_json import get_location_id_by_coords, fetch_weather_json_now
+        from utils.fetch_weather_json import get_location_all_by_coords, fetch_weather_json_now
     except ImportError as e:
         print(f"天气服务 ImportError: {traceback.format_exc()}")
         raise HTTPException(
@@ -157,28 +164,36 @@ async def get_weather_now(
             detail=f"天气服务未配置或无法加载: {str(e)}",
         ) from e
 
-    # 第一步：经纬度 → location_id（GeoAPI 也做 30 分钟缓存，避免频繁调 GeoAPI）
-    geo_key = f"{round(lat, 3)},{round(lon, 3)}"
-    now_ts = time.time()
-    if geo_key in _geo_cache:
-        geo_entry = _geo_cache[geo_key]
-        if now_ts - geo_entry["fetched_at"] < _WEATHER_CACHE_TTL_SEC:
-            location_id = geo_entry["location_id"]
-        else:
-            location_id = None
-    else:
-        location_id = None
-    if not location_id:
+    cache_user_id: int | str = "anonymous"
+    if token:
+        payload = crud.verify_access_token(token)
+        if not payload or not payload.get("user_id"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="无效或过期的token"
+            )
+        cache_user_id = payload["user_id"]
+
+    # 第一步：经纬度 -> location（按 user_id 隔离地址缓存）
+    location = get_cached_location_by_coords(cache_user_id, lat, lon, lang="en")
+    if not location:
         try:
-            location_id = get_location_id_by_coords(lat, lon, lang="en")
-        except RuntimeError as e:
+            location = get_location_all_by_coords(lat, lon, lang="en")
+        except (RuntimeError, ValueError) as e:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-        if not location_id:
+        if not location:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="未匹配到该经纬度位置，请检查坐标",
             )
-        _geo_cache[geo_key] = {"location_id": location_id, "fetched_at": now_ts}
+        set_user_location_cache(cache_user_id, lat, lon, location, lang="en")
+
+    location_id = location.get("id")
+    if not location_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="未匹配到该经纬度位置，请检查坐标",
+        )
 
     # 第二步：缓存 key = location_id，走 30 分钟复用
     cache_key = location_id
@@ -2561,8 +2576,17 @@ react_agent = ReactAgent()
 
 
 @app.post("/api/ai/chat/stream")
-async def ai_chat_stream(req: schemas.ChatReq):
+async def ai_chat_stream(
+        req: schemas.ChatReq,
+        token: Optional[str] = Query(None, description="用户认证令牌"),
+        db: Session = Depends(get_db)
+):
+    current_user = None
+    if token:
+        current_user = get_current_user(token, db)
+
     def event_stream():
+        context_token = set_agent_request_user_id(current_user.id if current_user else None)
         try:
             # ReactAgent 当前接口仅接收 query；将历史上下文压成文本前缀传入。
             history_lines = []
@@ -2601,6 +2625,8 @@ async def ai_chat_stream(req: schemas.ChatReq):
                 {"type": "error", "message": str(e)}, ensure_ascii=False
             )
             yield f"data: {error_payload}\n\n"
+        finally:
+            reset_agent_request_user_id(context_token)
 
     return StreamingResponse(
         event_stream(),

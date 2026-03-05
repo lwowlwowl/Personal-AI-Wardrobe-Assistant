@@ -4,7 +4,8 @@ from AIwardrobe.model.factory import chat_model
 from AIwardrobe.utils.prompt_loader import load_system_prompts
 from AIwardrobe.utils.logger_handler import logger
 from AIwardrobe.agent.tools.agent_tools import (rag_summarize, get_weather,
-                                                  get_user_location,fetch_external_data)
+                                                  get_user_location, fetch_external_data,
+                                                  get_agent_user_context)
 from AIwardrobe.agent.tools.middleware import monitor_tool, log_before_model, report_prompt_switch
 
 class ReactAgent:
@@ -13,7 +14,7 @@ class ReactAgent:
             model=chat_model,
             system_prompt=load_system_prompts(lang),
             tools = [rag_summarize, get_weather, get_user_location,
-                     fetch_external_data],
+                     fetch_external_data, get_agent_user_context],
             middleware=[monitor_tool, log_before_model, report_prompt_switch],
         )
 

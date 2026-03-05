@@ -24,7 +24,10 @@ function request(options) {
  * @returns {Promise<{ content: string }>} 累积后的完整回复
  */
 export function chatRecommendation(query, history = []) {
-  const url = `${API_BASE_URL}/api/ai/chat/stream`
+  const token = uni.getStorageSync('auth_token') || ''
+  const url = token
+    ? `${API_BASE_URL}/api/ai/chat/stream?token=${encodeURIComponent(token)}`
+    : `${API_BASE_URL}/api/ai/chat/stream`
   return fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -93,7 +96,11 @@ export function getWeatherNow(lat, lon) {
   if (now - _weatherThrottle.at < WEATHER_THROTTLE_MS && _weatherThrottle.data != null) {
     return Promise.resolve(_weatherThrottle.data)
   }
-  const url = `${API_BASE_URL}/api/weather/now?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`
+  const token = uni.getStorageSync('auth_token') || ''
+  let url = `${API_BASE_URL}/api/weather/now?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`
+  if (token) {
+    url += `&token=${encodeURIComponent(token)}`
+  }
   return request({
     url,
     method: 'GET'

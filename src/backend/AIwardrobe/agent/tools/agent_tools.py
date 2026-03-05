@@ -1,10 +1,14 @@
 import json
 import os.path
 import random
+from contextvars import ContextVar, Token
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from langchain_core.tools import tool
 from AIwardrobe.rag.rag_service import RagSummarizeService
+from AIwardrobe.services.weather_cache import get_user_location_cache
+from AIwardrobe.utils.database_retriever import build_agent_context
 from AIwardrobe.utils.config_handler import agent_conf
 from AIwardrobe.utils.logger_handler import logger
 from AIwardrobe.utils.path_tool import get_abs_path
@@ -13,6 +17,15 @@ from AIwardrobe.utils.fetch_weather_json import fetch_weather_json_now, save_wea
     fetch_weather_json_days
 
 rag = RagSummarizeService()
+_REQUEST_USER_ID: ContextVar[Optional[int]] = ContextVar("agent_request_user_id", default=None)
+
+
+def set_agent_request_user_id(user_id: Optional[int]) -> Token:
+    return _REQUEST_USER_ID.set(user_id)
+
+
+def reset_agent_request_user_id(token: Token) -> None:
+    _REQUEST_USER_ID.reset(token)
 
 # 中國時區：Windows 上若無 tzdata 則 ZoneInfo("Asia/Shanghai") 會失敗，改用 UTC+8
 def _china_tz():
@@ -59,7 +72,7 @@ def _refresh_weather_data(city: str, days: str = "") -> None:
 
 @tool(description="根据用户城市或本地位置读取天气文件并返回实况与预报")
 def get_weather(city: str, days: str = "") -> str:
-    weather_path = get_abs_path(f"data/weather{city}{days}.json")
+    weather_path = get_abs_path(f"data/weather_{city}_{days}.json")
     if not os.path.exists(weather_path):
         logger.info("未找到本地天气文件，正在拉取并保存天气数据")
         if days == "":
@@ -212,6 +225,45 @@ def fetch_external_data(user_id: str, month: str) -> str:
     except KeyError:
         logger.warning(f"[fetch_external_data]未能检索到用户:{user_id}在{month}的使用数据记录")
         return ""
+
+
+@tool(description="构建当前登录用户的衣橱上下文（脱敏+分页+摘要），返回 JSON 字符串供后续穿搭推理使用")
+def get_agent_user_context(
+    closet_limit: int = 100,
+    closet_offset: int = 0,
+    outfit_limit: int = 50,
+    outfit_offset: int = 0,
+    wear_history_limit: int = 100,
+    wear_history_offset: int = 0,
+    include_summary: bool = True,
+) -> str:
+    user_id = _REQUEST_USER_ID.get()
+    if user_id is None:
+        return json.dumps(
+            {
+                "error": "missing_user_context",
+                "message": "当前请求缺少登录态，无法获取用户衣橱上下文。"
+            },
+            ensure_ascii=False
+        )
+
+    payload = build_agent_context(
+        user_id=user_id,
+        closet_limit=closet_limit,
+        closet_offset=closet_offset,
+        outfit_limit=outfit_limit,
+        outfit_offset=outfit_offset,
+        wear_history_limit=wear_history_limit,
+        wear_history_offset=wear_history_offset,
+        include_summary=include_summary,
+    )
+    user_locations = get_user_location_cache(user_id)
+    if user_locations:
+        latest_location = max(user_locations, key=lambda item: item.get("fetched_at", 0))
+        payload["user_location"] = latest_location
+    else:
+        payload["user_location"] = None
+    return json.dumps(payload, ensure_ascii=False)
 
 
 

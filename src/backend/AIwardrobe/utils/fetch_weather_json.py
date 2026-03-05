@@ -57,11 +57,11 @@ def _request_json(url: str, headers: dict, params: dict | None = None) -> dict:
     return resp.json()
 
 
-def _lookup_location_id(
+def _lookup_location_all(
     host: str, headers: dict, city: str, lang: str | None
-) -> str | None:
+) -> dict[str, Any] | None:
     """
-    Lookup location id via GeoAPI by city name.
+    Lookup location id via GeoAPI by city name or coordinate.
     """
     params: dict[str, Any] = {"location": city}
     if lang:
@@ -77,34 +77,45 @@ def _lookup_location_id(
     if not locations:
         return None
 
-    return locations[0].get("id")
+    return locations[0]
 
-
-def _lookup_location_id_by_coords(
-    host: str, headers: dict, lat: float, lon: float, lang: str | None = None
+def _lookup_location_id(
+    host: str, headers: dict, city: str, lang: str | None
 ) -> str | None:
+    location = _lookup_location_all(host, headers, city, lang)
+    if not location:
+        return None
+    return location.get("id")
+
+
+def get_location_all_by_coords(
+    lat: float,
+    lon: float,
+    lang: str | None = "en",
+) -> dict[str, Any] | None:
     """
-    Lookup location id via GeoAPI by coordinates (经度,纬度).
+    仅用经纬度查询 location 信息（不查询天气）。
     """
-    location_param = f"{lon},{lat}"
-    return _lookup_location_id(host, headers, location_param, lang)
+    host = DEFAULT_HOST
+    if not host:
+        raise RuntimeError("未配置QWEATHER_API_HOST，请在 .env 中设置")
+    headers = _build_auth_headers()
+    location_param = f"{lat},{lon}"
+    return _lookup_location_all(host, headers, location_param, lang)
 
 
 def get_location_id_by_coords(
     lat: float,
     lon: float,
     lang: str | None = "en",
-    host: str | None = None,
 ) -> str | None:
     """
     仅用经纬度查 location_id，供外部做缓存 key 等。不查天气。
     """
-    if not host:
-        host = DEFAULT_HOST
-    if not host:
-        raise RuntimeError("未配置QWEATHER_API_HOST，请在 .env 中设置")
-    headers = _build_auth_headers()
-    return _lookup_location_id_by_coords(host, headers, lat, lon, lang)
+    location = get_location_all_by_coords(lat, lon, lang=lang)
+    if not location:
+        return None
+    return location.get("id")
 
 
 def fetch_weather_json_now(
@@ -182,7 +193,7 @@ def save_weather_json(city: str | None, payload: dict, output_path: str | None =
         output_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             "data",
-            f"weather{city}{days}.json",
+            f"weather_{city}_{days}.json",
         )
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
@@ -194,13 +205,13 @@ def main() -> None:
     """
     Example usage for fetching and saving weather data.
     """
-    city = "深圳"
-    days = "3d"
-    payload = fetch_weather_json_days(city,days=days)
+    lat = 39.92
+    lon = 116.41
 
-    output_path = save_weather_json(city,payload,days=days)
-    print(f"weather json saved to: {output_path}")
-
+    days = ""
+    # payload = fetch_weather_json_days(city,days=days)
+    payload = get_location_all_by_coords(lat, lon)
+    print(payload)
 
 if __name__ == "__main__":
     main()
