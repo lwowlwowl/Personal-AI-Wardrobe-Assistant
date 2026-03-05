@@ -394,7 +394,7 @@
 										    :src="item.image" 
 										    mode="aspectFill" 
 										    class="cloth-img"
-										    @load="handleImageLoad($event, item, index)"
+										    @load="handleImageLoad($event, item)"
 										  />
 										  
 										  <!-- 方式2: 使用web-view作为备选 -->
@@ -887,7 +887,12 @@ const loadClothingData = async () => {
           color: item.color || '',
           season: seasonStr,
           tags: tagsArr,
-          favourite: item.is_favorite ? 1 : 0,
+          favourite: (() => {
+            const v = item.is_favorite
+            if (typeof v === 'number') return Math.min(3, Math.max(0, v))
+            if (v === true) return 1
+            return 0
+          })(),
           image: imageUrl,
           _rawImageUrl: item.image_url,
           _source: 'api',
@@ -2047,6 +2052,15 @@ const openDetail = (item) => {
 	showModal.value = true
 }
 
+// 图片加载成功时清除错误标记
+const handleImageLoad = (_event, item) => {
+	if (!item?.id || !item.imageError) return
+	const idx = clothes.value.findIndex((c) => c.id === item.id)
+	if (idx >= 0) {
+		clothes.value[idx] = { ...clothes.value[idx], imageError: false }
+	}
+}
+
 const handleVirtualTryOn = (item) => {
 	showModal.value = false
 	const defaultModel = defaultModelId.value ? models.value.find((m) => m.id === defaultModelId.value) : null
@@ -2063,9 +2077,9 @@ const handleItemUpdate = async ({ id, field, value }) => {
 	const localField = field === 'category' ? 'type' : field
 	clothes.value[idx] = { ...prev, [localField]: value }
 	selectedItem.value = { ...clothes.value[idx] }
-	// 后端字段：category / subcategory 直传，favourite -> is_favorite（0 为 false，1~3 为 true），season 需为 JSON 数组字符串
+	// 后端字段：category / subcategory 直传，favourite -> is_favorite（0-3 整数），season 需为 JSON 数组字符串
 	const backendField = field === 'favourite' ? 'is_favorite' : field
-	let backendValue = field === 'favourite' ? (value > 0) : value
+	let backendValue = field === 'favourite' ? Math.min(3, Math.max(0, Number(value) || 0)) : value
 	if (field === 'season') {
 		const arr = (typeof value === 'string' ? value.split(',') : Array.isArray(value) ? value : []).map((s) => String(s).trim()).filter(Boolean)
 		backendValue = JSON.stringify(arr)

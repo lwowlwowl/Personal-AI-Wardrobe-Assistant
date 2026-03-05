@@ -334,7 +334,7 @@ class ClothingCRUD:
             season: Optional[str] = None,
             color: Optional[str] = None,
             brand: Optional[str] = None,
-            is_favorite: Optional[bool] = None,
+            is_favorite: Optional[List[int]] = None,
             min_price: Optional[float] = None,
             max_price: Optional[float] = None,
             search: Optional[str] = None,
@@ -353,7 +353,7 @@ class ClothingCRUD:
             season: 季节筛选
             color: 颜色筛选
             brand: 品牌筛选
-            is_favorite: 是否收藏
+            is_favorite: 收藏等级筛选，支持多选 [0,1,2,3]
             min_price: 最低价格
             max_price: 最高价格
             search: 搜索关键词
@@ -376,7 +376,10 @@ class ClothingCRUD:
         if brand:
             query = query.filter(ClothingItem.brand == brand)
         if is_favorite is not None:
-            query = query.filter(ClothingItem.is_favorite == is_favorite)
+            if isinstance(is_favorite, list):
+                query = query.filter(ClothingItem.is_favorite.in_(is_favorite))
+            else:
+                query = query.filter(ClothingItem.is_favorite == is_favorite)
         if min_price is not None:
             query = query.filter(ClothingItem.price >= min_price)
         if max_price is not None:

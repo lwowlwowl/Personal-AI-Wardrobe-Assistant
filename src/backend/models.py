@@ -117,7 +117,7 @@ class ClothingItem(Base):
 
     # ---- 状态管理 ----
     is_public = Column(Boolean, default=False)         # 是否公开
-    is_favorite = Column(Boolean, default=False)       # 是否收藏
+    is_favorite = Column(Integer, default=0)            # 收藏等级 0-3（对应前端 0-3 hearts）
     wear_count = Column(Integer, default=0)            # 穿着次数
     last_worn_date = Column(Date, nullable=True)       # 最后穿着日期
     condition = Column(SQLEnum(ClothingCondition), default=ClothingCondition.NEW)  # 新旧程度

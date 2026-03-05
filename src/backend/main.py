@@ -907,7 +907,7 @@ async def get_clothing_items(
         season: Optional[str] = Query(None, description="季节筛选"),
         color: Optional[str] = Query(None, description="颜色筛选"),
         brand: Optional[str] = Query(None, description="品牌筛选"),
-        is_favorite: Optional[bool] = Query(None, description="是否收藏"),
+        is_favorite: Optional[str] = Query(None, description="收藏等级筛选，支持逗号分隔多选如 0,1,2"),
         min_price: Optional[float] = Query(None, ge=0, description="最低价格"),
         max_price: Optional[float] = Query(None, ge=0, description="最高价格"),
         search: Optional[str] = Query(None, description="搜索关键词"),
@@ -937,6 +937,17 @@ async def get_clothing_items(
     try:
         current_user = get_current_user(token, db)
 
+        # 解析 is_favorite：支持 "0,1,2" 或 "1" 格式
+        is_favorite_parsed = None
+        if is_favorite:
+            try:
+                levels = [int(x.strip()) for x in is_favorite.split(",") if x.strip()]
+                levels = [x for x in levels if 0 <= x <= 3]
+                if levels:
+                    is_favorite_parsed = levels
+            except ValueError:
+                pass
+
         # 计算分页偏移量
         skip = (page - 1) * page_size
 
@@ -950,7 +961,7 @@ async def get_clothing_items(
             season=season,
             color=color,
             brand=brand,
-            is_favorite=is_favorite,
+            is_favorite=is_favorite_parsed,
             min_price=min_price,
             max_price=max_price,
             search=search,
@@ -1048,7 +1059,7 @@ async def update_clothing_item(
         description: Optional[str] = Form(None),
         price: Optional[float] = Form(None),
         purchase_date: Optional[str] = Form(None),
-        is_favorite: Optional[bool] = Form(None),
+        is_favorite: Optional[str] = Form(None),
         condition: Optional[str] = Form(None),
         file: Optional[UploadFile] = File(None)
 ):
@@ -1105,6 +1116,16 @@ async def update_clothing_item(
 
         season_list = parse_season_form(season, allow_empty=True) if season is not None else None
 
+        # 解析 is_favorite：0-3 整数
+        is_favorite_val = None
+        if is_favorite is not None and is_favorite.strip():
+            try:
+                v = int(is_favorite.strip())
+                if 0 <= v <= 3:
+                    is_favorite_val = v
+            except ValueError:
+                pass
+
         # 解析购买日期字符串为date对象
         purchase_date_obj = None
         if purchase_date:
@@ -1127,7 +1148,7 @@ async def update_clothing_item(
             brand=brand,
             price=price,
             purchase_date=purchase_date_obj,
-            is_favorite=is_favorite,
+            is_favorite=is_favorite_val,
             condition=condition,
             tags=tag_list
         )
@@ -1263,8 +1284,10 @@ async def toggle_favorite(
                 detail="衣物不存在或无权访问"
             )
 
-        # 切换收藏状态（取反）
-        update_data = schemas.ClothingItemUpdate(is_favorite=not item.is_favorite)
+        # 切换收藏等级：0->1->2->3->0 循环
+        current = int(item.is_favorite) if item.is_favorite is not None else 0
+        next_val = (current + 1) % 4
+        update_data = schemas.ClothingItemUpdate(is_favorite=next_val)
 
         updated_item, error = crud.clothing_crud.update_clothing_item(
             db=db,
@@ -1280,7 +1303,7 @@ async def toggle_favorite(
 
         return {
             "success": True,
-            "message": f"已{'取消' if not updated_item.is_favorite else '添加'}收藏",
+            "message": f"已{'取消' if next_val == 0 else '设置'}收藏",
             "data": {
                 "is_favorite": updated_item.is_favorite
             }
