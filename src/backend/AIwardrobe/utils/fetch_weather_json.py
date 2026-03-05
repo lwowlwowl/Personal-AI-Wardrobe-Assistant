@@ -13,6 +13,38 @@ load_env_config()
 DEFAULT_HOST = os.getenv("QWEATHER_API_HOST")
 
 
+def _format_location_text(location: dict[str, Any]) -> str:
+    """
+    Build a concise human-readable location summary.
+    """
+    name = location.get("name") or ""
+    adm2 = location.get("adm2") or ""
+    adm1 = location.get("adm1") or ""
+    country = location.get("country") or ""
+    location_id = location.get("id") or ""
+
+    place_parts = [part for part in [country, adm1, adm2, name] if part]
+    place = " ".join(place_parts).strip() or "未知地点"
+    return f"{place} (id: {location_id})" if location_id else place
+
+
+def _extract_useful_location_fields(location: dict[str, Any]) -> dict[str, Any]:
+    """
+    Keep only useful location fields and provide a readable text.
+    """
+    useful: dict[str, Any] = {
+        "id": location.get("id"),
+        "name": location.get("name"),
+        "adm1": location.get("adm1"),
+        "adm2": location.get("adm2"),
+        "country": location.get("country"),
+        "tz": location.get("tz"),
+        "utcOffset": location.get("utcOffset"),
+    }
+    useful["text"] = _format_location_text(useful)
+    return useful
+
+
 def _build_auth_headers() -> dict:
     """
     Build JWT auth headers.
@@ -77,7 +109,7 @@ def _lookup_location_all(
     if not locations:
         return None
 
-    return locations[0]
+    return _extract_useful_location_fields(locations[0])
 
 def _lookup_location_id(
     host: str, headers: dict, city: str, lang: str | None
