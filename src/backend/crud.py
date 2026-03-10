@@ -11,29 +11,30 @@
 
 import traceback
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc, asc, and_, or_
+from sqlalchemy import func, desc, asc, or_
 from typing import Tuple, Optional, List, Dict, Any
 from datetime import datetime, timedelta, date
 import jwt
 import secrets
-import json
+
+# PyJWT 2.8+ 使用 PyJWTError，舊版使用 JWTError，統一用此別名捕獲
+_JWTError = getattr(jwt, "PyJWTError", getattr(jwt, "JWTError", Exception))
 from passlib.context import CryptContext
 
 # 导入模型和模式
 import models
 from models import (
-    User, ClothingItem, ClothingTag, Outfit, OutfitItem, WearHistory,
-    ClothingCategory, ClothingSeason, ClothingCondition, ClothingFitType,
-    ClothingPattern, ModelPhoto
+    ClothingItem, ClothingTag, Outfit, OutfitItem, WearHistory,
+    ModelPhoto
 )
 from schemas import (
     ClothingItemCreate, ClothingItemUpdate, WearHistoryCreate,
-    OutfitCreate, OutfitUpdate, OutfitItemCreate, SearchRequest
+    OutfitCreate, OutfitUpdate
 )
 
 # ============ 密码加密配置 ============
-# 使用bcrypt算法进行密码哈希
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# 使用pbkdf2_sha256进行密码哈希，避免bcrypt后端兼容问题
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 # ============ JWT配置 ============
 # 生产环境应该从环境变量读取
@@ -96,7 +97,7 @@ def create_user(db: Session, user_data: dict) -> Tuple[Optional[models.User], Op
                 return None, "邮箱已被注册"
 
         # 加密密码
-        hashed_password = pwd_context.hash(user_data["password"])
+        hashed_password = hash_password(user_data["password"])
 
         # 创建用户对象
         db_user = models.User(
@@ -215,7 +216,7 @@ def verify_access_token(token: str) -> Optional[dict]:
     except jwt.ExpiredSignatureError:
         print("Token已过期")
         return None
-    except jwt.JWTError as e:
+    except _JWTError as e:
         print(f"Token验证失败: {e}")
         return None
 
@@ -256,7 +257,7 @@ def verify_password_reset_token(token: str) -> Optional[str]:
         return payload.get("email")
     except jwt.ExpiredSignatureError:
         return None
-    except jwt.JWTError:
+    except _JWTError:
         return None
 
 
@@ -278,7 +279,7 @@ def update_user_password(db: Session, email: str, new_password: str) -> Tuple[bo
             return False, "用户不存在"
 
         # 更新密码和修改时间
-        user.hashed_password = pwd_context.hash(new_password)
+        user.hashed_password = hash_password(new_password)
         user.updated_at = datetime.now()
 
         db.commit()
@@ -333,7 +334,7 @@ class ClothingCRUD:
             season: Optional[str] = None,
             color: Optional[str] = None,
             brand: Optional[str] = None,
-            is_favorite: Optional[int] = None,
+            is_favorite: Optional[List[int]] = None,
             min_price: Optional[float] = None,
             max_price: Optional[float] = None,
             search: Optional[str] = None,
@@ -352,7 +353,7 @@ class ClothingCRUD:
             season: 季节筛选
             color: 颜色筛选
             brand: 品牌筛选
-            is_favorite: 是否收藏
+            is_favorite: 收藏等级筛选，支持多选 [0,1,2,3]
             min_price: 最低价格
             max_price: 最高价格
             search: 搜索关键词
@@ -362,8 +363,8 @@ class ClothingCRUD:
         返回:
             Tuple[衣物列表, 总记录数]
         """
-        # 基础查询：只查询当前用户的衣物
-        query = db.query(ClothingItem).filter(ClothingItem.user_id == user_id)
+        # 基础查询：只查询当前用户的衣物，预加载 tags 供列表展示
+        query = db.query(ClothingItem).options(joinedload(ClothingItem.tags)).filter(ClothingItem.user_id == user_id)
 
         # 应用过滤器
         if category:
@@ -375,7 +376,10 @@ class ClothingCRUD:
         if brand:
             query = query.filter(ClothingItem.brand == brand)
         if is_favorite is not None:
-            query = query.filter(ClothingItem.is_favorite == is_favorite)
+            if isinstance(is_favorite, list):
+                query = query.filter(ClothingItem.is_favorite.in_(is_favorite))
+            else:
+                query = query.filter(ClothingItem.is_favorite == is_favorite)
         if min_price is not None:
             query = query.filter(ClothingItem.price >= min_price)
         if max_price is not None:
@@ -436,16 +440,16 @@ class ClothingCRUD:
                 **item_in.model_dump(exclude={"tags"})
             )
             db.add(db_item)
-            db.commit()
-            db.refresh(db_item)
+            db.flush()
 
             # 添加标签
             if item_in.tags:
                 for tag_name in item_in.tags:
                     tag = ClothingTag(clothing_id=db_item.id, tag=tag_name)
                     db.add(tag)
-                db.commit()
-                db.refresh(db_item)
+
+            db.commit()
+            db.refresh(db_item)
 
             return db_item, None
 
