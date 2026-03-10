@@ -3,7 +3,7 @@
 		<!-- 展开视图：Activity report / Idle items（页面切换过渡） -->
 		<transition name="page" mode="out-in">
 			<ActivityReport v-if="expandedView === 'activity-report'" key="activity-report" :trend-value="activityPercentTarget" :is-increase="activityTrend === 'increase'" @back="expandedView = null" />
-			<IdleItemsView v-else-if="expandedView === 'idle-items'" key="idle-items" :unworn-count="idleRateTarget" @back="expandedView = null" />
+			<IdleItemsView v-else-if="expandedView === 'idle-items'" key="idle-items" :unworn-count="idleCount" @back="expandedView = null" />
 			<view v-else key="bento" class="page-bento-wrap">
 		<view v-if="filterOpen" class="filter-backdrop" @click="closeFilter"></view>
 
@@ -26,7 +26,7 @@
 			<view class="card bento-idle">
 				<text class="card-label">Idle Rate</text>
 				<text class="metric-num">{{ idlePercent }}%</text>
-				<text class="card-sub">You have {{ idleRateTarget }} unworn items out of 106 total.</text>
+				<text class="card-sub">You have {{ idleCount }} unworn items out of {{ totalItemsCount }} total.</text>
 				<text class="card-link" @click="goIdleItems">See all idle items →</text>
 			</view>
 
@@ -40,6 +40,10 @@
 					</view>
 				</view>
 				<view class="chart-container">
+					<view v-if="loadingTrend" class="loading-state">
+						<text class="loading-text">加載趨勢數據...</text>
+					</view>
+					<template v-else>
 					<svg viewBox="0 0 300 120" class="line-svg">
 						<defs>
 							<linearGradient id="greenGradient" x1="0" x2="0" y1="0" y2="1">
@@ -59,6 +63,12 @@
 					<view class="chart-labels">
 						<text v-for="year in lineYears" :key="year" class="chart-label">{{ year }}</text>
 					</view>
+					<view class="chart-stats" v-if="totalStats">
+						<text class="stat-item">總數: {{ totalItemsCount }}</text>
+						<text class="stat-item" v-if="totalStats.growth_rate">增長率: {{ totalStats.growth_rate }}%</text>
+						<text class="stat-item" v-if="totalStats.projection">預測{{ totalStats.projection_year }}: {{ totalStats.projection }}</text>
+					</view>
+					</template>
 				</view>
 			</view>
 
@@ -72,24 +82,29 @@
 					</view>
 				</view>
 				<view class="worn-list">
+					<view v-if="loadingWorn" class="loading-state">
+						<text class="loading-text">加載中...</text>
+					</view>
+					<template v-else>
 					<view v-for="item in mostWornWithDot" :key="item.name" class="list-item">
 						<view class="dot" :class="{ active: item.dotColor === '#5c6bc0', dark: item.dotColor === '#616161' }" :style="{ background: item.dotColor }"></view>
 						<text class="item-title">{{ item.name }}</text>
-						<text class="item-wears">{{ item.wears }} wears</text>
-					</view>
+<text class="item-wears">{{ item.wears }} wears</text>
 				</view>
+					</template>
 			</view>
+		</view>
 
 			<!-- ⭐ Top Color + Top Style 堆叠 -->
 			<view class="bento-stats">
 				<view class="mini-card">
 					<text class="card-label-small">Top color</text>
-					<text class="mini-value">Brown</text>
+					<text class="mini-value">{{ topColorName || 'Brown' }}</text>
 					<text class="mini-sub">{{ topColorPercent }}%</text>
 				</view>
 				<view class="mini-card">
 					<text class="card-label-small">Top style</text>
-					<text class="mini-value">Sporty</text>
+					<text class="mini-value">{{ topStyleName || 'Sporty' }}</text>
 					<text class="mini-sub">{{ topStylePercent }}%</text>
 				</view>
 			</view>
@@ -173,42 +188,51 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import ViewByFilter from './ViewByFilter.vue'
 import ActivityReport from './ActivityReport.vue'
 import IdleItemsView from './IdleItemsView.vue'
 import { COLOR_HEX_BY_CODE } from '@/utils/wardrobeEnums.js'
+import * as analysisApi from '@/api/analysisApi.js'
 
 /** 点击卡片内链接后展示的展开页 */
 const expandedView = ref(null)
-
 const filterOpen = ref(null)
 const viewByTotal = ref('yearly')
 const viewByWorn = ref('yearly')
-/** 圆环图当前悬停的扇形索引，用于与对应文字标签同步高亮及中心显示详情 */
 const hoveredSegmentIndex = ref(null)
-/** 入场动画只执行一次，避免 hover 重排时再次播放 */
 const donutEntranceDone = ref(false)
-/** Suggested Additions 展開的卡片 key（accordion） */
 const expandedSuggestKeys = ref([])
 
-/** Wardrobe Activity：每次刷新随机展示 increase 或 decrease，不修改 increase 模板 */
 const activityTrend = ref(Math.random() >= 0.5 ? 'increase' : 'decrease')
 const activityPercentTarget = computed(() => (activityTrend.value === 'increase' ? 15 : 8))
 
-/** Idle Rate：每次刷新随机展示 3% 或 0%（与 Activity 一致） */
-const idleRateTarget = ref(Math.random() >= 0.5 ? 3 : 0)
-
-/** KPI 数字滚动：0.8s 内从 0 滚到目标值，科技感 */
 const activityPercent = ref(0)
 const idlePercent = ref(0)
 const topColorPercent = ref(0)
 const topStylePercent = ref(0)
-function animateCountUp(refVal, target, duration = 800, delay = 0) {
+const loadingTrend = ref(true)
+const loadingWorn = ref(true)
+
+const lineYears = ref(['2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023'])
+const lineData = ref([5, 12, 20, 18, 30, 60, 90, 106])
+const totalItemsCount = ref(106)
+const totalStats = ref(null)
+const idleCount = ref(0)
+const topColorName = ref('Brown')
+const topStyleName = ref('Sporty')
+
+function animateCountUp(refVal, targetRef, duration = 800, delay = 0) {
 	const startVal = 0
+	const getTarget = () => {
+		if (typeof targetRef === 'function') return targetRef()
+		if (targetRef && targetRef.value !== undefined) return targetRef.value
+		return targetRef
+	}
 	const start = () => {
 		const t0 = performance.now()
 		function tick(now) {
+			const target = getTarget()
 			const elapsed = now - t0
 			const t = Math.min(elapsed / duration, 1)
 			const eased = 1 - Math.pow(1 - t, 3)
@@ -221,74 +245,60 @@ function animateCountUp(refVal, target, duration = 800, delay = 0) {
 	else start()
 }
 
-onMounted(() => {
-	setTimeout(() => { donutEntranceDone.value = true }, 800)
-	// 数字滚动：0.8s，与 bento 入场错开一点；Activity 目标值随 increase/decrease 变化
-	const countUpDelay = 320
-	animateCountUp(activityPercent, activityPercentTarget.value, 800, countUpDelay)
-	animateCountUp(idlePercent, idleRateTarget.value, 800, countUpDelay + 60)
-	animateCountUp(topColorPercent, 38, 800, countUpDelay + 120)
-	animateCountUp(topStylePercent, 45, 800, countUpDelay + 180)
-})
 const viewByTotalLabel = computed(() => viewByToLabel(viewByTotal.value))
 const viewByWornLabel = computed(() => viewByToLabel(viewByWorn.value))
 function viewByToLabel(v) {
 	return v === 'yearly' ? 'Yearly' : v === 'monthly' ? 'Monthly' : 'Daily'
 }
 
-const lineYears = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023]
-const lineData = [5, 12, 20, 18, 30, 60, 90, 106]
-
-const smoothPathStroke = computed(() => getSvgPath(lineData, 300, 120, false))
-const smoothPathArea = computed(() => getSvgPath(lineData, 300, 120, true))
+const smoothPathStroke = computed(() => getSvgPath(lineData.value, 300, 120, false))
+const smoothPathArea = computed(() => getSvgPath(lineData.value, 300, 120, true))
 
 function getSvgPath(data, width, height, isArea) {
-	const max = Math.max(...data)
+	if (!data || !Array.isArray(data) || data.length === 0) return ''
+	const validData = data.filter(val => val !== null && val !== undefined && !isNaN(val) && isFinite(val))
+	if (validData.length < 2) return ''
+	const max = Math.max(...validData, 1)
 	const padding = 10
 	const chartH = height - padding * 2
-	const stepX = width / (data.length - 1)
-	const points = data.map((val, i) => {
+	const stepX = width / (validData.length - 1)
+	const points = validData.map((val, i) => {
 		const x = i * stepX
 		const y = height - padding - (val / max) * chartH
 		return [x, y]
 	})
 	let d = `M ${points[0][0]},${points[0][1]}`
-	// 更圆润的贝塞尔曲线：使用更平滑的控制点
 	for (let i = 0; i < points.length - 1; i++) {
 		const p0 = points[i]
 		const p1 = points[i + 1]
 		const midX = (p0[0] + p1[0]) / 2
-		// 增加控制点的平滑度，让曲线更圆润
 		const cp1x = p0[0] + (midX - p0[0]) * 0.6
 		const cp2x = midX + (p1[0] - midX) * 0.4
 		d += ` C ${cp1x},${p0[1]} ${cp2x},${p1[1]} ${p1[0]},${p1[1]}`
 	}
-	if (isArea) {
-		d += ` L ${width},${height} L 0,${height} Z`
-	}
+	if (isArea) d += ` L ${width},${height} L 0,${height} Z`
 	return d
 }
 
-const categoryData = [
+const categoryData = ref([
 	{ label: 'Top', value: 35, color: '#FCD568' },
 	{ label: 'Bottom', value: 25, color: '#68C5FA' },
 	{ label: 'Footwear', value: 10, color: '#A694F5' },
 	{ label: 'Outerwear', value: 15, color: '#FF69B4' },
 	{ label: 'Accessories', value: 15, color: '#E57373' }
-]
+])
 
 /**
  * 圆环图（Category Breakdown）每个扇形的路径与标签位置
  * 坐标系：SVG viewBox="-100 -100 200 200"，圆心 (0,0)，单位与 viewBox 一致
  */
 const donutSegments = computed(() => {
-	let startAngle = 0 // 当前扇形的起始角度（弧度），累加用
-
-	const total = categoryData.reduce((a, b) => a + b.value, 0) // 所有类别数值总和，用于算占比
+	let startAngle = 0
+	const total = categoryData.value.reduce((a, b) => a + b.value, 0)
 
 	// ---------- 圆环几何（扇形本身）----------
 	const r1 = 52 // 圆环「内半径」：空心内圈的半径
-	const maxValue = Math.max(...categoryData.map((d) => d.value), 1)
+	const maxValue = Math.max(...categoryData.value.map((d) => d.value), 1)
 	const baseRadius = 76 // 圆环「外半径」基准值
 	const radiusRange = 24 // 外半径随数值变化的幅度（数值越大扇形外缘越突出）
 	// r2 = 圆环「外半径」：该扇形外弧的半径（可选：item.outerRadius 或按数值计算）
@@ -296,7 +306,7 @@ const donutSegments = computed(() => {
 	// ---------- 文字标签半径 ----------
 	const defaultLabelGap = 95 // 从「扇形外缘」到「文字锚点」的距离，越大文字越靠外
 
-	return categoryData.map((item) => {
+	return categoryData.value.map((item) => {
 		const r2 = item.outerRadius ?? (baseRadius + (item.value / maxValue) * radiusRange)
 
 		// 扇形角度与弧线端点（弧度）
@@ -351,16 +361,15 @@ const hoveredSegment = computed(() => {
 	return donutSegments.value[i] ?? null
 })
 
-/** Most Worn：与 MyWardrobe / 后端一致，使用 color（wardrobeEnums 的 code），色点由 COLOR_HEX_BY_CODE 推导 */
-const mostWorn = [
+const mostWorn = ref([
 	{ name: 'White Cotton T-shirt', wears: 35, color: 'white' },
 	{ name: 'Classic Denim Jacket', wears: 28, color: 'blue' },
 	{ name: 'Black Knit Top', wears: 27, color: 'black' },
 	{ name: 'Khaki Chino Pants', wears: 24, color: 'brown' },
 	{ name: 'Navy Striped Tee', wears: 22, color: 'navy' }
-]
+])
 const mostWornWithDot = computed(() =>
-	mostWorn.map((item) => ({
+	mostWorn.value.map((item) => ({
 		...item,
 		dotColor: COLOR_HEX_BY_CODE[item.color] || '#cccccc'
 	}))
@@ -394,6 +403,198 @@ function toggleSuggest(key) {
 		expandedSuggestKeys.value = [...arr, key]
 	}
 }
+
+function setMockTrendData() {
+	if (viewByTotal.value === 'yearly') {
+		lineYears.value = ['2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023']
+		lineData.value = [5, 12, 20, 18, 30, 60, 90, 106]
+	} else if (viewByTotal.value === 'monthly') {
+		const months = []
+		const data = []
+		const now = new Date()
+		for (let i = 11; i >= 0; i--) {
+			const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+			months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+			data.push(Math.floor(Math.random() * 20) + 5)
+		}
+		lineYears.value = months
+		lineData.value = data
+	} else {
+		const days = []
+		const data = []
+		const now = new Date()
+		for (let i = 29; i >= 0; i--) {
+			const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
+			days.push(`${d.getMonth() + 1}/${d.getDate()}`)
+			data.push(Math.floor(Math.random() * 5) + 1)
+		}
+		lineYears.value = days
+		lineData.value = data
+	}
+	totalItemsCount.value = lineData.value[lineData.value.length - 1] || 0
+}
+
+async function fetchTrendData() {
+	loadingTrend.value = true
+	try {
+		const response = await analysisApi.getTrend(viewByTotal.value)
+		if (response && response.success && response.data) {
+			const data = response.data
+			if (data.labels && data.labels.length > 0 && data.values && data.values.length > 0) {
+				lineYears.value = data.labels
+				lineData.value = data.values
+				totalItemsCount.value = data.total_count
+				totalStats.value = data.statistics
+			} else {
+				setMockTrendData()
+			}
+		} else {
+			setMockTrendData()
+		}
+	} catch (e) {
+		setMockTrendData()
+	} finally {
+		loadingTrend.value = false
+	}
+}
+
+async function fetchSummaryData() {
+	try {
+		const response = await analysisApi.getSummary()
+		if (response && response.data && response.data.total_items != null) {
+			totalItemsCount.value = response.data.total_items
+		}
+	} catch (e) {}
+}
+
+async function fetchCategoryDistribution() {
+	try {
+		const response = await analysisApi.getCategoryDistribution()
+		if (response && response.success && response.data) {
+			categoryData.value = response.data
+		}
+	} catch (e) {}
+}
+
+async function fetchIdleRate() {
+	try {
+		const response = await analysisApi.getIdleRate(30)
+		if (response && response.success && response.data) {
+			const data = response.data
+			totalItemsCount.value = data.total_items
+			idleCount.value = data.idle_items
+			animateCountUp(idlePercent, data.idle_rate, 800)
+		} else {
+			animateCountUp(idlePercent, totalItemsCount.value ? (idleCount.value / totalItemsCount.value * 100) : 0, 800)
+		}
+	} catch (e) {
+		animateCountUp(idlePercent, totalItemsCount.value ? (idleCount.value / totalItemsCount.value * 100) : 0, 800)
+	}
+}
+
+async function fetchTopColor() {
+	try {
+		const response = await analysisApi.getTopColor()
+		if (response && response.success && response.data) {
+			const data = response.data
+			topColorName.value = data.top_color.color_name
+			animateCountUp(topColorPercent, data.top_color.percentage, 800)
+		}
+	} catch (e) {}
+}
+
+async function fetchTopStyle() {
+	try {
+		const response = await analysisApi.getTopStyle()
+		if (response && response.success && response.data) {
+			const data = response.data
+			topStyleName.value = data.top_style.style_name
+			animateCountUp(topStylePercent, data.top_style.percentage, 800)
+		}
+	} catch (e) {}
+}
+
+function setMockWornData(timeRange) {
+	if (timeRange === 'yearly') {
+		mostWorn.value = [
+			{ name: 'White Cotton T-shirt', wears: 35, color: 'white' },
+			{ name: 'Classic Denim Jacket', wears: 28, color: 'blue' },
+			{ name: 'Black Knit Top', wears: 27, color: 'black' },
+			{ name: 'Khaki Chino Pants', wears: 24, color: 'brown' },
+			{ name: 'Navy Striped Tee', wears: 22, color: 'navy' }
+		]
+	} else if (timeRange === 'monthly') {
+		mostWorn.value = [
+			{ name: 'White Cotton T-shirt', wears: 8, color: 'white' },
+			{ name: 'Black Knit Top', wears: 6, color: 'black' },
+			{ name: 'Classic Denim Jacket', wears: 5, color: 'blue' },
+			{ name: 'Navy Striped Tee', wears: 4, color: 'navy' },
+			{ name: 'Khaki Chino Pants', wears: 3, color: 'brown' }
+		]
+	} else {
+		mostWorn.value = [
+			{ name: 'White Cotton T-shirt', wears: 1, color: 'white' },
+			{ name: 'Black Knit Top', wears: 0, color: 'black' },
+			{ name: 'Classic Denim Jacket', wears: 0, color: 'blue' },
+			{ name: 'Khaki Chino Pants', wears: 0, color: 'brown' },
+			{ name: 'Navy Striped Tee', wears: 0, color: 'navy' }
+		]
+	}
+}
+
+async function fetchMostWornItems() {
+	loadingWorn.value = true
+	try {
+		if (analysisApi.isLoggedIn()) {
+			const response = await analysisApi.getMostWorn(viewByWorn.value, 5)
+			if (response && response.success && response.data && response.data.items) {
+				mostWorn.value = response.data.items.map(item => ({
+					name: item.name,
+					wears: parseInt(item.wears) || 0,
+					color: item.color || 'gray'
+				}))
+			} else {
+				setMockWornData(viewByWorn.value)
+			}
+		} else {
+			setMockWornData(viewByWorn.value)
+		}
+	} catch (e) {
+		setMockWornData(viewByWorn.value)
+	} finally {
+		loadingWorn.value = false
+	}
+}
+
+watch(viewByTotal, () => {
+	if (analysisApi.isLoggedIn()) fetchTrendData()
+})
+watch(viewByWorn, () => {
+	if (analysisApi.isLoggedIn()) fetchMostWornItems()
+})
+
+onMounted(() => {
+	setTimeout(() => { donutEntranceDone.value = true }, 800)
+	const countUpDelay = 320
+	animateCountUp(activityPercent, activityPercentTarget, 800, countUpDelay)
+	animateCountUp(idlePercent, () => totalItemsCount.value ? (idleCount.value / totalItemsCount.value * 100) : 0, 800, countUpDelay + 60)
+	animateCountUp(topColorPercent, 38, 800, countUpDelay + 120)
+	animateCountUp(topStylePercent, 45, 800, countUpDelay + 180)
+	if (analysisApi.isLoggedIn()) {
+		Promise.all([
+			fetchTrendData(),
+			fetchSummaryData(),
+			fetchMostWornItems(),
+			fetchCategoryDistribution(),
+			fetchIdleRate(),
+			fetchTopColor(),
+			fetchTopStyle()
+		]).then(() => {
+			animateCountUp(activityPercent, activityPercentTarget, 400)
+			animateCountUp(idlePercent, () => totalItemsCount.value ? (idleCount.value / totalItemsCount.value * 100) : 0, 400)
+		}).catch(() => {})
+	}
+})
 </script>
 
 <style scoped>
@@ -628,6 +829,29 @@ function toggleSuggest(key) {
 	display: flex;
 	flex-direction: column;
 	padding-top: 28rpx;
+}
+.loading-state {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-height: 180rpx;
+}
+.loading-text {
+	color: #999;
+	font-size: 28rpx;
+}
+.chart-stats {
+	margin-top: 20rpx;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 20rpx;
+	font-size: 24rpx;
+	color: #666;
+}
+.stat-item {
+	background: #f5f5f3;
+	padding: 6rpx 16rpx;
+	border-radius: 20rpx;
 }
 
 .line-svg {

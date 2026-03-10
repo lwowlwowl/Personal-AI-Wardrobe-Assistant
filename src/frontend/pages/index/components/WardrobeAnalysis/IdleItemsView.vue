@@ -10,8 +10,8 @@
 			</view>
 
 			<view class="card summary-card">
-				<text class="summary-stat">{{ unwornCount }}</text>
-				<text class="summary-desc">unworn items out of 106 total ({{ idleRatePercent }}% idle rate)</text>
+				<text class="summary-stat">{{ stats.idle_items ?? unwornCount }}</text>
+				<text class="summary-desc">unworn items out of {{ stats.total_items || 106 }} total ({{ idleRate }}% idle rate)</text>
 			</view>
 
 			<view class="card list-card">
@@ -75,12 +75,12 @@
 					</view>
 				</TransitionGroup>
 				</view>
-				<view v-else-if="listReady && filteredItems.length === 0 && unwornCount === 0" class="empty-state">
+				<view v-else-if="listReady && filteredItems.length === 0 && (stats.idle_items ?? unwornCount) === 0" class="empty-state">
 					<view class="empty-state-illus">🎉</view>
 					<text class="empty-state-title">Your wardrobe is well utilized!</text>
 					<text class="empty-state-desc">No idle items today.</text>
 				</view>
-				<view v-else-if="listReady && filteredItems.length === 0 && unwornCount > 0" class="empty-state empty-state-filter">
+				<view v-else-if="listReady && filteredItems.length === 0 && (stats.idle_items ?? unwornCount) > 0" class="empty-state empty-state-filter">
 					<view class="empty-state-illus">🔍</view>
 					<text class="empty-state-title">No items match your filters</text>
 					<text class="empty-state-desc">Try changing Time or Season to see idle items.</text>
@@ -92,107 +92,166 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { TransitionGroup } from 'vue'
 import { COLOR_HEX_BY_CODE } from '@/utils/wardrobeEnums.js'
 import { SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
+import { getIdleRate, getIdleItemsDetail, API_BASE_URL } from '@/api/analysisApi.js'
 
 const props = defineProps({
 	unwornCount: { type: Number, default: 3 }
 })
 const emit = defineEmits(['back'])
 
-const idleRatePercent = computed(() => Math.round((props.unwornCount / 106) * 100))
+const loading = ref(true)
+const listLoading = ref(false)
+const listReady = ref(false)
+const stats = ref({
+	total_items: 0,
+	idle_items: 0,
+	idle_rate: 0
+})
 
-const idleItems = [
-	{ name: 'Olive Cargo Pants', color: 'olive', type: 'bottoms', season: 'autumn', lastWorn: '—' },
-	{ name: 'Navy Blazer', color: 'navy', type: 'outerwear', season: 'winter', lastWorn: '—' },
-	{ name: 'Black Tailored Trousers', color: 'black', type: 'bottoms', season: 'autumn', lastWorn: '—' },
-	{ name: 'Brown Cardigan', color: 'brown', type: 'outerwear', season: 'winter', lastWorn: '14 months ago' },
-	{ name: 'Wool Coat', color: 'navy', type: 'outerwear', season: 'winter', lastWorn: '18 months ago' },
-	{ name: 'Leather Jacket', color: 'brown', type: 'outerwear', season: 'autumn', lastWorn: '15 months ago' }
-].map((item) => ({
-	...item,
-	dotColor: COLOR_HEX_BY_CODE[item.color] || '#cccccc'
-}))
+const idleItems = ref([])
 
-/** Idle status: only Never worn or Over a year (no 5 weeks, 2 months, etc.) */
-function getIdleStatus(lastWorn) {
-	if (!lastWorn || lastWorn === '—' || lastWorn.toLowerCase().includes('never')) {
-		return { level: 'never', label: 'Never worn' }
-	}
-	const months = parseInt(lastWorn.match(/(\d+)\s*month/i)?.[1] || '0')
-	const weeks = parseInt(lastWorn.match(/(\d+)\s*week/i)?.[1] || '0')
-	const totalMonths = months + (weeks >= 4 ? Math.floor(weeks / 4) : 0)
-	if (months >= 12 || totalMonths >= 12) {
-		return { level: 'over_year', label: 'Over a year ago' }
+function getFullImageUrl(imageUrl) {
+	if (!imageUrl) return null
+	if (imageUrl.startsWith('http')) return imageUrl
+	if (imageUrl.startsWith('/')) return `${API_BASE_URL}${imageUrl}`
+	return `${API_BASE_URL}/${imageUrl}`
+}
+
+/** Idle status from API item (wear_count, last_worn_date) */
+function getIdleStatus(item) {
+	if (item.wear_count === 0) return { level: 'never', label: 'Never worn' }
+	if (item.last_worn_date) {
+		const lastWorn = new Date(item.last_worn_date)
+		const now = new Date()
+		const monthsDiff = (now.getFullYear() - lastWorn.getFullYear()) * 12 + (now.getMonth() - lastWorn.getMonth())
+		if (monthsDiff >= 12) return { level: 'over_year', label: 'Over a year ago' }
 	}
 	return { level: 'within_year', label: 'Within a year' }
 }
 
-/** Last worn display: Never for never worn, raw value (e.g. 14 months ago) for over a year */
-function getLastWornDisplay(lastWorn, status) {
+function getLastWornDisplay(item, status) {
 	if (status.level === 'never') return 'Never'
-	if (status.level === 'over_year') return lastWorn // e.g. "14 months ago", "15 months ago"
+	if (status.level === 'over_year' && item.last_worn_date) {
+		const lastWorn = new Date(item.last_worn_date)
+		const now = new Date()
+		const monthsDiff = (now.getFullYear() - lastWorn.getFullYear()) * 12 + (now.getMonth() - lastWorn.getMonth())
+		return `${monthsDiff} months ago`
+	}
 	return ''
 }
 
-const idleItemsWithStatus = computed(() =>
-	idleItems
-		.map((item) => {
-			const status = getIdleStatus(item.lastWorn)
-			return { ...item, status, lastWornDisplay: getLastWornDisplay(item.lastWorn, status), sortOrder: getSortOrder(item.lastWorn) }
-		})
-		.filter((item) => item.status.level !== 'within_year') // only never worn or over a year = idle
-)
-
-/** 排序顺序：Never = 0（最优先），然后按时间倒序 */
 function getSortOrder(lastWorn) {
-	if (!lastWorn || lastWorn === '—') return 0
-	const months = lastWorn.match(/(\d+)\s*month/i)?.[1]
-	const weeks = lastWorn.match(/(\d+)\s*week/i)?.[1]
+	if (!lastWorn) return 0
+	const months = String(lastWorn).match(/(\d+)\s*month/i)?.[1]
+	const weeks = String(lastWorn).match(/(\d+)\s*week/i)?.[1]
 	if (months) return parseInt(months) * 4
 	if (weeks) return parseInt(weeks)
 	return 999
 }
 
-/** Time filter: All / Never worn / Over a year */
+async function fetchData() {
+	loading.value = true
+	try {
+		const res = await getIdleRate(30)
+		if (res && res.success && res.data) {
+			stats.value = res.data
+		}
+	} catch (e) {
+		console.error('獲取閒置率失敗:', e)
+	} finally {
+		loading.value = false
+	}
+}
+
+async function fetchIdleItems(page = 1, append = false) {
+	listLoading.value = true
+	try {
+		let timeFilter = activeTimeFilter.value === 'all' ? null : activeTimeFilter.value
+		const res = await getIdleItemsDetail({
+			page,
+			pageSize: pageSize.value,
+			timeFilter,
+			seasonFilter: activeSeasonFilter.value !== 'all' ? activeSeasonFilter.value : null
+		})
+		if (res && res.success && res.data) {
+			const items = (res.data.items || []).map(item => ({
+				...item,
+				image: getFullImageUrl(item.image_url),
+				dotColor: COLOR_HEX_BY_CODE[item.color] || '#cccccc'
+			}))
+			if (append) {
+				idleItems.value = [...idleItems.value, ...items]
+			} else {
+				idleItems.value = items
+			}
+			const pagination = res.data.pagination || {}
+			currentPage.value = pagination.page || page
+			totalPages.value = pagination.total_pages || 1
+			hasMore.value = currentPage.value < totalPages.value
+		}
+		return res
+	} catch (e) {
+		console.error('獲取閒置明細失敗:', e)
+		throw e
+	} finally {
+		listLoading.value = false
+	}
+}
+
+const currentPage = ref(1)
+const pageSize = ref(20)
+const hasMore = ref(false)
+const totalPages = ref(1)
+
+const idleRate = computed(() => {
+	if (stats.value.total_items === 0) return 0
+	return Math.round((stats.value.idle_items / stats.value.total_items) * 100)
+})
+
+const idleItemsWithStatus = computed(() =>
+	idleItems.value
+		.map((item) => {
+			const status = getIdleStatus(item)
+			return {
+				...item,
+				status,
+				lastWornDisplay: getLastWornDisplay(item, status),
+				sortOrder: getSortOrder(item.last_worn_date)
+			}
+		})
+		.filter((item) => item.status.level !== 'within_year')
+)
+
 const timeFilters = [
 	{ label: 'All', value: 'all' },
 	{ label: 'Never worn', value: 'never' },
 	{ label: 'Over a year', value: 'over_year' }
 ]
 const activeTimeFilter = ref('all')
-
-/** Season filter: All / Spring / Summer / Autumn / Winter */
 const seasonFilters = [
 	{ label: 'All', value: 'all' },
 	...SEASON_OPTIONS.map((o) => ({ label: o.label, value: o.value }))
 ]
 const activeSeasonFilter = ref('all')
 
-const listReady = ref(false)
-onMounted(async () => {
-	await nextTick()
-	requestAnimationFrame(() => {
-		listReady.value = true
-	})
+watch([activeTimeFilter, activeSeasonFilter], () => {
+	fetchIdleItems(1, false)
 })
 
 const filteredItems = computed(() => {
-	if (props.unwornCount === 0) return []
 	let list = [...idleItemsWithStatus.value]
-	
 	if (activeTimeFilter.value === 'never') {
 		list = list.filter((item) => item.status.level === 'never')
 	} else if (activeTimeFilter.value === 'over_year') {
 		list = list.filter((item) => item.status.level === 'over_year')
 	}
-	
 	if (activeSeasonFilter.value !== 'all') {
 		list = list.filter((item) => item.season === activeSeasonFilter.value)
 	}
-	
 	list = list.sort((a, b) => b.sortOrder - a.sortOrder)
 	return list
 })
@@ -200,6 +259,13 @@ const filteredItems = computed(() => {
 function wearToday(item) {
 	uni.showToast({ title: `Marked "${item.name}" as worn today`, icon: 'none' })
 }
+
+onMounted(async () => {
+	await nextTick()
+	listReady.value = true
+	await fetchData()
+	await fetchIdleItems(1, false)
+})
 </script>
 
 <style scoped>
