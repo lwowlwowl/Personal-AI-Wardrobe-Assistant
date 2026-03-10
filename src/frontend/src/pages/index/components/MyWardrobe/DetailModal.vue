@@ -28,42 +28,43 @@
 							/>
 						</view>
 						<view class="info-row info-row-select">
-							<text class="label">Type:</text>
-							<view class="select-trigger" @click="openField = openField === 'type' ? null : 'type'">
-								<text class="select-value">{{ typeDisplayText }}</text>
-								<image :src="openField === 'type' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="select-arrow"></image>
+							<text class="label">Category:</text>
+							<view class="select-trigger" @click="openField = openField === 'category' ? null : 'category'">
+								<text class="select-value">{{ categoryDisplayText }}</text>
+								<image :src="openField === 'category' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="select-arrow"></image>
 							</view>
-							<view v-if="openField === 'type'" class="select-dropdown">
+							<view v-if="openField === 'category'" class="select-dropdown">
 								<view 
-									v-for="opt in typeOptions" 
+									v-for="opt in categoryOptions" 
 									:key="opt.value" 
 									class="select-option" 
-									:class="{ active: editTypes.includes(opt.value) }"
-									@click="toggleOption('type', opt)"
+									:class="{ active: editCategory === opt.value }"
+									@click="selectCategory(opt)"
 								>{{ opt.label }}</view>
-								<view class="select-apply" @click="applyField('type')">Apply</view>
+								<view class="select-apply" @click="openField = null">Close</view>
 							</view>
+						</view>
+						<view class="info-row">
+							<text class="label">SubCategory:</text>
+							<input 
+								class="info-input" 
+								v-model="editSubcategory" 
+								placeholder="e.g. T-shirt, Blouse"
+								@blur="emitField('subcategory', editSubcategory)"
+							/>
 						</view>
 						<view class="info-row info-row-readonly">
 							<text class="label">Added on:</text>
 							<text class="value">{{ item.date || '—' }}</text>
 						</view>
-						<view class="info-row info-row-select">
+						<view class="info-row">
 							<text class="label">Color:</text>
-							<view class="select-trigger" @click="openField = openField === 'color' ? null : 'color'">
-								<text class="select-value">{{ colorDisplayText }}</text>
-								<image :src="openField === 'color' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="select-arrow"></image>
-							</view>
-							<view v-if="openField === 'color'" class="select-dropdown">
-								<view 
-									v-for="opt in colorOptions" 
-									:key="opt.value" 
-									class="select-option" 
-									:class="{ active: editColors.includes(opt.value) }"
-									@click="toggleOption('color', opt)"
-								>{{ opt.label }}</view>
-								<view class="select-apply" @click="applyField('color')">Apply</view>
-							</view>
+							<input
+								class="info-input"
+								v-model="editColor"
+								placeholder="e.g. gray, navy blue"
+								@blur="emitField('color', editColor)"
+							/>
 						</view>
 						<view class="info-row info-row-select">
 							<text class="label">Season:</text>
@@ -81,6 +82,10 @@
 								>{{ opt.label }}</view>
 								<view class="select-apply" @click="applyField('season')">Apply</view>
 							</view>
+						</view>
+						<view class="info-row info-row-readonly">
+							<text class="label">Tags:</text>
+							<text class="value">{{ tagsDisplayText }}</text>
 						</view>
 						<view class="info-row info-row-favourite">
 							<text class="label">Favourite:</text>
@@ -123,7 +128,7 @@
 
 <script setup>
 import { watch, ref, nextTick, computed } from 'vue'
-import { TYPE_OPTIONS, COLOR_OPTIONS, SEASON_OPTIONS, TYPE_LABEL_BY_CODE, COLOR_LABEL_BY_CODE, SEASON_LABEL_BY_CODE, codesToLabels } from '@/utils/wardrobeEnums.js'
+import { CATEGORY_OPTIONS, SEASON_OPTIONS, TYPE_LABEL_BY_CODE, SEASON_LABEL_BY_CODE, codesToLabels } from '@/utils/wardrobeEnums.js'
 
 const props = defineProps({
 	visible: {
@@ -141,31 +146,46 @@ const emit = defineEmits(['update:visible', 'try-on', 'delete', 'update'])
 const isEnter = ref(false)
 const isLeave = ref(false)
 
-const typeOptions = TYPE_OPTIONS
-const colorOptions = COLOR_OPTIONS
+const categoryOptions = CATEGORY_OPTIONS
 const seasonOptions = SEASON_OPTIONS
 
 const editName = ref('')
-const editTypes = ref([])
-const editColors = ref([])
+const editCategory = ref('')
+const editSubcategory = ref('')
+const editColor = ref('')
 const editSeasons = ref([])
 const editFavourite = ref(0)
 const openField = ref(null)
 
-function parseMulti (str) {
-	if (!str || typeof str !== 'string') return []
-	return str.split(/[,/]+/).map(s => s.trim()).filter(Boolean)
+/** 支持后端返回的数组（如 season）或逗号分隔字符串，统一为字符串数组 */
+function parseMulti (val) {
+	if (val == null) return []
+	if (Array.isArray(val)) return val.map((s) => String(s).trim()).filter(Boolean)
+	if (typeof val !== 'string') return []
+	return val.split(/[,/]+/).map(s => s.trim()).filter(Boolean)
 }
 
-const typeDisplayText = computed(() => codesToLabels(editTypes.value, TYPE_LABEL_BY_CODE))
-const colorDisplayText = computed(() => codesToLabels(editColors.value, COLOR_LABEL_BY_CODE))
+const categoryDisplayText = computed(() => editCategory.value ? (TYPE_LABEL_BY_CODE[editCategory.value] || editCategory.value) : '—')
 const seasonDisplayText = computed(() => codesToLabels(editSeasons.value, SEASON_LABEL_BY_CODE))
+
+/** 解析 tags：支持数组字符串、数组对象 {tag}、逗号分隔字符串 */
+const tagsDisplayText = computed(() => {
+	const val = props.item?.tags
+	if (!val) return '—'
+	if (Array.isArray(val)) {
+		const arr = val.map((t) => (typeof t === 'string' ? t : (t?.tag || t))).filter(Boolean)
+		return arr.length ? arr.join(', ') : '—'
+	}
+	if (typeof val === 'string') return val.trim() || '—'
+	return '—'
+})
 
 watch(() => props.item, (val) => {
 	if (!val) return
 	editName.value = val.name || ''
-	editTypes.value = parseMulti(val.type)
-	editColors.value = parseMulti(val.color)
+	editCategory.value = val.type || ''
+	editSubcategory.value = val.subcategory || ''
+	editColor.value = val.color || ''
 	editSeasons.value = parseMulti(val.season)
 	const f = val.favourite
 	editFavourite.value = typeof f === 'number' && f >= 0 && f <= 3 ? f : 0
@@ -178,8 +198,9 @@ watch(() => props.visible, (v) => {
 		nextTick(() => {
 			isEnter.value = true
 			editName.value = props.item?.name || ''
-			editTypes.value = parseMulti(props.item?.type)
-			editColors.value = parseMulti(props.item?.color)
+			editCategory.value = props.item?.type || ''
+			editSubcategory.value = props.item?.subcategory || ''
+			editColor.value = props.item?.color || ''
 			editSeasons.value = parseMulti(props.item?.season)
 			const f = props.item?.favourite
 			editFavourite.value = typeof f === 'number' && f >= 0 && f <= 3 ? f : 0
@@ -191,6 +212,14 @@ watch(() => props.visible, (v) => {
 	}
 }, { immediate: true })
 
+function selectCategory(opt) {
+	if (!props.item?.id) return
+	const value = opt && typeof opt === 'object' && 'value' in opt ? opt.value : opt
+	editCategory.value = value
+	emit('update', { id: props.item.id, field: 'category', value })
+	openField.value = null
+}
+
 const close = () => {
 	isEnter.value = false
 	isLeave.value = true
@@ -200,330 +229,37 @@ const close = () => {
 	}, 280)
 }
 
-// DetailModal.vue - 修改 emitField 函数
-const emitField = async (field, value) => {
-  if (!props.item?.id) return
-  
-  let processedValue = value
-  if (field === 'name') {
-    processedValue = (value || '').trim()
-  }
-  
-  await updateField(field, processedValue)
+const emitField = (field, value) => {
+	if (!props.item?.id) return
+	const v = field === 'name' || field === 'subcategory' || field === 'color'
+		? (value || '').trim()
+		: value
+	emit('update', { id: props.item.id, field, value: v })
 }
 
 const toggleOption = (field, opt) => {
-  const code = opt && typeof opt === 'object' && 'value' in opt ? opt.value : opt
-  const arr = field === 'type' ? editTypes.value : 
-              field === 'color' ? editColors.value : 
-              editSeasons.value
-  
-  const i = arr.indexOf(code)
-  if (i >= 0) {
-    arr.splice(i, 1)
-    console.log(`移除${field}:`, code, '当前数组:', arr)
-  } else {
-    arr.push(code)
-    console.log(`添加${field}:`, code, '当前数组:', arr)
-  }
+	const code = opt && typeof opt === 'object' && 'value' in opt ? opt.value : opt
+	const arr = editSeasons.value
+	const i = arr.indexOf(code)
+	if (i >= 0) arr.splice(i, 1)
+	else arr.push(code)
 }
 
-// DetailModal.vue - 修改 applyField 函数
-const applyField = async (field) => {
-  if (!props.item?.id) return
-  
-  // 根据字段类型获取对应的数组
-  let arr
-  switch (field) {
-    case 'type':
-      arr = editTypes.value
-      break
-    case 'color':
-      arr = editColors.value
-      break
-    case 'season':
-      arr = editSeasons.value
-      break
-    default:
-      return
-  }
-  
-  // 将数组转换为逗号分隔的字符串
-  const value = arr.join(',')
-  
-  // 如果值为空，设置为空字符串而不是跳过
-  if (arr.length === 0) {
-    await updateField(field, '')
-    openField.value = null
-    return
-  }
-  
-  await updateField(field, value)
-  openField.value = null
+const applyField = (field) => {
+	if (!props.item?.id) return
+	if (field !== 'season') return
+	const value = editSeasons.value.join(',')
+	emit('update', { id: props.item.id, field, value })
+	openField.value = null
 }
 
-const updateField = async (field, value) => {
-  try {
-   uni.showLoading({
-         title: '更新中...',
-         mask: true
-       })
-       
-       const token = uni.getStorageSync('auth_token')
-       if (!token) {
-         uni.showToast({
-           title: '请先登录',
-           icon: 'none'
-         })
-         return false
-       }
-    
-    // 添加字段映射
-    const fieldMapping = {
-      'type': 'category',
-      'color': 'color',
-      'season': 'season',
-      'name': 'name',
-      'favourite': 'is_favorite'
-    }
-    
-    const backendField = fieldMapping[field] || field
-       
-       const res = await new Promise((resolve, reject) => {
-         uni.request({
-           url: `http://localhost:8000/api/clothing/${props.item.id}?token=${encodeURIComponent(token)}`,
-           method: 'PUT',
-           header: {
-             'Content-Type': 'application/x-www-form-urlencoded'
-           },
-           data: {
-             [backendField]: value  // ✅ 使用映射后的字段名
-           },
-           success: resolve,
-           fail: reject
-         })
-       })
-    
-    if (res.statusCode === 200 && res.data?.success) {
-      // 更新成功后，通知父组件
-      emit('update', { 
-        id: props.item.id, 
-        field, 
-        value 
-      })
-	  
-        if (field === 'type') {
-		  editTypes.value = parseMulti(value)
-		} else if (field === 'color') {
-		  editColors.value = parseMulti(value)
-		} else if (field === 'season') {
-		  editSeasons.value = parseMulti(value)
-		} else if (field === 'name') {
-		  editName.value = value
-		}
-		
-      // 根据字段显示不同的成功提示
-      const fieldLabels = {
-        'type': '类别',
-        'color': '颜色',
-        'season': '季节',
-        'name': '名称',
-        'favourite': '收藏等级'
-      }
-	  
-	
-      
-      uni.showToast({
-        title: `${fieldLabels[field] || field}更新成功`,
-        icon: 'success',
-        duration: 1200
-      })
-      
-      return true
-    } else {
-      throw new Error(res.data?.message || '更新失败')
-    }
-  } catch (error) {
-    console.error(`更新${field}失败:`, error)
-    uni.showToast({
-      title: error?.message || '网络请求失败',
-      icon: 'none'
-    })
-    return false
-  } finally {
-    uni.hideLoading()
-  }
+const setFavourite = (level) => {
+	if (!props.item?.id) return
+	const next = editFavourite.value === level ? Math.max(0, level - 1) : level
+	editFavourite.value = next
+	emit('update', { id: props.item.id, field: 'favourite', value: next })
 }
 
-// 添加清除所有选项的功能
-const clearField = (field) => {
-  switch (field) {
-    case 'type':
-      editTypes.value = []
-      break
-    case 'color':
-      editColors.value = []
-      break
-    case 'season':
-      editSeasons.value = []
-      break
-  }
-}
-
-
-const updateFavoriteLevel = async (clothingId, level) => {
-  const token = uni.getStorageSync('auth_token')
-  if (!token) {
-    uni.showToast({
-      title: '请先登录',
-      icon: 'none'
-    })
-    return null
-  }
-  
-  try {
-    console.log('发送收藏请求:', {
-      clothingId,
-      level
-    })
-    
-    const res = await new Promise((resolve, reject) => {
-      uni.request({
-        // ✅ 同时传递 token 和 target_level 作为 URL 查询参数
-        url: `http://localhost:8000/api/clothing/${clothingId}/toggle-favorite?token=${encodeURIComponent(token)}&target_level=${level}`,
-        method: 'POST',
-        data: {},  // 空的请求体
-        header: {
-          'Content-Type': 'application/json'
-          // ⚠️ 注意：这里不要加 Authorization header，因为 token 已经在 URL 中了
-        },
-        success: (res) => {
-          console.log('收藏响应:', {
-            statusCode: res.statusCode,
-            data: res.data
-          })
-          resolve(res)
-        },
-        fail: (err) => {
-          console.error('收藏请求失败:', err)
-          reject(err)
-        }
-      })
-    })
-    
-    if (res.statusCode === 200) {
-      return res.data
-    } else {
-      throw new Error(res.data?.message || `请求失败: ${res.statusCode}`)
-    }
-    
-  } catch (error) {
-    console.error('API请求错误:', error)
-    throw error
-  }
-}
-
-// DetailModal.vue - 修改 setFavourite 函数
-const setFavourite = async (level) => {
-  if (!props.item?.id) {
-    console.error('衣物ID不存在')
-    return
-  }
-  
-  const token = uni.getStorageSync('auth_token')
-  if (!token) {
-    uni.showToast({
-      title: '请先登录',
-      icon: 'none'
-    })
-    return
-  }
-  
-  try {
-    const next = editFavourite.value === level ? Math.max(0, level - 1) : level
-    console.log('准备更新收藏:', {
-      clothingId: props.item.id,
-      currentLevel: editFavourite.value,
-      targetLevel: next
-    })
-    
-    uni.showLoading({
-      title: '更新中...',
-      mask: true
-    })
-    
-    const response = await updateFavoriteLevel(props.item.id, next)
-    console.log('更新收藏响应:', response)
-    
-    if (response && response.success === true) {
-      // ✅ 关键修复：处理不同的后端返回格式
-      let newLevel = 0
-      
-      // 情况1：后端返回 is_favorite（可能是0/1或true/false）
-      if (response.data?.is_favorite !== undefined) {
-        // 如果是布尔值，转换为0/1
-        if (typeof response.data.is_favorite === 'boolean') {
-          newLevel = response.data.is_favorite ? 1 : 0
-        } else {
-          // 如果是数字，直接使用
-          newLevel = Number(response.data.is_favorite)
-        }
-      } 
-      // 情况2：后端返回 favourite
-      else if (response.data?.favourite !== undefined) {
-        newLevel = Number(response.data.favourite)
-      }
-      // 情况3：后端返回 level
-      else if (response.data?.level !== undefined) {
-        newLevel = Number(response.data.level)
-      }
-      // 情况4：如果没有返回等级，使用我们发送的目标等级
-      else {
-        newLevel = next
-      }
-      
-      // 确保值在0-3范围内
-      newLevel = Math.min(3, Math.max(0, newLevel))
-      
-      console.log('处理后的收藏等级:', newLevel)
-      
-      // 更新本地状态
-      editFavourite.value = newLevel
-      
-      // 通知父组件更新
-      emit('update', { 
-        id: props.item.id, 
-        field: 'favourite', 
-        value: newLevel 
-      })
-	  
-	  console.log('更新完成:', {
-	    clothingId: props.item.id,
-	    currentLevel: editFavourite.value,
-	  })
-      
-      const favoriteLabels = {
-        0: '不喜欢',
-        1: '一般',
-        2: '喜欢',
-        3: '非常喜欢'
-      }
-      uni.showToast({
-        title: favoriteLabels[newLevel] || '更新成功',
-        icon: 'success',
-        duration: 1200
-      })
-    }
-  } catch (error) {
-    console.error('更新收藏等级失败:', error)
-    uni.showToast({
-      title: error?.message || '网络请求失败',
-      icon: 'none'
-    })
-  } finally {
-    uni.hideLoading()
-  }
-}
 const handleTryOn = () => {
 	emit('try-on', props.item)
 }

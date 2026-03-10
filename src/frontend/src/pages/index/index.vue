@@ -13,6 +13,7 @@
 			
 			<view class="divider"></view>
 			
+			<view class="nav-and-conversation">
 			<view class="nav-menu">
 				<view 
 					class="nav-item" 
@@ -49,6 +50,17 @@
 				
 				<view 
 					class="nav-item" 
+					:class="{ 'active': activeMenu === 'calendar' }"
+					@click="setActiveMenu('calendar')"
+				>
+					<view class="nav-icon">
+						<image :src="activeMenu === 'calendar' ? '/static/icons/icon-calendar-active.svg' : '/static/icons/icon-calendar.svg'" mode="aspectFit" class="icon-img icon-20"></image>
+					</view>
+					<text class="nav-text" v-show="!isCollapsed">My Calendar</text>
+				</view>
+				
+				<view 
+					class="nav-item" 
 					:class="{ 'active': activeMenu === 'analysis' }"
 					@click="setActiveMenu('analysis')"
 				>
@@ -59,59 +71,173 @@
 				</view>
 			</view>
 			
+			<!-- Recommendation AI 专用：由 ConversationSidebar 组件负责 -->
+			<template v-if="activeMenu === 'recommendation' && !isCollapsed">
+				<view class="divider"></view>
+				<ConversationSidebar
+					ref="conversationSidebarRef"
+					:conversation-state="conversationState"
+					@update:conversation-state="onConversationStateUpdate"
+					v-model:open-menu-conv-id="openConvMenuId"
+				/>
+			</template>
+			</view>
+			
 			<view class="divider"></view>
 			
 			<view class="sidebar-footer">
-				<view class="nav-item footer-item" @click="handleGuestUser">
-					<view class="nav-icon">
-						<image src="/static/icons/icon-user.svg" mode="aspectFit" class="icon-img icon-20"></image>
+				<!-- 状态卡片：点击后上方浮出小浮层，浮层宽度略小于触发块 -->
+				<view class="user-status-card">
+					<transition name="user-menu-fade">
+						<view v-if="showUserMenu" class="user-menu-popup" @click.stop>
+							<view v-if="isLoggedIn" class="user-menu-item" @click="handleLogout">
+								<image src="/static/icons/icon-logout.svg" mode="aspectFit" class="user-menu-item-icon"></image>
+								<text class="user-menu-item-text">退出登录</text>
+							</view>
+							<view v-else class="user-menu-item" @click="handleGoToLogin">
+								<image src="/static/icons/icon-logout.svg" mode="aspectFit" class="user-menu-item-icon"></image>
+								<text class="user-menu-item-text">前往登录</text>
+							</view>
+						</view>
+					</transition>
+					<view class="footer-item user-status-trigger" @click.stop="toggleUserMenu">
+						<view class="nav-icon">
+							<image src="/static/icons/icon-user.svg" mode="aspectFit" class="icon-img icon-20"></image>
+						</view>
+						<text class="nav-text" v-show="!isCollapsed">{{ displayUserName }}</text>
 					</view>
-					<text class="nav-text" v-show="!isCollapsed">Guest User</text>
-				</view>
-				
-				<view class="nav-item footer-item" @click="handleSetting">
-					<view class="nav-icon">
-						<image src="/static/icons/icon-setting.svg" mode="aspectFit" class="icon-img icon-20"></image>
-					</view>
-					<text class="nav-text" v-show="!isCollapsed">Setting</text>
 				</view>
 			</view>
 		</view>
 		
-		<view class="main-content" ref="mainContentRef">
-			<!-- 用 v-show 替代 v-if，切换菜单时不销毁组件，从而保留衣橱内 type/color/season 等编辑结果 -->
+		<view class="main-content" ref="mainContentRef" @click="closeMenus">
+			<!-- 根据选中的菜单项切换显示不同的组件，带切换动画 -->
 			<view class="main-content-inner">
-				<view v-show="activeMenu === 'recommendation'" class="content-panel">
-					<RecommendationAI />
-				</view>
-				<view v-show="activeMenu === 'tryon'" class="content-panel">
-					<VirtualTryOn
-						:key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')"
-						:main-content-ref="mainContentRef"
-						:initial-clothing-image="initialClothingForTryon || null"
-						:initial-person-image="initialPersonImageForTryon || null"
+				<transition name="view-fade" mode="out-in">
+					<RecommendationAI
+						v-if="activeMenu === 'recommendation'"
+						key="recommendation"
+						:current-conversation-id="conversationState.currentConversationId"
+						:current-conversation="conversationState.currentConversation"
+						@create-conversation="(e) => conversationSidebarRef?.handleCreateConversation(e)"
+						@update-conversation="(e) => conversationSidebarRef?.handleUpdateConversation(e)"
 					/>
-				</view>
-				<view v-show="activeMenu === 'wardrobe'" class="content-panel">
-					<WardrobeView @switch-to-tryon="handleSwitchToTryon" />
-				</view>
-				<view v-show="activeMenu === 'analysis'" class="content-panel view-placeholder">Wardrobe Analysis (Coming soon)</view>
+					<VirtualTryOn
+					v-else-if="activeMenu === 'tryon'"
+					:key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')"
+					:main-content-ref="mainContentRef"
+					:initial-clothing-image="initialClothingForTryon || null"
+					:initial-person-image="initialPersonImageForTryon || null"
+				/>
+					<WardrobeView
+						v-else-if="activeMenu === 'wardrobe'"
+						key="wardrobe"
+						@switch-to-tryon="handleSwitchToTryon"
+					/>
+					<MyCalendar v-else-if="activeMenu === 'calendar'" key="calendar" />
+					<WardrobeAnalysis v-else-if="activeMenu === 'analysis'" key="analysis" />
+				</transition>
 			</view>
 		</view>
 	</view>
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
-import RecommendationAI from './components/RecommendationAI.vue'
+import { ref, nextTick, provide } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { authVerify } from '@/api/wardrobe.js'
+import RecommendationAI from './components/RecommendationAI/RecommendationAI.vue'
+import ConversationSidebar from './components/RecommendationAI/ConversationSidebar.vue'
 import VirtualTryOn from './components/VirtualTryOn.vue'
 import WardrobeView from './components/MyWardrobe/WardrobeView.vue'
+import MyCalendar from './components/MyCalendar/MyCalendar.vue'
+import WardrobeAnalysis from './components/WardrobeAnalysis/WardrobeAnalysis.vue'
 
 const activeMenu = ref('recommendation')
 const isCollapsed = ref(false)
 const mainContentRef = ref(null)
+const conversationSidebarRef = ref(null)
 const initialClothingForTryon = ref(null)
 const initialPersonImageForTryon = ref(null)
+
+// 由 ConversationSidebar 同步过来，仅用于传给 RecommendationAI
+const conversationState = ref({
+	conversations: [],
+	currentConversationId: null,
+	currentConversation: null
+})
+
+// 侧边栏显示的用户名：登录后显示用户名，否则显示 Guest User
+const displayUserName = ref('Guest User')
+const isLoggedIn = ref(false)
+
+// 供子组件（如 WardrobeView）在 checkAuthStatus 后同步登入状态
+const updateAuthState = (loggedIn, username) => {
+	isLoggedIn.value = !!loggedIn
+	displayUserName.value = loggedIn && username ? username : 'Guest User'
+}
+
+const refreshDisplayUserName = async () => {
+	const token = uni.getStorageSync('auth_token')
+	if (!token) {
+		displayUserName.value = 'Guest User'
+		isLoggedIn.value = false
+		return
+	}
+	try {
+		const res = await authVerify(token)
+		if (res.statusCode === 200 && res.data?.valid) {
+			const username = res.data?.username || uni.getStorageSync('user_info')?.username
+			displayUserName.value = username || 'Guest User'
+			isLoggedIn.value = true
+		} else {
+			uni.removeStorageSync('auth_token')
+			uni.removeStorageSync('user_info')
+			displayUserName.value = 'Guest User'
+			isLoggedIn.value = false
+		}
+	} catch {
+		// 网络错误等保持当前显示，不强制清除
+		displayUserName.value = uni.getStorageSync('user_info')?.username || 'Guest User'
+		isLoggedIn.value = !!(token && uni.getStorageSync('user_info'))
+	}
+}
+;(async () => { await refreshDisplayUserName() })()
+onShow(() => {
+	refreshDisplayUserName()
+})
+
+provide('updateAuthState', updateAuthState)
+
+const openConvMenuId = ref(null)
+const showUserMenu = ref(false)
+const closeMenus = () => {
+	openConvMenuId.value = null
+	showUserMenu.value = false
+}
+const toggleUserMenu = () => {
+	showUserMenu.value = !showUserMenu.value
+}
+const handleLogout = () => {
+	uni.removeStorageSync('auth_token')
+	uni.removeStorageSync('user_info')
+	displayUserName.value = 'Guest User'
+	isLoggedIn.value = false
+	showUserMenu.value = false
+	uni.reLaunch({
+		url: '/pages/login/login'
+	})
+}
+
+const handleGoToLogin = () => {
+	showUserMenu.value = false
+	uni.navigateTo({
+		url: '/pages/login/login'
+	})
+}
+const onConversationStateUpdate = (v) => {
+	if (v && Array.isArray(v.conversations)) conversationState.value = v
+}
 
 const setActiveMenu = (menu) => {
 	activeMenu.value = menu
@@ -123,21 +249,6 @@ const setActiveMenu = (menu) => {
 
 const toggleSidebar = () => {
 	isCollapsed.value = !isCollapsed.value
-}
-
-// 後端聯調保留：訪客/設置的 Toast 提示
-const handleGuestUser = () => {
-	uni.showToast({
-		title: '訪客用戶功能開發中',
-		icon: 'none'
-	})
-}
-
-const handleSetting = () => {
-	uni.showToast({
-		title: '設置功能開發中',
-		icon: 'none'
-	})
 }
 
 const handleSwitchToTryon = (item, defaultModelImage) => {
@@ -229,8 +340,16 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	transition: width 0.3s ease, margin 0.3s ease;
 }
 
-.nav-menu {
+.nav-and-conversation {
 	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.nav-menu {
+	flex-shrink: 0;
 	display: flex;
 	flex-direction: column;
 	gap: 16rpx;
@@ -305,36 +424,117 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 
 .nav-text {
 	font-size: 28rpx;
-	/* 英文用系统无衬线体更易读，或者也用 Didot 保持一致，这里推荐无衬线体搭配 */
 	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
 	font-weight: 550;
-	color: #48484a; /* 稍微柔和一点的黑 */
+	color: #48484a;
 	letter-spacing: 0.3px;
 	white-space: nowrap;
 	opacity: 1;
 	transition: opacity 0.3s ease, width 0.3s ease;
 	overflow: hidden;
-	white-space: nowrap;
 }
 
+/* 底部用户行容器：margin-top: auto 贴底；上下间距在此或 .footer-item 调整 */
 .sidebar-footer {
+	position: relative;
+	flex-shrink: 0;
 	margin-top: auto;
+	padding-top: 5rpx;
+	padding-bottom: 13rpx;
 	display: flex;
 	flex-direction: column;
 	gap: 10rpx;
 }
 
-.footer-item {
-	padding-left: 0; /* 底部菜单靠左对齐，不需要胶囊背景 */
+/* 状态卡片容器（相对定位，供浮层对齐） */
+.user-status-card {
+	position: relative;
+	width: 100%;
 }
 
-.sidebar.collapsed .footer-item {
+/* 触发块：平时无框，hover 时才显示框，背景与侧栏一致不改变 */
+.footer-item.user-status-trigger {
+	display: flex;
+	align-items: center;
+	padding: 20rpx 24rpx;
+	min-height: 72rpx;
+	box-sizing: border-box;
+	cursor: pointer;
+	transition: border-color 0.2s, box-shadow 0.2s;
+	border-radius: 16rpx;
+	border: 1px solid transparent;
+	background: transparent;
+	box-shadow: none;
+}
+.footer-item.user-status-trigger:hover {
+	border-color: rgba(0, 0, 0, 0.1);
+	box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+.footer-item.user-status-trigger:active {
+	border-color: rgba(0, 0, 0, 0.12);
+	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
+}
+
+.sidebar.collapsed .footer-item.user-status-trigger {
 	justify-content: center;
+	padding: 24rpx 0;
 }
 
-.footer-item:hover {
-	background-color: transparent;
-	opacity: 0.7;
+/* 浮层出现/消失动效：opacity + translateY，120ms ease-out，无 scale/弹性 */
+.user-menu-fade-enter-active,
+.user-menu-fade-leave-active {
+	transition: opacity 120ms ease-out, transform 120ms ease-out;
+}
+.user-menu-fade-enter-from,
+.user-menu-fade-leave-to {
+	opacity: 0;
+	transform: translateY(6px);
+}
+.user-menu-fade-enter-to,
+.user-menu-fade-leave-from {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+/* 上方浮层：宽度与触发块一致（左右不缩进），字体黑色 */
+.user-menu-popup {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 100%;
+	margin-bottom: 10rpx;
+	background: #fff;
+	border-radius: 14rpx;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	box-shadow: 0 8rpx 28rpx rgba(0, 0, 0, 0.12);
+	overflow: hidden;
+	z-index: 100;
+}
+.user-menu-item {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 12rpx;
+	padding: 20rpx 28rpx;
+	font-size: 26rpx;
+	font-weight: 500;
+	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+.user-menu-item-icon {
+	width: 32rpx;
+	height: 32rpx;
+	flex-shrink: 0;
+}
+.user-menu-item-text {
+	color: #1D1D1F;
+}
+.user-menu-item:hover {
+	background-color: rgba(0, 0, 0, 0.05);
+}
+.user-menu-item:active {
+	background-color: rgba(0, 0, 0, 0.08);
 }
 
 /* 主内容区 */
@@ -355,12 +555,7 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	position: relative;
 }
 
-.content-panel {
-	width: 100%;
-	height: 100%;
-}
-
-/* 视图切换动画（当前使用 v-show 保留状态，未使用 transition） */
+/* 视图切换动画 */
 .view-fade-enter-active,
 .view-fade-leave-active {
 	transition: opacity 0.28s ease, transform 0.28s ease;
@@ -377,17 +572,6 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 .view-fade-leave-from {
 	opacity: 1;
 	transform: translateX(0);
-}
-
-.view-placeholder {
-	width: 100%;
-	height: 100%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-family: "Didot", "Bodoni MT", "Noto Serif", "Songti SC", serif;
-	font-size: 36rpx;
-	color: #9D8B70;
 }
 
 </style>

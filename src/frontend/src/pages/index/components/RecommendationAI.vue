@@ -43,7 +43,7 @@
 					<!-- AI 消息 (左侧) -->
 					<view v-else-if="msg.role === 'ai'" class="ai-container">
 						<view class="ai-avatar">
-							<image src="/static/icons/icon-robot-avatar.svg" mode="aspectFit" class="icon-robot-avatar"></image>
+							<image src="/static/icons/icon-robot.svg" mode="aspectFit" class="icon-robot-avatar"></image>
 						</view>
 						<view class="ai-content">
 							<text class="message-text">{{ msg.content }}</text>
@@ -72,7 +72,7 @@
 					<!-- 加载指示器 -->
 					<view v-if="msg.role === 'loading'" class="ai-container">
 						<view class="ai-avatar">
-							<image src="/static/icons/icon-robot-avatar.svg" mode="aspectFit" class="icon-robot-avatar"></image>
+							<image src="/static/icons/icon-robot.svg" mode="aspectFit" class="icon-robot-avatar"></image>
 						</view>
 						<view class="loading-indicator">
 							<view class="loading-dot"></view>
@@ -104,6 +104,13 @@
 		
 		<!-- 搜索栏 - 根据状态调整位置 -->
 		<view class="input-container" :class="{ 'fixed-bottom': hasSearched }">
+			<!-- 已上傳圖片預覽（與 VirtualTryOn 的 Click to upload 一致） -->
+			<view v-if="uploadedImageUrl" class="upload-preview">
+				<image :src="uploadedImageUrl" mode="aspectFill" class="upload-preview-img"></image>
+				<view class="upload-preview-remove" @click="removeUploadedImage">
+					<image src="/static/icons/icon-close.svg" mode="aspectFit" class="icon-close-small"></image>
+				</view>
+			</view>
 			<view class="search-bar">
 				<view class="search-icon-left" @click="handleAdd">
 					<image src="/static/icons/icon-plus.svg" mode="aspectFit" class="icon-search-btn"></image>
@@ -114,6 +121,7 @@
 					placeholder="Ask me anything!"
 					placeholder-class="search-placeholder"
 					@keyup.enter="handleSearch"
+					@confirm="handleSearch"
 				/>
 				<view class="search-button" @click="handleSearch">
 					<image src="/static/icons/icon-send.svg" mode="aspectFit" class="icon-search-btn"></image>
@@ -154,11 +162,12 @@ const handleSearch = async () => {
 	// 1. 切换 UI 状态：搜索框下移，问候语消失
 	hasSearched.value = true
 	
-	// 2. 添加用户消息
+	// 2. 添加用户消息（若已上傳圖片可在此帶入，目前僅清空預覽）
 	chatHistory.value.push({ role: 'user', content: query })
 	
-	// 清空输入框
+	// 清空输入框與已上傳圖片
 	searchQuery.value = ''
+	uploadedImageUrl.value = ''
 	
 	// 滚动到底部
 	scrollToBottom()
@@ -195,8 +204,22 @@ const handleSearch = async () => {
 	}, 1500)
 }
 
+// 本地上傳圖片（與 VirtualTryOn 的 click to upload 一致）
+const uploadedImageUrl = ref('')
+
 const handleAdd = () => {
-	console.log('Add clicked')
+	uni.chooseImage({
+		count: 1,
+		sizeType: ['original', 'compressed'],
+		sourceType: ['album', 'camera'],
+		success: (res) => {
+			uploadedImageUrl.value = res.tempFilePaths[0]
+		}
+	})
+}
+
+const removeUploadedImage = () => {
+	uploadedImageUrl.value = ''
 }
 </script>
 
@@ -255,8 +278,8 @@ const handleAdd = () => {
 	animation: float 4s ease-in-out infinite;
 }
 .icon-robot-avatar {
-	width: 32px;
-	height: 32px;
+	width: 26px;
+	height: 26px;
 	display: block;
 }
 .icon-search-btn {
@@ -429,8 +452,8 @@ const handleAdd = () => {
 }
 
 .ai-avatar {
-	width: 60rpx;
-	height: 60rpx;
+	width: 72rpx;
+	height: 72rpx;
 	background: #EAE5D9;
 	border-radius: 50%;
 	flex-shrink: 0;
@@ -527,6 +550,45 @@ const handleAdd = () => {
 	transform: translate(-50%, 0); /* 保持水平居中，取消垂直偏移 */
 }
 
+/* 已上傳圖片預覽 */
+.upload-preview {
+	position: relative;
+	width: 120rpx;
+	height: 120rpx;
+	margin-bottom: 16rpx;
+	border-radius: 16rpx;
+	overflow: hidden;
+	background: #EEE;
+	border: 2rpx solid #E5E5EA;
+}
+
+.upload-preview-img {
+	width: 100%;
+	height: 100%;
+	display: block;
+	object-fit: cover;
+}
+
+.upload-preview-remove {
+	position: absolute;
+	top: 4rpx;
+	right: 4rpx;
+	width: 44rpx;
+	height: 44rpx;
+	border-radius: 50%;
+	background: rgba(0,0,0,0.5);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+
+.icon-close-small {
+	width: 24rpx;
+	height: 24rpx;
+	filter: brightness(0) invert(1);
+}
+
 /* 搜索条保持原有长度，不随容器变宽 */
 .search-bar {
 	width: 1400rpx; 
@@ -571,7 +633,7 @@ const handleAdd = () => {
 }
 
 .search-icon-left:hover .icon-search-btn {
-	opacity: 0.85;
+	filter: brightness(0) invert(1);
 }
 
 .search-input {
@@ -609,9 +671,9 @@ const handleAdd = () => {
 .search-button:hover {
 	background-color: #1D1D1F;
 }
-/* hover 时箭头变白 */
+
 .search-button:hover .icon-search-btn {
-	opacity: 0.85;
+	filter: brightness(0) invert(1);
 }
 
 /* 底部标签 - 使用分割线设计 */

@@ -1,4 +1,4 @@
-// 在 frontend/ 目录下创建 utils/request.js
+// 在 frontend/ 目录下创建 tools/request.js
 const BASE_URL = 'http://localhost:3000'  // 你的 FastAPI 地址
 
 export const request = (options) => {
