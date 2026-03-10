@@ -132,7 +132,8 @@ def get_location_all_by_coords(
     if not host:
         raise RuntimeError("未配置QWEATHER_API_HOST，请在 .env 中设置")
     headers = _build_auth_headers()
-    location_param = f"{lat},{lon}"
+    # 和风 API 要求：location 为「经度,纬度」(lon,lat)，且小数点最多两位
+    location_param = f"{round(lon, 2)},{round(lat, 2)}"
     return _lookup_location_all(host, headers, location_param, lang)
 
 
