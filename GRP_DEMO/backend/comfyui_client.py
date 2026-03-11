@@ -9,27 +9,28 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 class ComfyUIClient:
-    def __init__(self, server_address: str = "http://127.0.0.1:8188"):
+    def __init__(self, server_address: str = "http://127.0.0.1:8118"):
+        # 默认指向你测试成功的 8118 端口
         self.server_address = server_address
         self.client_id = str(uuid.uuid4())
-        # ✨ 核心修正：创建一个不信任环境变量（绕过系统代理）的 Session
+        # ✨ 创建一个绕过系统代理的 Session，防止“梯子”干扰
         self.session = requests.Session()
         self.session.trust_env = False
 
     def queue_prompt(self, prompt: Dict[str, Any]) -> Optional[str]:
         try:
             payload = {"prompt": prompt, "client_id": self.client_id}
-            # ⬇️ 这里改用 self.session.post
             response = self.session.post(
                 f"{self.server_address}/prompt",
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=10 # 增加超时保护
+                timeout=10 
             )
             if response.status_code == 200:
                 return response.json().get("prompt_id")
+            # 记录 ComfyUI 返回的具体错误
+            logger.error(f"ComfyUI 拒绝请求: {response.text}")
             return None
         except Exception as e:
             logger.error(f"提交任务失败: {str(e)}")
@@ -37,7 +38,6 @@ class ComfyUIClient:
 
     def get_history(self, prompt_id: str) -> Optional[Dict[str, Any]]:
         try:
-            # ⬇️ 这里改用 self.session.get
             response = self.session.get(f"{self.server_address}/history/{prompt_id}")
             return response.json().get(prompt_id) if response.status_code == 200 else None
         except Exception:
@@ -46,7 +46,6 @@ class ComfyUIClient:
     def get_image(self, filename: str, subfolder: str = "", folder_type: str = "output") -> Optional[bytes]:
         try:
             params = {"filename": filename, "subfolder": subfolder, "type": folder_type}
-            # ⬇️ 这里改用 self.session.get
             response = self.session.get(f"{self.server_address}/view", params=params)
             return response.content if response.status_code == 200 else None
         except Exception:
@@ -57,8 +56,14 @@ class ComfyUIClient:
             if not filename: filename = f"upload_{int(time.time())}.png"
             files = {"image": (filename, image_data)}
             data = {"type": type}
-            # ⬇️ 这里改用 self.session.post
-            response = self.session.post(f"{self.server_address}/upload/image", files=files, data=data)
+            # 💡 强制切断代理干扰
+            response = self.session.post(
+                f"{self.server_address}/upload/image", 
+                files=files, 
+                data=data,
+                proxies={"http": None, "https": None}, 
+                timeout=10
+            )
             if response.status_code == 200:
                 return response.json()
             else:
@@ -81,14 +86,14 @@ class ComfyUIClient:
 def build_virtual_tryon_workflow(
         person_image: str,
         clothing_image: str,
-        accessory_image: Optional[str] = None,
+        # 👇 移除了 accessory_image 参数，因为新工作流不支持
         model_type: str = "2509",
         prompt_text: str = ""
 ) -> Dict[str, Any]:
     """
-    根据 Qwen-Image-Edit 工作流构建任务
+    根据新的【两图输入】工作流 JSON 构建任务 (节点 78, 106)
     """
-    # 加载你提供的 JSON 模板 (建议保存为 qwen_edit_v1.json)
+    # 确保模板文件存在
     template_path = os.path.join(os.path.dirname(__file__), "qwen_edit_v1.json")
 
     try:
@@ -96,43 +101,44 @@ def build_virtual_tryon_workflow(
             workflow = json.load(f)
     except Exception as e:
         logger.error(f"加载模板失败: {str(e)}")
-        raise HTTPException(status_code=500, detail="工作流模板丢失")
+        raise HTTPException(status_code=500, detail=f"工作流模板丢失或JSON格式错误: {str(e)}")
 
-    # --- 映射图片输入 ---
+    # --- 1. 映射图片输入 ---
     # 78: 人物图 (Image 1)
-    if "78" in workflow: workflow["78"]["inputs"]["image"] = person_image
+    if "78" in workflow: 
+        workflow["78"]["inputs"]["image"] = person_image
+    else:
+        logger.error("工作流 JSON 缺少节点 78 (人物图加载器)")
 
     # 106: 衣物图 (Image 2)
-    if "106" in workflow: workflow["106"]["inputs"]["image"] = clothing_image
+    if "106" in workflow: 
+        workflow["106"]["inputs"]["image"] = clothing_image
+    else:
+        logger.error("工作流 JSON 缺少节点 106 (衣物图加载器)")
 
-    # 108: 配饰图 (Image 3)
-    # 如果没有传配饰图，为了保证工作流不报错，通常保持原样或指向一个空白图
-    if "108" in workflow and accessory_image:
-        workflow["108"]["inputs"]["image"] = accessory_image
+    # ⚠️ 注意：这里彻底移除了对节点 108 (配饰图) 的处理
 
-    # --- 映射提示词 ---
-    # 111: 正向提示词编码
+    # --- 2. 映射提示词 ---
+    # 111: 正向提示词编码 (TextEncodeQwenImageEditPlus)
     if "111" in workflow:
-        default_prompt = "把图片2中的衣服穿到图片1中人物身上，戴上图3的耳饰，尺寸很小。保留图片1中人物其他特征"
+        # 移除了关于“配饰/图3”的描述
+        default_prompt = "Dress the person in image1 in the clothes from image2, preserving the features of the person."
         workflow["111"]["inputs"]["prompt"] = prompt_text if prompt_text else default_prompt
+        # 确保图片引用正确
+        workflow["111"]["inputs"]["image1"] = ["93", 0] # 缩放后的人物图
+        workflow["111"]["inputs"]["image2"] = ["106", 0] # 衣物图
 
-    # 110: 负向提示词 (同步图片引用，确保 Qwen 模型上下文正确)
+    # 110: 负向提示词 (TextEncodeQwenImageEditPlus) - 确保上下文图片引用正确
     if "110" in workflow:
-        workflow["110"]["inputs"]["image1"] = workflow["111"]["inputs"]["image1"]
-        workflow["110"]["inputs"]["image2"] = workflow["111"]["inputs"]["image2"]
-        workflow["110"]["inputs"]["image3"] = workflow["111"]["inputs"]["image3"]
+        workflow["110"]["inputs"]["prompt"] = "blurry, out of focus, distorted, deformed, wrong clothes, bad proportion, accessories on head"
+        workflow["110"]["inputs"]["image1"] = ["93", 0]
+        workflow["110"]["inputs"]["image2"] = ["106", 0]
 
-    # --- 映射模型参数 ---
-    # 如果 model_type 是 "2509" (对应你 JSON 中的 safetensors)
-    if model_type == "2509":
-        if "37" in workflow: workflow["37"]["inputs"]["unet_name"] = "qwen_image_edit_2509_fp8_e4m3fn.safetensors"
-        if "89" in workflow: workflow["89"]["inputs"]["lora_name"] = "Qwen-Image-Edit-Lightning-4steps-V1.0.safetensors"
-
-    # 设置保存前缀
+    # --- 3. 保存图片前缀 ---
     if "60" in workflow:
-        workflow["60"]["inputs"]["filename_prefix"] = f"QwenEdit_{int(time.time())}"
+        workflow["60"]["inputs"]["filename_prefix"] = f"VirtualTryOn_{int(time.time())}"
 
     return workflow
 
-
-comfyui_client = ComfyUIClient(server_address="http://127.0.0.1:8188")
+# 初始化全局实例
+comfyui_client = ComfyUIClient(server_address="http://127.0.0.1:8118")

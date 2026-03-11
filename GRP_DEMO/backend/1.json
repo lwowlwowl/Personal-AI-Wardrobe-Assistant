@@ -1,7 +1,7 @@
 {
   "3": {
     "inputs": {
-      "seed": 103254399190098,
+      "seed": 283201087249818,
       "steps": 4,
       "cfg": 1,
       "sampler_name": "euler",
@@ -47,7 +47,7 @@
   },
   "37": {
     "inputs": {
-      "unet_name": "qwen_image_fp8_e4m3fn.safetensors",
+      "unet_name": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
       "weight_dtype": "default"
     },
     "class_type": "UNETLoader",
@@ -111,12 +111,12 @@
     },
     "class_type": "CFGNorm",
     "_meta": {
-      "title": "CFGNorm"
+      "title": "CFG归一化"
     }
   },
   "78": {
     "inputs": {
-      "image": "1.png"
+      "image": "model_4.jpg"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -141,7 +141,7 @@
   },
   "89": {
     "inputs": {
-      "lora_name": "Qwen-Image-Lightning-8steps-V1.0.safetensors",
+      "lora_name": "Qwen-Image-Edit-Lightning-4steps-V1.0.safetensors",
       "strength_model": 1,
       "model": [
         "37",
@@ -170,7 +170,16 @@
   },
   "106": {
     "inputs": {
-      "image": "2.jpg"
+      "image": "garment_6.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "108": {
+    "inputs": {
+      "image": "earrings_1.jpg"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -195,16 +204,20 @@
       "image2": [
         "106",
         0
+      ],
+      "image3": [
+        "108",
+        0
       ]
     },
     "class_type": "TextEncodeQwenImageEditPlus",
     "_meta": {
-      "title": "TextEncodeQwenImageEditPlus"
+      "title": "文本编码（QwenImageEditPlus）"
     }
   },
   "111": {
     "inputs": {
-      "prompt": "Dress the person in image1 in the clothes from image2",
+      "prompt": "把图片2中的衣服穿到图片1中人物身上，戴上图3的耳饰，尺寸很小。保留图片1中人物其他特征",
       "clip": [
         "38",
         0
@@ -220,11 +233,15 @@
       "image2": [
         "106",
         0
+      ],
+      "image3": [
+        "108",
+        0
       ]
     },
     "class_type": "TextEncodeQwenImageEditPlus",
     "_meta": {
-      "title": "TextEncodeQwenImageEditPlus"
+      "title": "文本编码（QwenImageEditPlus）"
     }
   },
   "112": {

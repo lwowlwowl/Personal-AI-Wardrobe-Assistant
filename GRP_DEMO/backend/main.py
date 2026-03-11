@@ -228,7 +228,7 @@ if COMFYUI_AVAILABLE:
             workflow = build_virtual_tryon_workflow(
                 person_image=person_image,
                 clothing_image=clothing_image,
-                accessory_image=accessory_image,
+                #accessory_image=accessory_image,
                 model_type=model_type,
                 prompt_text=prompt
             )
