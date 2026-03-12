@@ -357,12 +357,13 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 
 /* 导航项 */
 .nav-item {
+	position: relative;
 	display: flex;
 	align-items: center;
-	padding: 24rpx 24rpx;
-	border-radius: 50rpx; /* 完整的胶囊圆角 */
+	padding: 10px 14px;
+	border-radius: 10px;
 	cursor: pointer;
-	transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+	transition: all 0.18s ease;
 	justify-content: flex-start;
 	/* 固定高度，防止激活状态改变布局 */
 	min-height: 72rpx;
@@ -373,25 +374,33 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 /* 折叠时导航项居中 */
 .sidebar.collapsed .nav-item {
 	justify-content: center;
-	padding: 24rpx 0;
+	padding: 10px 0;
 }
 
 .nav-item:hover {
-	background-color: rgba(0,0,0,0.03);
+	background-color: #F1ECE4;
 }
 
-/* 激活状态：深褐色背景，白色文字 */
+/* 激活状态：柔和浅背景 + 深文字 */
 .nav-item.active {
-	background-color: #9D8B70; 
-	box-shadow: 0 4rpx 12rpx rgba(157, 139, 112, 0.3);
+	background-color: #9D8B70;
+	box-shadow: 0 6px 16px rgba(157, 139, 112, 0.35);
 	/* 确保激活状态不改变高度和布局 */
 	min-height: 72rpx;
 	height: 72rpx;
 }
 
+.nav-item.active:hover {
+	background-color: #9D8B70;
+}
+
 .nav-item.active .nav-text {
 	color: #FFFFFF;
-	font-weight: 500;
+	font-weight: 600;
+}
+
+.nav-item.active .icon-img {
+	filter: brightness(0) invert(1);
 }
 
 .nav-icon {
