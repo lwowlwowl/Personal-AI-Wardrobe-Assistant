@@ -8,7 +8,7 @@
  */
 
 /** 是否使用 Mock（true=本地 mock，false=请求后端 /api/ai/chat/stream） */
-export const USE_RECOMMENDATION_MOCK = true
+export const USE_RECOMMENDATION_MOCK = false
 
 /** 加载过程展示文案（轮播） */
 export const LOADING_STEPS = [

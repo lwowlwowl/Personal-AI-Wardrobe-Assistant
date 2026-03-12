@@ -44,45 +44,116 @@
 					<text>Clothes mean nothing until someone lives in them.</text>
 				</view>
 				
-				<!-- 表单 -->
+				<!-- 表单：根據 activeTab 切換登入 / 註冊 -->
 				<view class="form" :class="{ 'fade-out': isLeaving, 'fade-in': isEntering }">
-					<view class="form-item">
-						<text class="label">User name</text>
-						<view class="input-wrapper">
-							<input 
-								class="input" 
-								v-model="formData.username" 
-								placeholder="Enter your User name"
-								placeholder-class="placeholder"
-							/>
-						</view>
-					</view>
-					
-					<view class="form-item">
-						<text class="label">Password</text>
-						<view class="input-wrapper password-input-wrapper">
-							<input 
-								class="input" 
-								v-model="formData.password" 
-								:password="!showPassword"
-								placeholder="Enter your Password"
-								placeholder-class="placeholder"
-							/>
-							<view class="eye-icon" @click="togglePassword">
-								<image class="eye-image" :src="showPassword ? '/static/eye-open.png' : '/static/eye-close.png'" mode="aspectFit"></image>
+					<!-- Login 表单 -->
+					<view v-if="activeTab === 'login'">
+						<view class="form-item">
+							<text class="label">User name</text>
+							<view class="input-wrapper">
+								<input 
+									class="input" 
+									v-model="loginForm.username" 
+									placeholder="Enter your User name"
+									placeholder-class="placeholder"
+								/>
 							</view>
 						</view>
-					</view>
-					
-					<view class="form-options">
-						<view class="remember-me" @click="toggleRemember">
-							<view :class="['checkbox', formData.remember ? 'checked' : '']"></view>
-							<text class="remember-text">Remember me</text>
+						
+						<view class="form-item">
+							<text class="label">Password</text>
+							<view class="input-wrapper password-input-wrapper">
+								<input 
+									class="input" 
+									v-model="loginForm.password" 
+									:password="!showPassword"
+									placeholder="Enter your Password"
+									placeholder-class="placeholder"
+								/>
+								<view class="eye-icon" @click="togglePassword">
+									<image class="eye-image" :src="showPassword ? '/static/eye-open.png' : '/static/eye-close.png'" mode="aspectFit"></image>
+								</view>
+							</view>
 						</view>
-						<text class="forgot-password" @click="handleForgotPassword">Forgot Password ?</text>
+						
+						<view class="form-options">
+							<view class="remember-me" @click="toggleRemember">
+								<view :class="['checkbox', loginForm.remember ? 'checked' : '']"></view>
+								<text class="remember-text">Remember me</text>
+							</view>
+							<text class="forgot-password" @click="handleForgotPassword">Forgot Password ?</text>
+						</view>
+						
+						<button class="login-btn" @click="handleLogin">Login</button>
 					</view>
-					
-					<button class="login-btn" @click="handleLogin">Login</button>
+
+					<!-- Register 表单 -->
+					<view v-else>
+						<view class="form-item">
+							<text class="label">Email Address</text>
+							<view class="input-wrapper">
+								<input 
+									class="input" 
+									v-model="registerForm.email" 
+									placeholder="Enter your Email Address"
+									placeholder-class="placeholder"
+									type="email"
+								/>
+							</view>
+						</view>
+						
+						<view class="form-item">
+							<text class="label">User name</text>
+							<view class="input-wrapper">
+								<input 
+									class="input" 
+									v-model="registerForm.username" 
+									placeholder="Enter your User name"
+									placeholder-class="placeholder"
+								/>
+							</view>
+						</view>
+						
+						<view class="form-item">
+							<text class="label">Password</text>
+							<view class="input-wrapper password-input-wrapper">
+								<input 
+									class="input" 
+									v-model="registerForm.password" 
+									:password="!showPassword"
+									placeholder="Enter your Password"
+									placeholder-class="placeholder"
+									@blur="onPasswordBlur"
+								/>
+								<view class="eye-icon" @click="togglePassword">
+									<image class="eye-image" :src="showPassword ? '/static/eye-open.png' : '/static/eye-close.png'" mode="aspectFit"></image>
+								</view>
+							</view>
+						</view>
+						
+						<view class="form-item">
+							<text class="label">Confirm Password</text>
+							<view class="input-wrapper password-input-wrapper" :class="{ 'error': passwordMismatch }">
+								<input 
+									class="input" 
+									:class="{ 'input-error': passwordMismatch }"
+									v-model="registerForm.confirmPassword" 
+									:password="!showConfirmPassword"
+									placeholder="Confirm your Password"
+									placeholder-class="placeholder"
+									@blur="checkPasswordMatch"
+								/>
+								<view class="eye-icon" @click="toggleConfirmPassword">
+									<image class="eye-image" :src="showConfirmPassword ? '/static/eye-open.png' : '/static/eye-close.png'" mode="aspectFit"></image>
+								</view>
+							</view>
+							<view class="error-message-container">
+								<text class="error-message" v-show="passwordMismatch">Passwords do not match, please re-enter</text>
+							</view>
+						</view>
+						
+						<button class="login-btn" @click="handleRegister">Register</button>
+					</view>
 				</view>
 				
 			</view>
@@ -91,16 +162,28 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue'   
+import { ref, onMounted } from 'vue'   
 
-const formData = ref({
+// Login 表单数据
+const loginForm = ref({
 	username: '',
 	password: '',
 	remember: false
 })
 
+// Register 表单数据
+const registerForm = ref({
+	email: '',
+	username: '',
+	password: '',
+	confirmPassword: ''
+})
+
 const showPassword = ref(false)
+const showConfirmPassword = ref(false)
 const imageError = ref(false)
+const passwordMismatch = ref(false)
+const isLoading = ref(false)
 
 const handleImageError = () => {
 	imageError.value = true
@@ -110,21 +193,24 @@ const togglePassword = () => {
 	showPassword.value = !showPassword.value
 }
 
-const toggleRemember = () => {
-	formData.value.remember = !formData.value.remember
+const toggleConfirmPassword = () => {
+	showConfirmPassword.value = !showConfirmPassword.value
 }
 
+const toggleRemember = () => {
+	loginForm.value.remember = !loginForm.value.remember
+}
 
-
+// 登录
 const handleLogin = () => {
-	if (!formData.value.username) {
+	if (!loginForm.value.username) {
 		uni.showToast({
 			title: '請輸入用戶名',
 			icon: 'none'
 		})
 		return
 	}
-	if (!formData.value.password) {
+	if (!loginForm.value.password) {
 		uni.showToast({
 			title: '請輸入密碼',
 			icon: 'none'
@@ -145,9 +231,9 @@ const handleLogin = () => {
 				'Accept': 'application/json'
 	        },
 	        data: {
-	            username: formData.value.username,
-	            password: formData.value.password,
-	            remember: formData.value.remember
+	            username: loginForm.value.username,
+	            password: loginForm.value.password,
+	            remember: loginForm.value.remember
 	        },
 	        success: (res) => {
 	            uni.hideLoading()
@@ -170,7 +256,7 @@ const handleLogin = () => {
 	                    })
 	                    
 	                    // 记住我选项
-	                    if (formData.value.remember) {
+	                    if (loginForm.value.remember) {
 	                        uni.setStorageSync('remember_me', true)
 	                    }
 	                    
@@ -244,6 +330,204 @@ const handleForgotPassword = () => {
 	})
 }
 
+// 注册相关校验
+const validateEmail = (email) => {
+	const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+	return re.test(email)
+}
+
+const checkPasswordMatch = () => {
+	if (registerForm.value.confirmPassword && registerForm.value.password && registerForm.value.password !== registerForm.value.confirmPassword) {
+		passwordMismatch.value = true
+	} else {
+		passwordMismatch.value = false
+	}
+}
+
+const onPasswordBlur = () => {
+	if (registerForm.value.confirmPassword) {
+		checkPasswordMatch()
+	}
+}
+
+// 註冊
+const handleRegister = async () => {
+	if (!registerForm.value.email) {
+		uni.showToast({
+			title: '請輸入郵箱地址',
+			icon: 'none'
+		})
+		return
+	}
+	
+	if (!validateEmail(registerForm.value.email)) {
+		uni.showToast({
+			title: '請輸入有效的郵箱地址',
+			icon: 'none'
+		})
+		return
+	}
+	
+	if (!registerForm.value.username) {
+		uni.showToast({
+			title: '請輸入用戶名',
+			icon: 'none'
+		})
+		return
+	}
+	
+	if (!registerForm.value.password) {
+		uni.showToast({
+			title: '請輸入密碼',
+			icon: 'none'
+		})
+		return
+	}
+	
+	if (registerForm.value.password.length < 6) {
+		uni.showToast({
+			title: '密碼長度至少6位',
+			icon: 'none'
+		})
+		return
+	}
+	
+	if (!registerForm.value.confirmPassword) {
+		uni.showToast({
+			title: '請確認密碼',
+			icon: 'none'
+		})
+		return
+	}
+	
+	if (registerForm.value.password !== registerForm.value.confirmPassword) {
+		uni.showToast({
+			title: '兩次輸入的密碼不一致',
+			icon: 'none'
+		})
+		passwordMismatch.value = true
+		return
+	}
+	
+	if (isLoading.value) return
+	isLoading.value = true
+	
+	try {
+		uni.showLoading({
+			title: '註冊中...',
+			mask: true
+		})
+		
+		console.log('發送註冊請求:', {
+			username: registerForm.value.username,
+			email: registerForm.value.email,
+			password: registerForm.value.password,
+			confirm_password: registerForm.value.confirmPassword
+		})
+		
+		const res = await uni.request({
+			url: 'http://localhost:8000/api/auth/register',
+			method: 'POST',
+			header: {
+				'Content-Type': 'application/json'
+			},
+			data: {
+				username: registerForm.value.username,
+				email: registerForm.value.email,
+				password: registerForm.value.password,
+				confirm_password: registerForm.value.confirmPassword
+			},
+			timeout: 10000
+		})
+		
+		console.log('註冊API完整響應:', res)
+		console.log('響應狀態碼:', res.statusCode)
+		console.log('響應數據:', res.data)
+		
+		uni.hideLoading()
+		isLoading.value = false
+		
+		if (res.statusCode === 200) {
+			if (res.data && res.data.success === true) {
+				uni.showToast({
+					title: '註冊成功！請登入',
+					icon: 'success',
+					duration: 2000
+				})
+				
+				// 註冊成功後自動切換到 Login tab，並帶上用戶名
+				loginForm.value.username = registerForm.value.username
+				activeTab.value = 'login'
+			} else {
+				const errorMessage = res.data?.message || '註冊失敗'
+				uni.showToast({
+					title: errorMessage,
+					icon: 'none',
+					duration: 3000
+				})
+			}
+		} else if (res.statusCode === 400 || res.statusCode === 409) {
+			const errorDetail = res.data?.message || res.data?.detail || ''
+			let errorMessage = '註冊失敗'
+			
+			if (errorDetail.includes('用户名') || errorDetail.includes('username')) {
+				errorMessage = '用戶名已被註冊，請換一個用戶名'
+			} else if (errorDetail.includes('邮箱') || errorDetail.includes('email')) {
+				errorMessage = '郵箱已被註冊，請使用其他郵箱'
+			} else {
+				errorMessage = errorDetail || '註冊失敗，請檢查輸入信息'
+			}
+			
+			uni.showToast({
+				title: errorMessage,
+				icon: 'none',
+				duration: 3000
+			})
+		} else if (res.statusCode === 500) {
+			const errorDetail = res.data?.message || ''
+			let errorMessage = '服務器錯誤，請稍後重試'
+			
+			if (errorDetail.includes('create_user')) {
+				errorMessage = '服務器配置錯誤，請聯繫管理員'
+			}
+			
+			uni.showToast({
+				title: errorMessage,
+				icon: 'none',
+				duration: 3000
+			})
+		} else {
+			const errorDetail = res.data?.message || res.data?.detail || ''
+			uni.showToast({
+				title: `註冊失敗: ${errorDetail || res.statusCode}`,
+				icon: 'none',
+				duration: 3000
+			})
+		}
+	} catch (error) {
+		uni.hideLoading()
+		isLoading.value = false
+		
+		console.error('註冊請求異常:', error)
+		
+		let errorMessage = '註冊失敗，請稍後重試'
+		
+		if (error.errMsg) {
+			if (error.errMsg.includes('timeout')) {
+				errorMessage = '請求超時，請檢查網絡連接'
+			} else if (error.errMsg.includes('fail')) {
+				errorMessage = '網絡請求失敗，請檢查後端服務是否啟動'
+			}
+		}
+		
+		uni.showToast({
+			title: errorMessage,
+			icon: 'none',
+			duration: 3000
+		})
+	}
+}
+
 const activeTab = ref('login')
 const isLeaving = ref(false)
 const isEntering = ref(false)
@@ -256,36 +540,9 @@ onMounted(() => {
   }, 250)
 })
 
-const goToRegister = () => {
-  uni.navigateTo({
-    url: '/pages/register/register',
-    complete() {
-      // ✅ 关键：跳走后立刻把 login 页的状态还原
-      // 因为 navigateTo 不会销毁 login 页，回来的时候会保留 old state
-      activeTab.value = 'login'
-      isLeaving.value = false
-    }
-  })
-}
-
-const setTab = async (tab) => {
+const setTab = (tab) => {
   if (tab === activeTab.value) return
-
-  // 点 login：直接切回
-  if (tab === 'login') {
-    activeTab.value = 'login'
-    return
-  }
-
-  // 点 register：先让滑块动画到右边，同时表单淡出
-  activeTab.value = 'register'
-  isLeaving.value = true
-  await nextTick()
-
-  // 等动画完成再跳转
-  setTimeout(() => {
-    goToRegister()
-  }, 260)
+  activeTab.value = tab
 }
 
 </script>
@@ -539,6 +796,7 @@ const setTab = async (tab) => {
 .form-item {
 	margin: 0 auto 60rpx auto;
 	width: 80%;
+	position: relative;  /* 让错误提示可以绝对定位而不影响布局 */
 }
 
 .label {
@@ -583,6 +841,19 @@ const setTab = async (tab) => {
 .placeholder {
 	color: #CCCCCC;
 	transition: transform 0.2s ease;
+}
+
+.error-message-container {
+	position: absolute;
+	left: 0;
+	top: 100%;          /* 固定在输入框下方，但不占据文档流高度 */
+}
+
+.error-message {
+	display: block;
+	color: #E74C3C;      /* 红色文字 */
+	font-size: 24rpx;
+	margin-left: 40rpx;
 }
 
 .password-input-wrapper {
@@ -660,14 +931,14 @@ const setTab = async (tab) => {
 
 .login-btn {
 	width: 20%;
-	height: 86rpx;
+	height: 85rpx;
 	background-color: #9B8B6F;
 	color: #FFFFFF;
 	border-radius: 45rpx;
 	font-size: 32rpx;
 	font-weight: 500;
 	border: none;
-	margin-top: 120rpx;
+	margin-top: 80rpx;   /* 压缩按钮与上方表单的距离 */
 	cursor: pointer;
 	transition: all 0.3s;
 }
