@@ -13,8 +13,11 @@
 		
 		<!-- 右侧表单区域 -->
 		<view class="right-section">
-			<view class="header">
-				<text class="team-name">teammmm13</text>
+			<view class="header user-header">
+				<view class="user-chip">
+					<view class="user-avatar-circle"></view>
+					<text class="user-name-text">teammmm13</text>
+				</view>
 			</view>
 			
 			<view class="form-container">
@@ -26,16 +29,24 @@
 				<!-- 切换标签 -->
 				<view class="tab-wrapper">
 				  <view class="tab-container">
-				    <!-- 新增：滑块背景 -->
-				    <view class="tab-slider" :class="{ right: activeTab === 'register' }"></view>
-				
-				    <view class="tab" :class="{ active: activeTab === 'login' }" @click="setTab('login')">
-				      <text class="tab-text" :class="{ 'active-text': activeTab === 'login' }">Login</text>
-				    </view>
-				
-				    <view class="tab" :class="{ active: activeTab === 'register' }" @click="setTab('register')">
-				      <text class="tab-text" :class="{ 'active-text': activeTab === 'register' }">Register</text>
-				    </view>
+					<!-- 新增：滑块背景 -->
+					<view class="tab-slider" :class="{ right: activeTab === 'register' }"></view>
+			
+					<view 
+						class="tab" 
+						:class="{ active: activeTab === 'login' }" 
+						@click="setTab('login')"
+					>
+						<text class="tab-text" :class="{ 'active-text': activeTab === 'login' }">Login</text>
+					</view>
+			
+					<view 
+						class="tab" 
+						:class="{ active: activeTab === 'register' }" 
+						@click="setTab('register')"
+					>
+						<text class="tab-text" :class="{ 'active-text': activeTab === 'register' }">Register</text>
+					</view>
 				  </view>
 				</view>
 
@@ -44,30 +55,36 @@
 					<text>Clothes mean nothing until someone lives in them.</text>
 				</view>
 				
-				<!-- 表单：根據 activeTab 切換登入 / 註冊 -->
-				<view class="form" :class="{ 'fade-out': isLeaving, 'fade-in': isEntering }">
-					<!-- Login 表单 -->
+				<!-- 表单：根据 activeTab 切换登录 / 注册 -->
+				<view 
+					class="form" 
+					:class="[
+						isEntering ? 'fade-in' : '',
+						isSwitching ? 'form-switch' : ''
+					]"
+				>
+					<!-- Login 表单（登录） -->
 					<view v-if="activeTab === 'login'">
-						<view class="form-item">
+						<view class="form-item form-item-login-first">
 							<text class="label">User name</text>
 							<view class="input-wrapper">
 								<input 
 									class="input" 
 									v-model="loginForm.username" 
-									placeholder="Enter your User name"
+									placeholder="Username"
 									placeholder-class="placeholder"
 								/>
 							</view>
 						</view>
 						
-						<view class="form-item">
+						<view class="form-item form-item-login">
 							<text class="label">Password</text>
 							<view class="input-wrapper password-input-wrapper">
 								<input 
 									class="input" 
 									v-model="loginForm.password" 
 									:password="!showPassword"
-									placeholder="Enter your Password"
+									placeholder="Password"
 									placeholder-class="placeholder"
 								/>
 								<view class="eye-icon" @click="togglePassword">
@@ -87,7 +104,7 @@
 						<button class="login-btn" @click="handleLogin">Login</button>
 					</view>
 
-					<!-- Register 表单 -->
+					<!-- Register 表单（注册） -->
 					<view v-else>
 						<view class="form-item">
 							<text class="label">Email Address</text>
@@ -95,7 +112,7 @@
 								<input 
 									class="input" 
 									v-model="registerForm.email" 
-									placeholder="Enter your Email Address"
+									placeholder="Email address"
 									placeholder-class="placeholder"
 									type="email"
 								/>
@@ -108,7 +125,7 @@
 								<input 
 									class="input" 
 									v-model="registerForm.username" 
-									placeholder="Enter your User name"
+									placeholder="Username"
 									placeholder-class="placeholder"
 								/>
 							</view>
@@ -121,7 +138,7 @@
 									class="input" 
 									v-model="registerForm.password" 
 									:password="!showPassword"
-									placeholder="Enter your Password"
+									placeholder="Password"
 									placeholder-class="placeholder"
 									@blur="onPasswordBlur"
 								/>
@@ -205,14 +222,14 @@ const toggleRemember = () => {
 const handleLogin = () => {
 	if (!loginForm.value.username) {
 		uni.showToast({
-			title: '請輸入用戶名',
+			title: '请输入用户名',
 			icon: 'none'
 		})
 		return
 	}
 	if (!loginForm.value.password) {
 		uni.showToast({
-			title: '請輸入密碼',
+			title: '请输入密码',
 			icon: 'none'
 		})
 		return
@@ -240,7 +257,7 @@ const handleLogin = () => {
 	            
 	            if (res.statusCode === 200) {
 	                if (res.data && res.data.success === true) {
-						console.log('登录成功，获取到token')
+						console.log('登录成功，获取到 token')
 	                    uni.showToast({
 	                        title: '登录成功',
 	                        icon: 'success',
@@ -325,7 +342,7 @@ const handleLogin = () => {
 
 const handleForgotPassword = () => {
 	uni.showToast({
-		title: '忘記密碼功能開發中',
+		title: '忘记密码功能开发中',
 		icon: 'none'
 	})
 }
@@ -350,11 +367,11 @@ const onPasswordBlur = () => {
 	}
 }
 
-// 註冊
+// 注册
 const handleRegister = async () => {
 	if (!registerForm.value.email) {
 		uni.showToast({
-			title: '請輸入郵箱地址',
+			title: '请输入邮箱地址',
 			icon: 'none'
 		})
 		return
@@ -362,7 +379,7 @@ const handleRegister = async () => {
 	
 	if (!validateEmail(registerForm.value.email)) {
 		uni.showToast({
-			title: '請輸入有效的郵箱地址',
+			title: '请输入有效的邮箱地址',
 			icon: 'none'
 		})
 		return
@@ -370,7 +387,7 @@ const handleRegister = async () => {
 	
 	if (!registerForm.value.username) {
 		uni.showToast({
-			title: '請輸入用戶名',
+			title: '请输入用户名',
 			icon: 'none'
 		})
 		return
@@ -378,7 +395,7 @@ const handleRegister = async () => {
 	
 	if (!registerForm.value.password) {
 		uni.showToast({
-			title: '請輸入密碼',
+			title: '请输入密码',
 			icon: 'none'
 		})
 		return
@@ -386,7 +403,7 @@ const handleRegister = async () => {
 	
 	if (registerForm.value.password.length < 6) {
 		uni.showToast({
-			title: '密碼長度至少6位',
+			title: '密码长度至少 6 位',
 			icon: 'none'
 		})
 		return
@@ -394,7 +411,7 @@ const handleRegister = async () => {
 	
 	if (!registerForm.value.confirmPassword) {
 		uni.showToast({
-			title: '請確認密碼',
+			title: '请确认密码',
 			icon: 'none'
 		})
 		return
@@ -402,7 +419,7 @@ const handleRegister = async () => {
 	
 	if (registerForm.value.password !== registerForm.value.confirmPassword) {
 		uni.showToast({
-			title: '兩次輸入的密碼不一致',
+			title: '两次输入的密码不一致',
 			icon: 'none'
 		})
 		passwordMismatch.value = true
@@ -414,11 +431,11 @@ const handleRegister = async () => {
 	
 	try {
 		uni.showLoading({
-			title: '註冊中...',
+			title: '注册中...',
 			mask: true
 		})
 		
-		console.log('發送註冊請求:', {
+		console.log('发送注册请求:', {
 			username: registerForm.value.username,
 			email: registerForm.value.email,
 			password: registerForm.value.password,
@@ -440,9 +457,9 @@ const handleRegister = async () => {
 			timeout: 10000
 		})
 		
-		console.log('註冊API完整響應:', res)
-		console.log('響應狀態碼:', res.statusCode)
-		console.log('響應數據:', res.data)
+		console.log('注册 API 完整响应:', res)
+		console.log('响应状态码:', res.statusCode)
+		console.log('响应数据:', res.data)
 		
 		uni.hideLoading()
 		isLoading.value = false
@@ -450,7 +467,7 @@ const handleRegister = async () => {
 		if (res.statusCode === 200) {
 			if (res.data && res.data.success === true) {
 				uni.showToast({
-					title: '註冊成功！請登入',
+					title: '注册成功！请登录',
 					icon: 'success',
 					duration: 2000
 				})
@@ -459,7 +476,7 @@ const handleRegister = async () => {
 				loginForm.value.username = registerForm.value.username
 				activeTab.value = 'login'
 			} else {
-				const errorMessage = res.data?.message || '註冊失敗'
+				const errorMessage = res.data?.message || '注册失败'
 				uni.showToast({
 					title: errorMessage,
 					icon: 'none',
@@ -468,14 +485,14 @@ const handleRegister = async () => {
 			}
 		} else if (res.statusCode === 400 || res.statusCode === 409) {
 			const errorDetail = res.data?.message || res.data?.detail || ''
-			let errorMessage = '註冊失敗'
+			let errorMessage = '注册失败'
 			
 			if (errorDetail.includes('用户名') || errorDetail.includes('username')) {
-				errorMessage = '用戶名已被註冊，請換一個用戶名'
+				errorMessage = '用户名已被注册，请换一个用户名'
 			} else if (errorDetail.includes('邮箱') || errorDetail.includes('email')) {
-				errorMessage = '郵箱已被註冊，請使用其他郵箱'
+				errorMessage = '邮箱已被注册，请使用其他邮箱'
 			} else {
-				errorMessage = errorDetail || '註冊失敗，請檢查輸入信息'
+				errorMessage = errorDetail || '注册失败，请检查输入信息'
 			}
 			
 			uni.showToast({
@@ -485,10 +502,10 @@ const handleRegister = async () => {
 			})
 		} else if (res.statusCode === 500) {
 			const errorDetail = res.data?.message || ''
-			let errorMessage = '服務器錯誤，請稍後重試'
+			let errorMessage = '服务器错误，请稍后重试'
 			
 			if (errorDetail.includes('create_user')) {
-				errorMessage = '服務器配置錯誤，請聯繫管理員'
+				errorMessage = '服务器配置错误，请联系管理员'
 			}
 			
 			uni.showToast({
@@ -499,7 +516,7 @@ const handleRegister = async () => {
 		} else {
 			const errorDetail = res.data?.message || res.data?.detail || ''
 			uni.showToast({
-				title: `註冊失敗: ${errorDetail || res.statusCode}`,
+				title: `注册失败: ${errorDetail || res.statusCode}`,
 				icon: 'none',
 				duration: 3000
 			})
@@ -508,15 +525,15 @@ const handleRegister = async () => {
 		uni.hideLoading()
 		isLoading.value = false
 		
-		console.error('註冊請求異常:', error)
+		console.error('注册请求异常:', error)
 		
-		let errorMessage = '註冊失敗，請稍後重試'
+		let errorMessage = '注册失败，请稍后重试'
 		
 		if (error.errMsg) {
 			if (error.errMsg.includes('timeout')) {
-				errorMessage = '請求超時，請檢查網絡連接'
+				errorMessage = '请求超时，请检查网络连接'
 			} else if (error.errMsg.includes('fail')) {
-				errorMessage = '網絡請求失敗，請檢查後端服務是否啟動'
+				errorMessage = '网络请求失败，请检查后端服务是否启动'
 			}
 		}
 		
@@ -529,8 +546,8 @@ const handleRegister = async () => {
 }
 
 const activeTab = ref('login')
-const isLeaving = ref(false)
-const isEntering = ref(false)
+const isEntering = ref(false)          // 首次进入淡入动画
+const isSwitching = ref(false)        // 表单切换中的状态
 
 onMounted(() => {
   // 页面加载时添加淡入动画
@@ -542,7 +559,14 @@ onMounted(() => {
 
 const setTab = (tab) => {
   if (tab === activeTab.value) return
+
+  isSwitching.value = true
   activeTab.value = tab
+
+  // 在动画结束后重置 switching 标记，避免持续触发
+  setTimeout(() => {
+    isSwitching.value = false
+  }, 260)
 }
 
 </script>
@@ -584,11 +608,13 @@ const setTab = (tab) => {
 
 .overlay-mask {
 	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	background-color: rgba(155, 139, 111, 0.5);
+	inset: 0;
+	border-radius: 30rpx;
+	background: linear-gradient(
+		180deg,
+		rgba(0, 0, 0, 0) 10%,
+		rgba(0, 0, 0, 0.7) 80%
+	);
 	z-index: 1;
 }
 
@@ -602,8 +628,9 @@ const setTab = (tab) => {
 
 .quote-text {
 	display: block;
-	font-size: 60rpx;
-	font-weight: 600;
+	font-size: 44rpx;          /* 約 22px */
+	font-weight: 500;
+	letter-spacing: 0.6rpx;
 	color: #FFFFFF;
 	line-height: 1.3;
 	margin-bottom: 20rpx;
@@ -612,8 +639,8 @@ const setTab = (tab) => {
 
 .quote-author {
 	display: block;
-	font-size: 38rpx;
-	color: #FFFFFF;
+	font-size: 28rpx;          /* 約 14px */
+	color: rgba(255, 255, 255, 0.8);
 	text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.3);
 }
 
@@ -629,15 +656,37 @@ const setTab = (tab) => {
 
 .header {
 	position: fixed;
-	top: 40rpx;
-	right: 80rpx;
-	text-align: right;
+	top: 36rpx;
+	right: 60rpx;
 	z-index: 100;
 }
 
-.team-name {
-	font-size: 28rpx;
-	color: #333;
+.user-header {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+
+.user-chip {
+	display: flex;
+	align-items: center;
+	padding: 8rpx 16rpx;
+	border-radius: 999rpx;
+	background-color: rgba(248, 250, 252, 0.9);
+	box-shadow: 0 6rpx 18rpx rgba(15, 23, 42, 0.08);
+}
+
+.user-avatar-circle {
+	width: 32rpx;
+	height: 32rpx;
+	border-radius: 999rpx;
+	background: linear-gradient(135deg, #7C6A4E, #A48F6A);
+	margin-right: 12rpx;
+}
+
+.user-name-text {
+	font-size: 24rpx;
+	color: #555;
 	font-weight: 500;
 }
 
@@ -645,13 +694,14 @@ const setTab = (tab) => {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
-	padding-top: 200rpx;
+	padding-top: 160rpx;  /* 整體往上提 */
+	animation: loginCardFadeIn 0.6s ease;
 }
 
 .welcome-text {
 	text-align: center;
-	margin-bottom: 40rpx;
-	height: 260rpx;
+	margin-bottom: 30rpx;
+	height: 220rpx;       /* 標題區略收窄，視覺更上移 */
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
@@ -678,13 +728,13 @@ const setTab = (tab) => {
 
 /* 切换标签 */
 .tab-wrapper {
-	background-color: #F8EDDD;
-	border-radius: 50rpx;
-	padding: 8rpx;
+	background-color: #EEE8DE;   /* 外層柔和底色 */
+	padding: 4rpx;
+	border-radius: 28rpx;
 	margin: 0 auto 40rpx auto;
 	display: block;
-	width: 60%;
-	height: 98rpx;
+	width: 70%;
+	height: 96rpx;
 	box-sizing: border-box;
 }
 
@@ -697,18 +747,20 @@ const setTab = (tab) => {
 
   height: 100%;
   overflow: hidden;
-  border-radius: 50rpx;
+  border-radius: 24rpx;
+  padding: 0;
+  background-color: transparent;
 }
 
 
 .tab {
   flex: 1;
-  height: 82rpx;              /* 98rpx(tab-wrapper) - 16rpx(padding上下) */
+  height: 88rpx;              /* 96rpx(tab-wrapper) - padding上下 */
   display: flex;
   align-items: center;
   justify-content: center;
 
-  border-radius: 40rpx;
+  border-radius: 24rpx;
   background-color: transparent;
   cursor: pointer;
   transition: color 0.3s;
@@ -723,8 +775,8 @@ const setTab = (tab) => {
   top: 0;
   width: 50%;
   height: 100%;
-  border-radius: 40rpx;
-  background-color: #9B8B6F;
+  border-radius: 24rpx;
+  background-color: #9E8B6D;
   z-index: 0;
 
   transform: translateX(0);
@@ -740,9 +792,13 @@ const setTab = (tab) => {
 	z-index: 2;
 }
 
+.tab:hover .tab-text {
+	transform: translateY(-2rpx);
+}
+
 .tab-text {
 	font-size: 28rpx;
-	color: #9E896A;
+	color: #7C6A4E;
 	transition: all 0.3s;
 }
 
@@ -767,7 +823,7 @@ const setTab = (tab) => {
 
 /* 表单 */
 .form {
-	margin-top: 60rpx;
+	margin-top: 40rpx;
 	display: flex;
 	flex-direction: column;
 	transition: all 0.25s ease;
@@ -775,11 +831,6 @@ const setTab = (tab) => {
 
 .form.fade-in {
 	animation: fadeInUp 0.25s ease;
-}
-
-.form.fade-out {
-	opacity: 0;
-	transform: translateY(-12rpx);
 }
 
 @keyframes fadeInUp {
@@ -793,10 +844,48 @@ const setTab = (tab) => {
 	}
 }
 
+/* Tab 切换时的内容滑动动画 */
+.form-switch {
+	animation: formSlideDown 0.26s ease-out;
+}
+
+@keyframes formSlideDown {
+	from {
+		opacity: 0;
+		transform: translateY(10rpx);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* 整體表單淡入動畫，提升產品感 */
+@keyframes loginCardFadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(10rpx);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
 .form-item {
-	margin: 0 auto 60rpx auto;
+	margin: 0 auto 55rpx auto;   /* Register 等通用欄位：間距較小 */
 	width: 80%;
 	position: relative;  /* 让错误提示可以绝对定位而不影响布局 */
+}
+
+/* Login 表單：首個欄位與欄位之間間距更大 */
+.form-item-login-first {
+	margin-top: 80rpx;
+	margin-bottom: 100rpx;
+}
+
+.form-item-login {
+	margin-bottom: 70rpx;
 }
 
 .label {
@@ -809,29 +898,30 @@ const setTab = (tab) => {
 
 .input-wrapper {
 	position: relative;
-	transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.input-wrapper:focus-within {
-	box-shadow: 0 12rpx 40rpx rgba(155, 139, 111, 0.15);
-	transform: translateY(-11rpx);
+	transition: transform 0.2s ease;
 }
 
 .input {
 	width: 100%;
-	height: 90rpx;
-	background-color: #FFFFFF;
-	border-radius: 45rpx;
-	padding: 0 40rpx;
+	height: 104rpx;                 /* 約 52px */
+	background-color: #F5F5F5;
+	border-radius: 28rpx;           /* 約 14px */
+	padding: 0 36rpx;               /* 約 18px */
 	font-size: 28rpx;
-	border: 2rpx solid transparent;
+	border: none;
 	transition: all 0.2s ease;
-	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+	box-shadow: none;
+}
+
+.input:hover {
+	background-color: #ECECEC;
+	box-shadow: 0 0 0 4rpx rgba(0, 0, 0, 0.03);  /* ≈ 2px */
 }
 
 .input:focus {
-	border-color: #7A6A4F;
+	background-color: #FFFFFF;
 	outline: none;
+	box-shadow: 0 0 0 6rpx rgba(158, 139, 109, 0.18); /* 3px 等效陰影，略更明顯 */
 }
 
 .input:focus::placeholder {
@@ -871,6 +961,10 @@ const setTab = (tab) => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.eye-icon:hover {
+	opacity: 0.7;
 }
 
 .eye-image {
@@ -930,25 +1024,32 @@ const setTab = (tab) => {
 }
 
 .login-btn {
-	width: 20%;
-	height: 85rpx;
-	background-color: #9B8B6F;
+	width: 40%;
+	max-width: 360rpx;
+	height: 104rpx;                /* 約 52px */
+	background-color: #9E8B6D;
 	color: #FFFFFF;
-	border-radius: 45rpx;
+	border-radius: 28rpx;          /* 約 14px */
 	font-size: 32rpx;
-	font-weight: 500;
+	font-weight: 600;
 	border: none;
-	margin-top: 80rpx;   /* 压缩按钮与上方表单的距离 */
+	margin-top: 100rpx;
 	cursor: pointer;
-	transition: all 0.3s;
+	letter-spacing: 0.4rpx;
+	box-shadow: 0 12rpx 28rpx rgba(158, 139, 109, 0.25);
+	transition: all 0.2s;
+	display: flex;
+	align-items: center;           /* 垂直居中文字 */
+	justify-content: center;       /* 水平居中 */
 }
 
 .login-btn:hover {
-	background-color: #8A7A5F;
+	transform: translateY(-2rpx);
+	box-shadow: 0 20rpx 40rpx rgba(158, 139, 109, 0.30);
 }
 
 .login-btn:active {
-	transform: scale(0.95);
+	transform: translateY(0);
 }
 
 .login-btn::after {
