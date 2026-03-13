@@ -113,8 +113,16 @@
 
 				<view class="tags-section">
 					<text class="tags-title">Similar Tags:</text>
-					<view class="tags-list">
-						<view class="tag-placeholder" v-for="n in 5" :key="n"></view>
+					<view class="similar-items-row">
+						<view
+							class="similar-item-thumb"
+							v-for="similar in similarItems"
+							:key="similar.id"
+							@click="openSimilarItem(similar)"
+						>
+							<image :src="similar.image" mode="aspectFill" class="similar-item-img" />
+						</view>
+						<text class="similar-tags-empty" v-if="!similarItems.length">No other items with similar tags yet.</text>
 					</view>
 				</view>
 
@@ -142,10 +150,15 @@ const props = defineProps({
 	item: {
 		type: Object,
 		default: () => ({})
+	},
+	/** 全部衣物列表，用于计算同分类的 Similar Tags */
+	allClothes: {
+		type: Array,
+		default: () => []
 	}
 })
 
-const emit = defineEmits(['update:visible', 'try-on', 'delete', 'update'])
+const emit = defineEmits(['update:visible', 'try-on', 'delete', 'update', 'open-item'])
 
 const isEnter = ref(false)
 const isLeave = ref(false)
@@ -172,19 +185,45 @@ function parseMulti (val) {
 const categoryDisplayText = computed(() => editCategory.value ? (TYPE_LABEL_BY_CODE[editCategory.value] || editCategory.value) : '—')
 const seasonDisplayText = computed(() => codesToLabels(editSeasons.value, SEASON_LABEL_BY_CODE))
 
-/** 解析 tags 为数组，用于 pill 展示 */
-const tagsList = computed(() => {
-	const val = props.item?.tags
+/** 解析单件衣物的 tags 为字符串数组 */
+function getTagsFromItem(cloth) {
+	const val = cloth?.tags
 	if (!val) return []
 	if (Array.isArray(val)) {
 		return val.map((t) => (typeof t === 'string' ? t : (t?.tag || t))).filter(Boolean)
 	}
 	if (typeof val === 'string') {
-		const s = val.trim()
+		const s = String(val).trim()
 		return s ? s.split(/[,/]+/).map((x) => x.trim()).filter(Boolean) : []
 	}
 	return []
+}
+
+/** 解析 tags 为数组，用于 pill 展示 */
+const tagsList = computed(() => getTagsFromItem(props.item))
+
+/** 拥有与当前衣物相似 tags 的其他衣物（同分类且至少有一个共同 tag），按共同 tag 数量排序，取前 N 个 */
+const similarItems = computed(() => {
+	const cur = props.item
+	const curId = cur?.id
+	const curCategory = cur?.type || editCategory.value
+	const myTags = getTagsFromItem(cur)
+	if (!curId || !curCategory || !Array.isArray(props.allClothes) || props.allClothes.length === 0 || !myTags.length) return []
+	const sameCategory = props.allClothes.filter((c) => c.id !== curId && (c.type === curCategory || c.category === curCategory))
+	const withShared = sameCategory
+		.map((c) => {
+			const theirTags = getTagsFromItem(c)
+			const shared = theirTags.filter((t) => myTags.includes(t.trim()))
+			return { item: c, sharedCount: shared.length }
+		})
+		.filter((x) => x.sharedCount > 0)
+		.sort((a, b) => b.sharedCount - a.sharedCount)
+	return withShared.map((x) => x.item).slice(0, 8)
 })
+
+function openSimilarItem(item) {
+	emit('open-item', item)
+}
 
 watch(() => props.item, (val) => {
 	if (!val) return
@@ -630,17 +669,37 @@ const handleDelete = () => {
 	display: block;
 }
 
-.tags-list {
+.similar-items-row {
 	display: flex;
 	gap: 16rpx;
 	flex-wrap: wrap;
+	align-items: center;
 }
 
-.tag-placeholder {
-	width: 80rpx;
-	aspect-ratio: 4 / 5;
-	background-color: #E8E4DC;
-	border-radius: 8rpx;
+.similar-item-thumb {
+	width: 96rpx;
+	height: 96rpx;
+	border-radius: 12rpx;
+	overflow: hidden;
+	background: #E8E4DC;
+	flex-shrink: 0;
+	cursor: pointer;
+	transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.similar-item-thumb:active {
+	transform: scale(0.96);
+}
+
+.similar-item-img {
+	width: 100%;
+	height: 100%;
+}
+
+.similar-tags-empty {
+	color: #999;
+	font-size: 24rpx;
+	line-height: 1.4;
 }
 
 .action-bar {

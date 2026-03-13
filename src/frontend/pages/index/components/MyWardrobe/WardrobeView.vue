@@ -537,9 +537,11 @@
 		<DetailModal
 			v-model:visible="showModal"
 			:item="selectedItem"
+			:all-clothes="clothes"
 			@try-on="handleVirtualTryOn"
 			@delete="handleDeleteItem"
 			@update="handleItemUpdate"
+			@open-item="handleOpenSimilarItem"
 		/>
 		<ModelDetailModal
 			v-model:visible="showModelModal"
@@ -2087,6 +2089,14 @@ const hasActiveFilters = computed(() =>
 
 const openDetail = (item) => {
 	selectedItem.value = { ...item }
+	showModal.value = true
+}
+
+/** 在详情弹窗内点击「相似标签」小图：切换到该衣物的详情（同一弹窗） */
+const handleOpenSimilarItem = (item) => {
+	if (!item?.id) return
+	const fromList = clothes.value.find((c) => c.id === item.id)
+	selectedItem.value = fromList ? { ...fromList } : { ...item }
 	showModal.value = true
 }
 
