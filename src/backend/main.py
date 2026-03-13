@@ -74,17 +74,20 @@ app = FastAPI(
 )
 
 # ============ CORS跨域配置 ============
-# 允许前端跨域请求，开发阶段可以宽松配置
+# 允许前端跨域请求。allow_credentials=True 时不能使用 "*"，需明确列出 origin
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:9000",  # HBuilderX默认端口
+        "http://localhost:9000",   # HBuilderX 默认端口
         "http://localhost:8080",
-        "*"  # 开发阶段可以这样，生产环境要指定确切域名
+        "http://localhost:5173",   # Vite 默认
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:9000",
     ],
-    allow_credentials=True,  # 允许携带凭证（如cookies）
-    allow_methods=["*"],  # 允许所有HTTP方法
-    allow_headers=["*"],  # 允许所有HTTP头
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # ============ 静态文件服务配置 ============

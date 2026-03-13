@@ -254,12 +254,13 @@ defineExpose({
 	padding: 20rpx 24rpx;
 	border-radius: 24rpx;
 	cursor: pointer;
-	transition: background-color 0.2s ease;
+	transition: all 0.2s ease;
 	margin-bottom: 8rpx;
 }
 
 .conversation-item:hover {
-	background-color: rgba(0, 0, 0, 0.04);
+	background-color: #EEE8DE;
+	transform: translateX(2px);
 }
 
 .conversation-item:hover .conversation-item-actions {

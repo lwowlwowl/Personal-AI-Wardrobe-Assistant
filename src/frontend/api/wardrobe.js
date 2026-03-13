@@ -86,30 +86,50 @@ export function getClothingList(params) {
  * 上传衣物（图片 + 表单字段）
  * @param {Object} opts
  * @param {string} opts.token
- * @param {string} opts.filePath - 本地暂存图片路径（uni.chooseImage 返回）
+ * @param {string} [opts.filePath] - 本地暂存图片路径（uni.chooseImage 或 blob URL）
+ * @param {File} [opts.file] - 浏览器拖拽时的 File 对象，与 filePath 二选一
  * @param {Object} opts.formData - { name, category, subcategory, color, season, brand, tags, description, price, purchase_date }
  * @returns {Promise<{ statusCode, data }>}
  */
 export function uploadClothing(opts) {
-  const { token, filePath, formData } = opts || {}
+  const { token, filePath, file, formData } = opts || {}
   const url = `${API_BASE_URL}/api/clothing/upload?token=${encodeURIComponent(token || '')}`
+
+  const formPayload = {
+    name: formData?.name ?? '',
+    category: formData?.category ?? '',
+    subcategory: formData?.subcategory ?? '',
+    color: formData?.color ?? '',
+    season: formData?.season ?? '',
+    brand: formData?.brand ?? '',
+    tags: formData?.tags ?? '',
+    description: formData?.description ?? '',
+    price: formData?.price ?? '',
+    purchase_date: formData?.purchase_date ?? ''
+  }
+
+  // 拖拽等场景：有 File/Blob 时用 FormData + fetch 上传（保证走后端打标）
+  if (file != null && (file instanceof File || file instanceof Blob)) {
+    const fd = new FormData()
+    if (file instanceof File) {
+      fd.append('file', file)
+    } else {
+      fd.append('file', file, file.name || 'image.jpg')
+    }
+    Object.entries(formPayload).forEach(([k, v]) => fd.append(k, String(v)))
+    return fetch(url, { method: 'POST', body: fd })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}))
+        return { statusCode: res.status, data }
+      })
+  }
+
   return new Promise((resolve, reject) => {
     uni.uploadFile({
       url,
       filePath,
       name: 'file',
-      formData: {
-        name: formData?.name ?? '',
-        category: formData?.category ?? '',
-        subcategory: formData?.subcategory ?? '',
-        color: formData?.color ?? '',
-        season: formData?.season ?? '',
-        brand: formData?.brand ?? '',
-        tags: formData?.tags ?? '',
-        description: formData?.description ?? '',
-        price: formData?.price ?? '',
-        purchase_date: formData?.purchase_date ?? ''
-      },
+      formData: formPayload,
       success: (res) => {
         try {
           const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data

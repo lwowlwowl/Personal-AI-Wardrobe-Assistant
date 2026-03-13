@@ -11,6 +11,7 @@
 
 import traceback
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, desc, asc, or_
 from typing import Tuple, Optional, List, Dict, Any
 from datetime import datetime, timedelta, date
@@ -444,11 +445,39 @@ class ClothingCRUD:
 
             # 添加标签
             if item_in.tags:
-                for tag_name in item_in.tags:
-                    tag = ClothingTag(clothing_id=db_item.id, tag=tag_name)
-                    db.add(tag)
+                # 去重（同一衣物不可重复标签）；同时去掉空白
+                seen = set()
+                deduped_tags = []
+                for raw in item_in.tags:
+                    t = (raw or "").strip()
+                    if not t:
+                        continue
+                    key = t.lower()
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    deduped_tags.append(t)
 
-            db.commit()
+                for tag_name in deduped_tags:
+                    db.add(ClothingTag(clothing_id=db_item.id, tag=tag_name))
+
+            try:
+                db.commit()
+            except IntegrityError:
+                # 极少数情况下可能出现并发/重复写入，回滚后重试一次：跳过已存在的标签
+                db.rollback()
+                db.add(db_item)
+                db.flush()
+                for tag_name in (deduped_tags if item_in.tags else []):
+                    exists = db.query(ClothingTag.id).filter(
+                        ClothingTag.clothing_id == db_item.id,
+                        ClothingTag.tag == tag_name
+                    ).first()
+                    if exists:
+                        continue
+                    db.add(ClothingTag(clothing_id=db_item.id, tag=tag_name))
+                db.commit()
+
             db.refresh(db_item)
 
             return db_item, None
@@ -489,13 +518,20 @@ class ClothingCRUD:
                 # 删除现有标签
                 db.query(ClothingTag).filter(
                     ClothingTag.clothing_id == db_item.id
-                ).delete()
+                ).delete(synchronize_session=False)
 
                 # 添加新标签
                 if item_in.tags:
-                    for tag_name in item_in.tags:
-                        tag = ClothingTag(clothing_id=db_item.id, tag=tag_name)
-                        db.add(tag)
+                    seen = set()
+                    for raw in item_in.tags:
+                        t = (raw or "").strip()
+                        if not t:
+                            continue
+                        key = t.lower()
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        db.add(ClothingTag(clothing_id=db_item.id, tag=t))
 
             db.add(db_item)
             db.commit()

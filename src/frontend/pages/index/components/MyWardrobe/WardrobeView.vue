@@ -31,7 +31,7 @@
 						v-if="viewMode === 'Cloth'"
 						class="search-input" 
 						type="text" 
-						placeholder="Search by keywords..." 
+						placeholder="Search your wardrobe..." 
 						placeholder-class="search-placeholder"
 						v-model="searchQuery"
 					/>
@@ -39,7 +39,7 @@
 						v-else
 						class="search-input" 
 						type="text" 
-						placeholder="Search by posture..." 
+						placeholder="Search model gallery..." 
 						placeholder-class="search-placeholder"
 						v-model="modelSearchQuery"
 					/>
@@ -52,8 +52,8 @@
 					<text class="section-title">Filter</text>
 					<view class="filter-buttons">
 						<view class="filter-group">
-							<view 
-								class="filter-btn" 
+							<view  
+								class="filter-btn filter-chip"
 								:class="{ open: activeFilter === 'favourite', 'has-value': appliedFavouriteLevels.length > 0 }"
 								@click="toggleFilter('favourite')"
 							>
@@ -64,8 +64,9 @@
 									class="icon-arrow"
 								></image>
 							</view>
-							<view v-if="activeFilter === 'favourite'" class="dropdown-menu">
-								<text class="dropdown-title">Favourite</text>
+							<transition name="filter-panel">
+								<view v-if="activeFilter === 'favourite'" class="filter-floating-panel">
+									<text class="panel-title">Favourite</text>
 								<view class="option-list favourite-levels">
 									<view 
 										v-for="n in 4" 
@@ -86,23 +87,25 @@
 										</view>
 									</view>
 								</view>
-								<view class="dropdown-actions">
+								<view class="panel-actions">
 									<view class="apply-btn" @click="applyFavourite">Apply</view>
 									<view class="reset-btn" @click="resetFavourite">Reset</view>
 								</view>
-							</view>
+								</view>
+							</transition>
 						</view>
 						<view class="filter-group">
 							<view 
-								class="filter-btn" 
+								class="filter-btn filter-chip" 
 								:class="{ open: activeFilter === 'date', 'has-value': appliedDate != null }"
 								@click="toggleFilter('date')"
 							>
 								<text>Date</text>
 								<image :src="activeFilter === 'date' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="icon-arrow"></image>
 							</view>
-							<view v-if="activeFilter === 'date'" class="dropdown-menu">
-								<text class="dropdown-title">Sort by Date</text>
+							<transition name="filter-panel">
+								<view v-if="activeFilter === 'date'" class="filter-floating-panel">
+									<text class="panel-title">Sort by Date</text>
 								<radio-group @change="onDateChange">
 									<label class="radio-item">
 										<radio value="asc" :checked="dateSortOrder === 'asc'" color="#5a9a2e" /> Ascending
@@ -111,23 +114,25 @@
 										<radio value="desc" :checked="dateSortOrder === 'desc'" color="#5a9a2e" /> Descending
 									</label>
 								</radio-group>
-								<view class="dropdown-actions">
+								<view class="panel-actions">
 									<view class="apply-btn" @click="applyDate">Apply</view>
 									<view class="reset-btn" @click="resetDate">Reset</view>
 								</view>
-							</view>
+								</view>
+							</transition>
 						</view>
 						<view v-if="viewMode === 'Cloth'" class="filter-group">
 							<view 
-								class="filter-btn" 
+								class="filter-btn filter-chip" 
 								:class="{ open: activeFilter === 'type', 'has-value': appliedTypes.length > 0 }"
 								@click="toggleFilter('type')"
 							>
 								<text>Clothing type</text>
 								<image :src="activeFilter === 'type' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="icon-arrow"></image>
 							</view>
-							<view v-if="activeFilter === 'type'" class="dropdown-menu">
-								<text class="dropdown-title">Clothing Type</text>
+							<transition name="filter-panel">
+								<view v-if="activeFilter === 'type'" class="filter-floating-panel">
+									<text class="panel-title">Clothing Type</text>
 								<view class="option-list">
 									<view 
 										v-for="opt in typeOptions" 
@@ -137,23 +142,25 @@
 										@click="toggleType(opt.value)"
 									>{{ opt.label }}</view>
 								</view>
-								<view class="dropdown-actions">
+								<view class="panel-actions">
 									<view class="apply-btn" @click="applyType">Apply</view>
 									<view class="reset-btn" @click="resetType">Reset</view>
 								</view>
-							</view>
+								</view>
+							</transition>
 						</view>
 						<view v-if="viewMode === 'Cloth'" class="filter-group">
 							<view 
-								class="filter-btn" 
+								class="filter-btn filter-chip" 
 								:class="{ open: activeFilter === 'color', 'has-value': appliedColors.length > 0 }"
 								@click="toggleFilter('color')"
 							>
 								<text>Color</text>
 								<image :src="activeFilter === 'color' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="icon-arrow"></image>
 							</view>
-							<view v-if="activeFilter === 'color'" class="dropdown-menu">
-								<text class="dropdown-title">Color</text>
+							<transition name="filter-panel">
+								<view v-if="activeFilter === 'color'" class="filter-floating-panel">
+									<text class="panel-title">Color</text>
 								<view class="option-list">
 									<view 
 										v-for="opt in colorOptions" 
@@ -163,23 +170,25 @@
 										@click="toggleColor(opt.value)"
 									>{{ opt.label }}</view>
 								</view>
-								<view class="dropdown-actions">
+								<view class="panel-actions">
 									<view class="apply-btn" @click="applyColor">Apply</view>
 									<view class="reset-btn" @click="resetColor">Reset</view>
 								</view>
-							</view>
+								</view>
+							</transition>
 						</view>
 						<view v-if="viewMode === 'Cloth'" class="filter-group">
 							<view 
-								class="filter-btn" 
+								class="filter-btn filter-chip" 
 								:class="{ open: activeFilter === 'season', 'has-value': appliedSeasons.length > 0 }"
 								@click="toggleFilter('season')"
 							>
 								<text>Season</text>
 								<image :src="activeFilter === 'season' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="icon-arrow"></image>
 							</view>
-							<view v-if="activeFilter === 'season'" class="dropdown-menu">
-								<text class="dropdown-title">Season</text>
+							<transition name="filter-panel">
+								<view v-if="activeFilter === 'season'" class="filter-floating-panel">
+									<text class="panel-title">Season</text>
 								<view class="option-list">
 									<view 
 										v-for="opt in seasonOptions" 
@@ -189,26 +198,31 @@
 										@click="toggleSeason(opt.value)"
 									>{{ opt.label }}</view>
 								</view>
-								<view class="dropdown-actions">
+								<view class="panel-actions">
 									<view class="apply-btn" @click="applySeason">Apply</view>
 									<view class="reset-btn" @click="resetSeason">Reset</view>
 								</view>
-							</view>
+								</view>
+							</transition>
 						</view>
 					</view>
 				</view>
 				<view class="upload-widget" @click="viewMode === 'Cloth' ? testSimpleUpload() : openModelUpload()">
 					<div
-						class="upload-dashed"
+						class="upload-hero-card"
 						:class="{ dragging: uploadDragging }"
 						@drop.prevent.stop="handleUploadDrop"
 						@dragover.prevent.stop="handleUploadDragOver"
 						@dragleave.prevent.stop="handleUploadDragLeave"
 						@dragenter.prevent.stop
 					>
-						<image src="/static/icons/icon-image-upload.svg" mode="aspectFit" class="icon-upload"></image>
-						<text class="upload-text"><text class="blue">Click to upload</text> {{ viewMode === 'Cloth' ? 'clothing' : 'model' }} or drag and drop</text>
-						<text class="upload-hint">JPG, JPEG, PNG less than 1MB</text>
+						<view class="upload-hero-inner">
+							<image src="/static/icons/icon-image-upload.svg" mode="aspectFit" class="icon-upload"></image>
+							<text class="upload-title">Add item</text>
+							<text class="upload-subtitle">Drop photo here</text>
+							<text class="upload-hint">Auto-tagging enabled</text>
+							<text class="upload-meta">Color · Category · Season</text>
+						</view>
 					</div>
 				</view>
 			</view>
@@ -401,6 +415,30 @@
 										  <view v-if="item.imageError" class="image-fallback">
 										    <text class="fallback-text">{{ item.name }}</text>
 										  </view>
+
+										  <!-- 卡片 Hover 快捷操作浮層 -->
+										  <view class="card-overlay">
+											  <view class="card-overlay-top">
+												  <text class="card-tag">In wardrobe</text>
+											  </view>
+											  <view class="card-overlay-bottom">
+												  <text class="card-name" :title="item.name">{{ item.name || '未命名衣物' }}</text>
+												  <view class="quick-actions">
+													  <view class="quick-btn primary" @click.stop="quickTryOn(item)">
+														  <text>Virtual Try-On</text>
+													  </view>
+													  <view class="quick-btn danger" @click.stop="quickDelete(item)">
+														  <text>Delete</text>
+													  </view>
+												  </view>
+											  </view>
+										  </view>
+									</view>
+									<!-- 底部名稱：在非 hover 狀態也給一點信息感 -->
+									<view class="card-caption">
+										<text class="card-caption-name" :title="item.name">
+											{{ item.name || '未命名衣物' }}
+										</text>
 									</view>
 								</view>
 							</view>
@@ -1261,30 +1299,34 @@ const handleDeleteItem = async (id) => {
 	console.log('响应数据:', response.data)
     
     uni.hideLoading()
-    
-    if (response.statusCode === 200 && response.data.success) {
+
+    const notFound = response.statusCode === 404 ||
+      (response.data && (
+        String(response.data.detail || '').includes('不存在') ||
+        String(response.data.message || '').includes('不存在')
+      ))
+
+    if (response.statusCode === 200 && response.data && response.data.success) {
       // 从前端列表中移除
       clothes.value = clothes.value.filter((c) => c.id !== id)
-      
-      uni.showToast({
-        title: '删除成功',
-        icon: 'success',
-        duration: 2000
-      })
-      
-      // 如果当前选中项被删除，关闭模态框
+      uni.showToast({ title: '删除成功', icon: 'success', duration: 2000 })
       if (selectedItem.value && selectedItem.value.id === id) {
         showModal.value = false
         selectedItem.value = {}
       }
-      
-      // 如果删除的是当前显示的项目，可能需要重新加载数据
       if (paginatedList.value.some(item => item.id === id)) {
         await loadClothingData()
       }
-      
+    } else if (notFound) {
+      // 后端不存在（例如之前仅前端的拖拽假数据）：仍从列表移除，便于用户清理
+      clothes.value = clothes.value.filter((c) => c.id !== id)
+      if (selectedItem.value && selectedItem.value.id === id) {
+        showModal.value = false
+        selectedItem.value = {}
+      }
+      uni.showToast({ title: '已从列表中移除', icon: 'none', duration: 2000 })
     } else {
-      const errorMsg = response.data?.message || '删除失败'
+      const errorMsg = response.data?.message || response.data?.detail || '删除失败'
       uni.showToast({
         title: errorMsg,
         icon: 'none',
@@ -1295,14 +1337,22 @@ const handleDeleteItem = async (id) => {
   } catch (error) {
     uni.hideLoading()
     console.error('删除衣物失败:', error)
-	if (error.errMsg) console.error('错误信息:', error.errMsg)
-	if (error.data) console.error('错误数据:', error.data)
-    
-    uni.showToast({
-      title: '删除失败：网络错误',
-      icon: 'none',
-      duration: 3000
-    })
+    const errMsg = String(error?.message || error?.errMsg || error?.detail || '')
+    const isNotFound = error?.statusCode === 404 || errMsg.includes('不存在')
+    if (isNotFound) {
+      clothes.value = clothes.value.filter((c) => c.id !== id)
+      if (selectedItem.value && selectedItem.value.id === id) {
+        showModal.value = false
+        selectedItem.value = {}
+      }
+      uni.showToast({ title: '已从列表中移除', icon: 'none', duration: 2000 })
+    } else {
+      uni.showToast({
+        title: '删除失败：网络错误',
+        icon: 'none',
+        duration: 3000
+      })
+    }
   }
 }
 
@@ -2068,6 +2118,18 @@ const handleVirtualTryOn = (item) => {
 	emit('switch-to-tryon', item, defaultModelImage)
 }
 
+// 卡片上的快捷操作：直接進入虛擬試穿
+const quickTryOn = (item) => {
+	if (!item) return
+	handleVirtualTryOn(item)
+}
+
+// 卡片上的快捷操作：直接刪除衣物
+const quickDelete = (item) => {
+	if (!item?.id) return
+	handleDeleteItem(item.id)
+}
+
 // 衣物编辑：同步到后端并更新本地
 const handleItemUpdate = async ({ id, field, value }) => {
 	const idx = clothes.value.findIndex((c) => c.id === id)
@@ -2111,7 +2173,7 @@ const handleUploadDragLeave = () => {
 	uploadDragging.value = false
 }
 
-const handleUploadDrop = (event) => {
+const handleUploadDrop = async (event) => {
 	uploadDragging.value = false
 	if (event && event.preventDefault) event.preventDefault()
 	if (event && event.stopPropagation) event.stopPropagation()
@@ -2120,33 +2182,76 @@ const handleUploadDrop = (event) => {
 	if (!files || files.length === 0) return
 	const file = files[0]
 	if (!file.type || !file.type.startsWith('image/')) {
-		uni.showToast({ title: 'Please drop an image file', icon: 'none' })
+		uni.showToast({ title: '请拖入图片文件', icon: 'none' })
 		return
 	}
-	const url = URL.createObjectURL(file)
-	const newItem = viewMode.value === 'Model'
-		? {
-			id: Date.now(),
-			posture: 'New Model',
-			date: new Date().toISOString().slice(0, 10),
-			favourite: 0,
-			image: url,
+	// 仅 Cloth 模式支持拖拽上传；且必须走后端打标，绝不往列表里塞假数据
+	if (viewMode.value !== 'Cloth') {
+		uni.showToast({ title: '请在「Cloth」模式下拖拽上传衣物', icon: 'none' })
+		return
+	}
+	if (!isLoggedIn.value) {
+		uni.showToast({ title: '请先登录', icon: 'none' })
+		return
+	}
+	if (file.size > 10 * 1024 * 1024) {
+		uni.showToast({ title: '文件大小不能超过10MB', icon: 'none' })
+		return
+	}
+	uploadLoading.value = true
+	createdItemIdForEdit.value = null
+	uni.showLoading({ title: '上传并打标中...', mask: true })
+	let blobUrl = null
+	try {
+		let result = null
+		try {
+			result = await uploadClothing({
+				token: userToken.value,
+				file,
+				formData: {
+					name: '', category: '', subcategory: '', color: '', season: '',
+					brand: '', tags: '', description: '', price: '', purchase_date: ''
+				}
+			})
+		} catch (e1) {
+			// 若 fetch 失败（如 CORS），尝试用 blob URL 走 uni.uploadFile
+			blobUrl = URL.createObjectURL(file)
+			result = await uploadClothing({
+				token: userToken.value,
+				filePath: blobUrl,
+				formData: {
+					name: '', category: '', subcategory: '', color: '', season: '',
+					brand: '', tags: '', description: '', price: '', purchase_date: ''
+				}
+			})
 		}
-		: {
-			id: Date.now(),
-			name: 'New Item',
-			type: 'top',
-			subcategory: '',
-			date: new Date().toISOString().slice(0, 10),
-			color: '',
-			season: '',
-			favourite: 0,
-			image: url,
+		if (!result || result.statusCode !== 200 || !result.data?.success) {
+			throw new Error(result?.data?.message || result?.data?.detail || '上传失败')
 		}
-	if (viewMode.value === 'Model') {
-		models.value = [newItem, ...models.value]
-	} else {
-		clothes.value = [newItem, ...clothes.value]
+		const data = result.data?.data || result.data
+		const raw = (data.auto_label && data.auto_label._raw) || data.auto_label || {}
+		const tagParts = [raw.style, raw.occasion].filter(Boolean).map(String)
+		uploadFormData.value = {
+			name: data.name || raw.subcategory || raw.category || '未命名',
+			category: raw.category || data.category || '',
+			subcategory: raw.subcategory || '',
+			color: typeof raw.color === 'string' ? raw.color : (raw.color || ''),
+			season: Array.isArray(raw.season) ? (raw.season[0] || '') : (raw.season || ''),
+			brand: raw.brand || '',
+			tags: tagParts.join(','),
+			description: raw.description || '',
+			price: uploadFormData.value.price || '',
+			purchase_date: uploadFormData.value.purchase_date || ''
+		}
+		createdItemIdForEdit.value = data.id
+		showCategoryModal.value = true
+	} catch (err) {
+		const msg = err?.message || err?.errMsg || '上传失败'
+		uni.showToast({ title: msg, icon: 'none' })
+	} finally {
+		if (blobUrl) URL.revokeObjectURL(blobUrl)
+		uploadLoading.value = false
+		uni.hideLoading()
 	}
 }
 
@@ -2236,13 +2341,18 @@ const handleUpload = () => {
 
 .search-bar {
 	flex: 1;
-	border: 2rpx solid #1D1D1F;
 	border-radius: 50rpx;
-	padding: 20rpx 28rpx;
+	padding: 18rpx 26rpx;
 	display: flex;
 	align-items: center;
-	background: #FFF;
+	background: rgba(255, 255, 255, 0.6);
+	backdrop-filter: blur(12rpx);
+	-webkit-backdrop-filter: blur(12rpx);
 	gap: 16rpx;
+	box-shadow:
+		0 8rpx 20rpx rgba(0, 0, 0, 0.06),
+		inset 0 1rpx 0 rgba(255, 255, 255, 0.6);
+	transition: all 0.2s ease;
 }
 
 .icon-search {
@@ -2256,6 +2366,12 @@ const handleUpload = () => {
 	font-size: 30rpx;
 	color: #1D1D1F;
 	font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+}
+
+.search-bar:focus-within {
+	box-shadow:
+		0 10rpx 28rpx rgba(0, 0, 0, 0.12),
+		inset 0 1rpx 0 rgba(255, 255, 255, 0.7);
 }
 
 .search-placeholder {
@@ -2297,32 +2413,40 @@ const handleUpload = () => {
 }
 
 .filter-btn {
-	background: #FFF;
-	border: 2rpx solid #8E8070;
-	border-radius: 16rpx;
-	padding: 16rpx 28rpx;
+	background: #F3EFE8;
+	border-radius: 20rpx;
+	padding: 14rpx 26rpx;
 	font-weight: 600;
 	color: #1D1D1F;
 	display: inline-flex;
 	align-items: center;
 	gap: 10rpx;
-	box-shadow: 2rpx 2rpx 0 rgba(142, 128, 112, 0.2);
-	transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+	box-shadow: none;
+	transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
 	cursor: pointer;
 	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
 	font-size: 26rpx;
 }
 
-.filter-btn:active {
-	transform: translateY(2rpx);
-	box-shadow: none;
+.filter-chip:hover {
+	transform: scale(1.05);
+	background: #EDE7DC;
 }
 
-.filter-btn.open,
-.filter-btn.has-value {
-	background-color: #FFF9F1;
-	border-color: #9D8B70;
-	box-shadow: 2rpx 2rpx 0 rgba(157, 139, 112, 0.3);
+.filter-chip:active {
+	transform: scale(0.98);
+}
+
+.filter-chip.open,
+.filter-chip.has-value {
+	background: linear-gradient(135deg, #BFA98C, #9E8B6D);
+	color: #FFFFFF;
+	box-shadow: 0 10rpx 26rpx rgba(129, 112, 88, 0.45);
+}
+
+.filter-chip.open text,
+.filter-chip.has-value text {
+	color: #FFFFFF;
 }
 
 .icon-arrow {
@@ -2330,37 +2454,49 @@ const handleUpload = () => {
 	height: 24rpx;
 }
 
-.dropdown-menu {
+/* 下沉式小面板：貼著 chip，scale + fade 動畫 */
+.filter-floating-panel {
 	position: absolute;
 	top: 100%;
 	left: 0;
-	margin-top: 16rpx;
+	margin-top: 12rpx;
 	background: #FFF;
 	border-radius: 20rpx;
-	padding: 24rpx;
-	box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
+	padding: 24rpx 26rpx;
+	box-shadow: 0 12rpx 40rpx rgba(0, 0, 0, 0.12), 0 0 0 1rpx rgba(0, 0, 0, 0.06);
 	z-index: 100;
 	width: 320rpx;
 	border: 2rpx solid #E8E4DC;
-	animation: dropdown-in 0.25s ease;
+	transform-origin: top left;
 }
 
-@keyframes dropdown-in {
-	from {
-		opacity: 0;
-		transform: translateY(-12rpx);
-	}
-	to {
-		opacity: 1;
-		transform: translateY(0);
-	}
+.filter-panel-enter-active,
+.filter-panel-leave-active {
+	transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
-.dropdown-title {
-	font-size: 24rpx;
-	color: #999;
-	margin-bottom: 16rpx;
+.filter-panel-enter-from,
+.filter-panel-leave-to {
+	opacity: 0;
+	transform: translateY(-8rpx) scale(0.98);
+}
+
+.filter-panel-enter-to,
+.filter-panel-leave-from {
+	opacity: 1;
+	transform: translateY(0) scale(1);
+}
+
+.panel-title {
 	display: block;
+	font-size: 22rpx;
+	font-weight: 600;
+	color: #8a8376;
+	letter-spacing: 0.5rpx;
+	text-transform: uppercase;
+	margin-bottom: 18rpx;
+	padding-bottom: 12rpx;
+	border-bottom: 1rpx solid #F0EBE3;
 }
 
 .radio-item {
@@ -2376,22 +2512,22 @@ const handleUpload = () => {
 	margin-right: 12rpx;
 }
 
-.option-list {
+.filter-floating-panel .option-list {
 	display: flex;
 	flex-direction: column;
-	gap: 8rpx;
+	gap: 6rpx;
 	max-height: 320rpx;
 	overflow-y: auto;
-	margin-bottom: 8rpx;
+	margin-bottom: 4rpx;
 }
 
-.option-item {
-	padding: 16rpx 20rpx;
+.filter-floating-panel .option-item {
+	padding: 18rpx 22rpx;
 	font-size: 26rpx;
 	color: #1D1D1F;
-	border-radius: 12rpx;
+	border-radius: 14rpx;
 	cursor: pointer;
-	transition: background 0.2s;
+	transition: background 0.2s ease, color 0.2s ease;
 }
 
 .option-item:hover,
@@ -2425,7 +2561,7 @@ const handleUpload = () => {
 	height: 28rpx;
 }
 
-.dropdown-actions {
+.panel-actions {
 	display: flex;
 	justify-content: space-between;
 	margin-top: 24rpx;
@@ -2458,50 +2594,89 @@ const handleUpload = () => {
 	min-width: 320rpx;
 }
 
-.upload-dashed {
-	border: 4rpx dashed #D1D1D1;
+/* 高級展示入口卡：雙層邊框 + 徑向漸變 + hover 浮起 */
+.upload-hero-card {
+	position: relative;
 	border-radius: 24rpx;
-	padding: 40rpx;
-	background: #FFF;
+	padding: 6rpx;
+	background: linear-gradient(180deg, #FAF7F2, #F4EFE8);
+	cursor: pointer;
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+	/* 外層極淡虛線 */
+	border: 2rpx dashed rgba(216, 211, 199, 0.9);
+	box-shadow: inset 0 0 0 2rpx rgba(255, 255, 255, 0.6);
+}
+
+.upload-hero-card:hover {
+	transform: translateY(-4rpx);
+	box-shadow: 0 10rpx 28rpx rgba(0, 0, 0, 0.08), inset 0 0 0 2rpx rgba(255, 255, 255, 0.6);
+}
+
+.upload-hero-card:active {
+	transform: translateY(0);
+}
+
+.upload-hero-card.dragging {
+	border-color: rgba(157, 139, 112, 0.5);
+	box-shadow: 0 12rpx 30rpx rgba(0, 0, 0, 0.12), inset 0 0 0 2rpx rgba(191, 169, 140, 0.2);
+}
+
+.upload-hero-inner {
+	position: relative;
+	border-radius: 18rpx;
+	padding: 40rpx 36rpx;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	text-align: center;
-	cursor: pointer;
-	transition: background 0.25s, border-color 0.25s;
+	/* 內層柔和實邊 */
+	border: 2rpx solid rgba(191, 169, 140, 0.22);
+	/* 極淡徑向漸變 + 線性漸變 */
+	background: radial-gradient(circle at 50% 0%, rgba(191, 169, 140, 0.1), transparent 55%),
+		linear-gradient(180deg, #FAF7F2, #F4EFE8);
+	transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.upload-dashed:active {
-	background: #FDFBF7;
-	border-color: #9D8B70;
-}
-
-.upload-dashed.dragging {
-	border-color: #007AFF;
-	background-color: #F0F8FF;
+.upload-hero-card.dragging .upload-hero-inner {
+	background: radial-gradient(circle at 50% 0%, rgba(191, 169, 140, 0.14), transparent 55%),
+		linear-gradient(180deg, #F4EFE8, #EDE6DC);
 }
 
 .icon-upload {
-	width: 80rpx;
-	height: 80rpx;
-	margin-bottom: 16rpx;
+	width: 100rpx;
+	height: 100rpx;
+	margin-bottom: 20rpx;
+	transition: transform 0.2s ease;
 }
 
-.upload-text {
-	font-size: 26rpx;
+.upload-hero-card:hover .icon-upload {
+	transform: translateY(-4rpx);
+}
+
+.upload-title {
+	font-size: 32rpx;
 	color: #1D1D1F;
+	font-weight: 600;
 	margin-bottom: 8rpx;
-	white-space: nowrap;
+	letter-spacing: 0.3rpx;
 }
 
-.upload-text .blue {
-	color: #007AFF;
-	font-weight: 600;
+.upload-subtitle {
+	font-size: 26rpx;
+	color: #5f5a52;
+	margin-bottom: 6rpx;
 }
 
 .upload-hint {
 	font-size: 22rpx;
-	color: #999;
+	color: #8a8376;
+	margin-bottom: 4rpx;
+}
+
+.upload-meta {
+	font-size: 20rpx;
+	color: #a39e94;
+	letter-spacing: 0.5rpx;
 }
 
 .divider {
@@ -2519,7 +2694,12 @@ const handleUpload = () => {
 .cloth-card {
 	background: transparent;
 	cursor: pointer;
-	transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+	transition: transform 0.26s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.26s ease;
+}
+
+.cloth-card:hover {
+	transform: translateY(-6rpx);
+	box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.12);
 }
 
 .cloth-card:active {
@@ -2527,6 +2707,7 @@ const handleUpload = () => {
 }
 
 .img-wrapper {
+	position: relative;
 	width: 100%;
 	aspect-ratio: 4 / 5;
 	background: #F5F0E6;
@@ -2541,6 +2722,101 @@ const handleUpload = () => {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
+}
+
+/* 卡片 Hover 浮層：快捷操作 + 名稱 */
+.card-overlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	padding: 20rpx 22rpx;
+	background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.45));
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.22s ease;
+}
+
+.cloth-card:hover .card-overlay {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.card-overlay-top {
+	display: flex;
+	justify-content: flex-start;
+}
+
+.card-tag {
+	padding: 6rpx 16rpx;
+	border-radius: 999rpx;
+	background: rgba(253, 251, 247, 0.85);
+	font-size: 22rpx;
+	color: #7A6A55;
+}
+
+.card-overlay-bottom {
+	display: flex;
+	flex-direction: column;
+	gap: 12rpx;
+}
+
+.card-name {
+	font-size: 28rpx;
+	color: #FFF;
+	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.quick-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 12rpx;
+}
+
+.quick-btn {
+	padding: 10rpx 18rpx;
+	border-radius: 999rpx;
+	font-size: 22rpx;
+	font-weight: 500;
+	background: rgba(253, 251, 247, 0.9);
+	color: #3c3c3e;
+	transition: background 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
+}
+
+.quick-btn.primary {
+	background: #F0E6D8;
+	color: #5a4b35;
+}
+
+.quick-btn.danger {
+	background: rgba(255, 255, 255, 0.15);
+	color: #FEE4E4;
+	border: 1rpx solid rgba(255, 255, 255, 0.55);
+}
+
+.quick-btn:active {
+	opacity: 0.85;
+	transform: scale(0.97);
+}
+
+/* 卡片底部標題：在非 hover 狀態也提供輕量資訊 */
+.card-caption {
+	margin-top: 10rpx;
+	padding: 0 4rpx;
+}
+
+.card-caption-name {
+	display: block;
+	font-size: 26rpx;
+	color: #5b5b5f;
+	font-weight: 500;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .model-card {
