@@ -3149,7 +3149,7 @@ async def upload_model_photo(
         file: UploadFile = File(...),
         photo_name: str = Form(...),
         description: Optional[str] = Form(None),
-        is_primary: Optional[bool] = Form(False),
+        is_primary: Optional[str] = Form("false"),
         token: str = Query(...),
         db: Session = Depends(get_db)
 ):
@@ -3159,13 +3159,16 @@ async def upload_model_photo(
         file: 模特照片文件
         photo_name: 照片名称
         description: 照片描述（可选）
-        is_primary: 是否设为主要照片（可选，默认False）
+        is_primary: 是否设为主要照片（表单传 "true"/"false" 字符串，需解析为 bool）
         token: 用户认证令牌
         db: 数据库会话
     返回：
         上传成功的模特照片信息
     """
     try:
+        # 表单中 is_primary 为字符串 "true"/"false"，Python 中 bool("false") 为 True，需显式解析
+        is_primary_bool = str(is_primary).strip().lower() in ("true", "1", "on", "yes") if is_primary else False
+
         # 验证用户
         current_user = get_current_user(token, db)
 
@@ -3186,7 +3189,7 @@ async def upload_model_photo(
             description=description,
             file_size=file_size,
             file_format=file_format,
-            is_primary=is_primary
+            is_primary=is_primary_bool
         )
 
         if error:

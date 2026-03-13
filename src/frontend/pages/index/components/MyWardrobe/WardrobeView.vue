@@ -58,7 +58,7 @@
 								:class="{ open: activeFilter === 'favourite', 'has-value': appliedFavouriteLevels.length > 0 }"
 								@click="toggleFilter('favourite')"
 							>
-								<text>Favourite</text>
+								<text>{{ favouriteLabel }}</text>
 								<image 
 									:src="activeFilter === 'favourite' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" 
 									mode="aspectFit" 
@@ -128,7 +128,7 @@
 								:class="{ open: activeFilter === 'type', 'has-value': appliedTypes.length > 0 }"
 								@click="toggleFilter('type')"
 							>
-								<text>Clothing type</text>
+								<text>{{ typeLabel }}</text>
 								<image :src="activeFilter === 'type' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="icon-arrow"></image>
 							</view>
 							<transition name="filter-panel">
@@ -156,7 +156,7 @@
 								:class="{ open: activeFilter === 'color', 'has-value': appliedColors.length > 0 }"
 								@click="toggleFilter('color')"
 							>
-								<text>Color</text>
+								<text>{{ colorLabel }}</text>
 								<image :src="activeFilter === 'color' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="icon-arrow"></image>
 							</view>
 							<transition name="filter-panel">
@@ -1351,8 +1351,6 @@ function handleDeleteCancel() {
 }
 
 // ============ 模特照片相关状态 ============
-const modelUploadLoading = ref(false)
-const modelUploadError = ref('')
 const showModelUploadModal = ref(false)
 const selectedModelImageFile = ref(null)
 
@@ -1440,14 +1438,9 @@ const loadModelPhotos = async () => {
         }
       })
       
-      // 查找主要模特照片
+      // 仅当有明确设为「主要」的模特时设置 defaultModelId，否则不指定默认（避免新上传未勾选默认却被当成默认）
       const primaryModel = models.value.find(model => model.is_primary)
-      if (primaryModel) {
-        defaultModelId.value = primaryModel.id
-      } else if (models.value.length > 0) {
-        // 如果没有设置主要模特，使用第一张
-        defaultModelId.value = models.value[0].id
-      }
+      defaultModelId.value = primaryModel ? primaryModel.id : null
       
       console.log(`✅ 模特照片加载完成，共 ${models.value.length} 张，默认ID: ${defaultModelId.value}`)
       
@@ -1836,6 +1829,20 @@ const appliedSeasons = ref([])
 const seasonLabel = computed(() => {
 	const count = appliedSeasons.value.length
 	return count > 0 ? `Season (${count})` : 'Season'
+})
+
+// 多选筛选项的按钮文案：有选中时显示数量
+const favouriteLabel = computed(() => {
+	const count = appliedFavouriteLevels.value.length
+	return count > 0 ? `Favourite (${count})` : 'Favourite'
+})
+const typeLabel = computed(() => {
+	const count = appliedTypes.value.length
+	return count > 0 ? `Clothing type (${count})` : 'Clothing type'
+})
+const colorLabel = computed(() => {
+	const count = appliedColors.value.length
+	return count > 0 ? `Color (${count})` : 'Color'
 })
 
 // 衣物列表：初始为空，登录后由 loadClothingData 从接口拉取
