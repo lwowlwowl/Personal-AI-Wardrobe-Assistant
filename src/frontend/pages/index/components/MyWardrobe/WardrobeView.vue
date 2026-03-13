@@ -1,9 +1,10 @@
 <template>
+	<view class="wardrobe-root">
 	<scroll-view class="wardrobe-container" scroll-y :show-scrollbar="false">
 		<view class="wardrobe-inner">
 			<!-- 添加上传状态提示 -->
 			<view v-if="uploadLoading" class="upload-loading">
-				<text>上传并打标中...</text>
+				<text>Uploading & tagging...</text>
 				<view class="loading-spinner"></view>
 			</view>
 			
@@ -229,167 +230,6 @@
 					</div>
 				</view>
 			</view>
-			<!-- 在 template 中的合适位置添加 -->
-			<view v-if="showCategoryModal" class="category-modal-overlay" @click="closeCategoryModal">
-			  <view class="category-modal" @click.stop>
-			    <view class="modal-header">
-			      <text class="modal-title">上传衣物</text>
-			      <text class="close-btn" @click="closeCategoryModal">×</text>
-			    </view>
-			    
-			    <view class="modal-content">
-			      <view class="form-group">
-			        <text class="form-label">衣物名称 *</text>
-			        <input 
-			          class="form-input" 
-			          v-model="uploadFormData.name" 
-			          placeholder="输入衣物名称"
-			        />
-			      </view>
-			      
-			      <view class="form-group">
-			        <text class="form-label">主分类 (Category) *</text>
-			        <view class="category-options">
-			          <view 
-			            v-for="opt in typeOptions" 
-			            :key="opt.value"
-			            class="category-option"
-			            :class="{ active: uploadFormData.category === opt.value }"
-			            @click="selectCategory(opt.value)"
-			          >
-			            <text>{{ opt.label }}</text>
-			          </view>
-			        </view>
-			      </view>
-			      <view class="form-group">
-			        <text class="form-label">子分类 (SubCategory)</text>
-			        <input 
-			          class="form-input" 
-			          v-model="uploadFormData.subcategory" 
-			          placeholder="例如：T恤、衬衫、牛仔裤"
-			        />
-			      </view>
-			      
-			      <view class="form-group">
-			        <text class="form-label">颜色</text>
-			        <input 
-			          class="form-input" 
-			          v-model="uploadFormData.color" 
-			          placeholder="输入颜色，如 red、navy blue"
-			        />
-			      </view>
-			      
-			      <view class="form-group">
-			        <text class="form-label">季节</text>
-			        <view class="season-options">
-			          <view 
-			            v-for="opt in seasonOptions" 
-			            :key="opt.value"
-			            class="season-option"
-			            :class="{ active: uploadFormData.season === opt.value }"
-			            @click="uploadFormData.season = opt.value"
-			          >
-			            <text>{{ opt.label }}</text>
-			          </view>
-			        </view>
-			      </view>
-			      
-			      <view class="form-group">
-			        <text class="form-label">品牌</text>
-			        <input 
-			          class="form-input" 
-			          v-model="uploadFormData.brand" 
-			          placeholder="输入品牌"
-			        />
-			      </view>
-			      
-			      <view class="form-group">
-			        <text class="form-label">标签（用逗号分隔）</text>
-			        <input 
-			          class="form-input" 
-			          v-model="uploadFormData.tags" 
-			          placeholder="例如：休闲,通勤,舒适"
-			        />
-			      </view>
-			      
-			      <view class="form-group">
-			        <text class="form-label">价格</text>
-			        <input 
-			          class="form-input" 
-			          v-model="uploadFormData.price" 
-			          placeholder="输入价格"
-			          type="number"
-			        />
-			      </view>
-			      
-			      <view class="form-group">
-			        <text class="form-label">描述</text>
-			        <textarea 
-			          class="form-textarea" 
-			          v-model="uploadFormData.description" 
-			          placeholder="输入衣物描述..."
-			          maxlength="200"
-			        />
-			      </view>
-			    </view>
-			    
-			    <view class="modal-actions">
-			      <view class="btn-cancel" @click="closeCategoryModal">取消</view>
-			      <view class="btn-confirm" @click="confirmUpload">确认并保存</view>
-			    </view>
-			  </view>
-			</view>
-			
-			<view v-if="showModelUploadModal" class="category-modal-overlay" @click="closeModelUploadModal">
-			    <view class="category-modal" @click.stop>
-			      <view class="modal-header">
-			        <text class="modal-title">上传模特照片</text>
-			        <text class="close-btn" @click="closeModelUploadModal">×</text>
-			      </view>
-			      
-			      <view class="modal-content">
-			        <view class="form-group">
-			          <text class="form-label">模特照片名称 *</text>
-			          <input 
-			            class="form-input" 
-			            v-model="modelUploadFormData.photo_name" 
-			            placeholder="输入模特照片名称"
-			          />
-			        </view>
-			        
-			        <view class="form-group">
-			          <text class="form-label">描述</text>
-			          <textarea 
-			            class="form-textarea" 
-			            v-model="modelUploadFormData.description" 
-			            placeholder="输入模特照片描述..."
-			            maxlength="200"
-			          />
-			        </view>
-			        
-			        <view class="form-group">
-			          <view class="form-label">
-			            <text>设置为主要模特</text>
-			          </view>
-			          <view class="switch-option">
-			            <switch 
-			              :checked="modelUploadFormData.is_primary" 
-			              @change="modelUploadFormData.is_primary = $event.detail.value"
-			              color="#9D8B70"
-			            />
-			            <text class="switch-label">设为默认模特照片</text>
-			          </view>
-			          <text class="form-hint">设置后将在虚拟试穿中默认使用此模特</text>
-			        </view>
-			      </view>
-			      
-			      <view class="modal-actions">
-			        <view class="btn-cancel" @click="closeModelUploadModal">取消</view>
-			        <view class="btn-confirm" @click="confirmModelUpload">确认上传</view>
-			      </view>
-			    </view>
-			  </view>
-
 			<view class="divider"></view>
 
 			<transition name="view-switch" mode="out-in">
@@ -398,9 +238,9 @@
 					<template v-if="viewMode === 'Cloth'">
 						<view v-if="displayList.length === 0" class="empty-state-wrap" :class="{ 'empty-state-has-filters': hasActiveFilters }">
 							<template v-if="hasActiveFilters">
-								<text class="empty-state-title">没有符合筛选条件的衣物</text>
-								<text class="empty-state-hint">试试调整或清除筛选条件</text>
-								<view class="empty-state-btn" @click="clearAllFilters">清除筛选</view>
+								<text class="empty-state-title">No items match the filters</text>
+								<text class="empty-state-hint">Try adjusting or clearing filters</text>
+								<view class="empty-state-btn" @click="clearAllFilters">Clear filters</view>
 							</template>
 							<template v-else>
 								<view class="empty-state-panel">
@@ -442,10 +282,9 @@
 										  <!-- 卡片 Hover 快捷操作浮层 -->
 										  <view class="card-overlay">
 											  <view class="card-overlay-top">
-												  <text class="card-tag">In wardrobe</text>
+												  <text class="card-tag">Cloth</text>
 											  </view>
 											  <view class="card-overlay-bottom">
-												  <text class="card-name" :title="item.name">{{ item.name || '未命名衣物' }}</text>
 												  <view class="quick-actions">
 													  <view class="quick-btn primary" @click.stop="quickTryOn(item)">
 														  <text>Virtual Try-On</text>
@@ -460,7 +299,7 @@
 									<!-- 底部名称：在非 hover 状态也给一点信息感 -->
 									<view class="card-caption">
 										<text class="card-caption-name" :title="item.name">
-											{{ item.name || '未命名衣物' }}
+											{{ item.name || 'Unnamed item' }}
 										</text>
 									</view>
 								</view>
@@ -504,6 +343,27 @@
 									<view class="model-img-wrap">
 										<image :src="item.image" mode="aspectFill" class="model-img" />
 										<view v-if="item.id === defaultModelId" class="model-default-badge">Default</view>
+										<!-- 与 cloth 一致的 hover 浮层：右下角 Set default + Delete，样式与衣服一致 -->
+										<view class="card-overlay">
+											<view class="card-overlay-top">
+												<text class="card-tag">Model</text>
+											</view>
+											<view class="card-overlay-bottom">
+												<view class="quick-actions">
+													<view class="quick-btn primary" @click.stop="handleSetDefaultModel(item.id)">
+														<text>{{ item.id === defaultModelId ? 'Default' : 'Set default' }}</text>
+													</view>
+													<view class="quick-btn danger" @click.stop="handleModelDelete(item.id)">
+														<text>Delete</text>
+													</view>
+												</view>
+											</view>
+										</view>
+									</view>
+									<view class="card-caption">
+										<text class="card-caption-name" :title="item.photo_name || item.posture">
+											{{ item.photo_name || item.posture || 'Unnamed' }}
+										</text>
 									</view>
 								</view>
 							</view>
@@ -533,7 +393,22 @@
 				</view>
 			</transition>
 		</view>
+	</scroll-view>
 
+		<ModelUploadModal
+			:visible="showModelUploadModal"
+			@update:visible="showModelUploadModal = $event"
+			@confirm="handleModelUploadConfirm"
+		/>
+		<ClothUploadModal
+			:visible="showCategoryModal"
+			:item-id="createdItemIdForEdit"
+			:initial-form-data="uploadFormData"
+			:type-options="typeOptions"
+			:season-options="seasonOptions"
+			@update:visible="onClothUploadVisibleChange"
+			@confirm="handleClothUploadConfirm"
+		/>
 		<DetailModal
 			v-model:visible="showModal"
 			:item="selectedItem"
@@ -558,13 +433,15 @@
 			@confirm="doDeleteConfirm"
 			@cancel="handleDeleteCancel"
 		/>
-	</scroll-view>
+	</view>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, inject } from 'vue'
 import DetailModal from './DetailModal.vue'
 import ModelDetailModal from './ModelDetailModal.vue'
+import ModelUploadModal from './ModelUploadModal.vue'
+import ClothUploadModal from './ClothUploadModal.vue'
 import DeleteConfirmModal from './DeleteConfirmModal.vue'
 import { TYPE_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
 import {
@@ -693,7 +570,7 @@ const testSimpleUpload = async () => {
     // 1. 检查登录状态
     if (!isLoggedIn.value) {
       uni.showToast({
-        title: '请先登录',
+        title: 'Please log in first',
         icon: 'none'
       })
       return
@@ -711,7 +588,7 @@ const testSimpleUpload = async () => {
     console.log('选择的图片:', chooseResult)
     
     if (!chooseResult.tempFilePaths || chooseResult.tempFilePaths.length === 0) {
-      uni.showToast({ title: '未选择图片', icon: 'none' })
+      uni.showToast({ title: 'No image selected', icon: 'none' })
       return
     }
     
@@ -727,7 +604,7 @@ const testSimpleUpload = async () => {
     // 检查文件大小（后端限制10MB）
     if (fileInfo.size > 10 * 1024 * 1024) {
       uni.showToast({
-        title: '文件大小不能超过10MB',
+        title: 'File size must be under 10MB',
         icon: 'none'
       })
       return
@@ -736,7 +613,7 @@ const testSimpleUpload = async () => {
     // 4. 立即上传并让后端打标，显示加载中（使用 uni 原生 loading 确保用户可见）
     uploadLoading.value = true
     createdItemIdForEdit.value = null
-    uni.showLoading({ title: '上传并打标中...', mask: true })
+    uni.showLoading({ title: 'Uploading & tagging...', mask: true })
     try {
       const result = await uploadClothing({
         token: userToken.value,
@@ -755,20 +632,23 @@ const testSimpleUpload = async () => {
         }
       })
       if (result.statusCode !== 200 || !result.data?.success) {
-        throw new Error(result.data?.message || result.data?.detail || '上传失败')
+        throw new Error(result.data?.message || result.data?.detail || 'Upload failed')
       }
       const data = result.data?.data || result.data
       const raw = data.auto_label || {}
-      // 用后端返回的数据（含打标结果）预填表单
-      const tagParts = [raw.style, raw.occasion].filter(Boolean).map(String)
+      // 优先使用后端返回的 tags 数组，否则用 auto_label 的 style/occasion/pattern/subcategory 拼成
+      const tagsFromApi = data.tags
+      const tagsStr = Array.isArray(tagsFromApi) && tagsFromApi.length
+        ? tagsFromApi.map(String).filter(Boolean).join(', ')
+        : [raw.subcategory, raw.style, raw.occasion, raw.pattern].filter(Boolean).map(String).join(', ')
       uploadFormData.value = {
-        name: data.name || raw.subcategory || raw.category || '未命名',
+        name: data.name || raw.subcategory || raw.category || 'Unnamed',
         category: raw.category || data.category || '',
         subcategory: raw.subcategory || '',
         color: typeof raw.color === 'string' ? raw.color : (raw.color || ''),
         season: Array.isArray(raw.season) ? (raw.season[0] || '') : (raw.season || ''),
         brand: raw.brand || '',
-        tags: tagParts.join(','),
+        tags: tagsStr,
         description: raw.description || '',
         price: uploadFormData.value.price || '',
         purchase_date: uploadFormData.value.purchase_date || ''
@@ -776,7 +656,7 @@ const testSimpleUpload = async () => {
       createdItemIdForEdit.value = data.id
       showCategoryModal.value = true
     } catch (err) {
-      const msg = err.message || err.errMsg || '上传失败'
+      const msg = err.message || err.errMsg || 'Upload failed'
       uni.showToast({ title: msg, icon: 'none' })
     } finally {
       uploadLoading.value = false
@@ -786,58 +666,32 @@ const testSimpleUpload = async () => {
   } catch (error) {
     console.error('选择图片异常:', error)
     uni.showToast({
-      title: '选择图片失败',
+      title: 'Failed to select image',
       icon: 'none'
     })
   }
 }
 
-// 添加分类选择方法
-const selectCategory = (category) => {
-  uploadFormData.value.category = category
+function onClothUploadVisibleChange(v) {
+  showCategoryModal.value = v
+  if (!v) closeCategoryModal()
 }
 
-// 确认：编辑模式下为 update，否则不再走上传（上传已在选图后完成）
-const confirmUpload = async () => {
-  if (createdItemIdForEdit.value == null) {
-    closeCategoryModal()
-    return
-  }
-  if (!uploadFormData.value.category) {
-    uni.showToast({ title: '请选择主分类', icon: 'none' })
-    return
-  }
-  if (!uploadFormData.value.name || !uploadFormData.value.name.trim()) {
-    uni.showToast({ title: '请输入衣物名称', icon: 'none' })
-    return
-  }
+async function handleClothUploadConfirm({ itemId, payload }) {
   try {
-    uni.showLoading({ title: '保存中...', mask: true })
-    const seasonVal = uploadFormData.value.season
-    const seasonPayload = seasonVal ? JSON.stringify(Array.isArray(seasonVal) ? seasonVal : [seasonVal]) : undefined
-    const result = await updateClothing(userToken.value, createdItemIdForEdit.value, {
-      name: uploadFormData.value.name.trim(),
-      category: uploadFormData.value.category,
-      subcategory: uploadFormData.value.subcategory || undefined,
-      color: uploadFormData.value.color || undefined,
-      season: seasonPayload,
-      brand: uploadFormData.value.brand || undefined,
-      tags: uploadFormData.value.tags || undefined,
-      description: uploadFormData.value.description || undefined,
-      price: uploadFormData.value.price !== '' ? uploadFormData.value.price : undefined
-    })
+    uni.showLoading({ title: 'Saving...', mask: true })
+    const result = await updateClothing(userToken.value, itemId, payload)
     uni.hideLoading()
     if (result.statusCode === 200 && result.data?.success !== false) {
-      uni.showToast({ title: '保存成功', icon: 'success' })
-      closeCategoryModal()
+      uni.showToast({ title: 'Saved', icon: 'success' })
       createdItemIdForEdit.value = null
       loadClothingData()
     } else {
-      uni.showToast({ title: result.data?.message || '保存失败', icon: 'none' })
+      uni.showToast({ title: result.data?.message || 'Save failed', icon: 'none' })
     }
   } catch (err) {
     uni.hideLoading()
-    uni.showToast({ title: err.message || err.errMsg || '网络错误', icon: 'none' })
+    uni.showToast({ title: err.message || err.errMsg || 'Network error', icon: 'none' })
   }
 }
 
@@ -926,7 +780,7 @@ const loadClothingData = async () => {
         const tagsArr = (item.tags || []).map((t) => (typeof t === 'string' ? t : (t?.tag || t))).filter(Boolean)
         return {
           id: item.id,
-          name: item.name || '未命名衣物',
+          name: item.name || 'Unnamed item',
           type: item.category || '',
           subcategory: item.subcategory || '',
           date: item.created_at ? item.created_at.slice(0, 10) : item.date || '',
@@ -1198,7 +1052,7 @@ const fixAllImageUrls = async () => {
   
   // 显示通知
   uni.showToast({
-    title: `修复完成: ${results.fixed}张图片已修复`,
+    title: `Fixed: ${results.fixed} image(s) updated`,
     icon: 'success',
     duration: 3000
   })
@@ -1287,7 +1141,7 @@ const handleDeleteItem = (id) => {
 const doDeleteClothing = async (id) => {
   try {
     console.log('=== 开始删除衣物 ===', id)
-    uni.showLoading({ title: '删除中...', mask: true })
+    uni.showLoading({ title: 'Deleting...', mask: true })
     const response = await deleteClothing(userToken.value, id)
     uni.hideLoading()
     const notFound = response.statusCode === 404 ||
@@ -1297,7 +1151,7 @@ const doDeleteClothing = async (id) => {
       ))
     if (response.statusCode === 200 && response.data && response.data.success) {
       clothes.value = clothes.value.filter((c) => c.id !== id)
-      uni.showToast({ title: '删除成功', icon: 'success', duration: 2000 })
+      uni.showToast({ title: 'Deleted', icon: 'success', duration: 2000 })
       if (selectedItem.value && selectedItem.value.id === id) {
         showModal.value = false
         selectedItem.value = {}
@@ -1311,10 +1165,10 @@ const doDeleteClothing = async (id) => {
         showModal.value = false
         selectedItem.value = {}
       }
-      uni.showToast({ title: '已从列表中移除', icon: 'none', duration: 2000 })
+      uni.showToast({ title: 'Removed from list', icon: 'none', duration: 2000 })
     } else {
       uni.showToast({
-        title: response.data?.message || response.data?.detail || '删除失败',
+        title: response.data?.message || response.data?.detail || 'Delete failed',
         icon: 'none',
         duration: 3000
       })
@@ -1330,9 +1184,9 @@ const doDeleteClothing = async (id) => {
         showModal.value = false
         selectedItem.value = {}
       }
-      uni.showToast({ title: '已从列表中移除', icon: 'none', duration: 2000 })
+      uni.showToast({ title: 'Removed from list', icon: 'none', duration: 2000 })
     } else {
-      uni.showToast({ title: '删除失败：网络错误', icon: 'none', duration: 3000 })
+      uni.showToast({ title: 'Delete failed: network error', icon: 'none', duration: 3000 })
     }
   }
 }
@@ -1353,13 +1207,6 @@ function handleDeleteCancel() {
 // ============ 模特照片相关状态 ============
 const showModelUploadModal = ref(false)
 const selectedModelImageFile = ref(null)
-
-// 模特照片表单数据
-const modelUploadFormData = ref({
-  photo_name: '',
-  description: '',
-  is_primary: false
-})
 
 // 从后端加载的模特照片数据
 const models = ref([])
@@ -1463,7 +1310,7 @@ const openModelUpload = async () => {
     // 1. 检查登录状态
     if (!isLoggedIn.value) {
       uni.showToast({
-        title: '请先登录',
+        title: 'Please log in first',
         icon: 'none'
       })
       return
@@ -1479,7 +1326,7 @@ const openModelUpload = async () => {
     console.log('选择的模特图片:', chooseResult)
     
     if (!chooseResult.tempFilePaths || chooseResult.tempFilePaths.length === 0) {
-      uni.showToast({ title: '未选择图片', icon: 'none' })
+      uni.showToast({ title: 'No image selected', icon: 'none' })
       return
     }
     
@@ -1495,7 +1342,7 @@ const openModelUpload = async () => {
     // 检查文件大小（后端限制10MB）
     if (fileInfo.size > 10 * 1024 * 1024) {
       uni.showToast({
-        title: '文件大小不能超过10MB',
+        title: 'File size must be under 10MB',
         icon: 'none'
       })
       return
@@ -1504,8 +1351,7 @@ const openModelUpload = async () => {
     // 4. 存储图片文件路径
     selectedModelImageFile.value = tempFilePath
     
-    // 5. 重置表单数据
-    resetModelUploadForm()
+    // 5. 打开弹窗（表单由 ModelUploadModal 内部在 visible 时重置）
     
     // 6. 显示模特照片上传模态框
     showModelUploadModal.value = true
@@ -1513,95 +1359,56 @@ const openModelUpload = async () => {
   } catch (error) {
     console.error('选择模特图片异常:', error)
     uni.showToast({
-      title: '选择图片失败',
+      title: 'Failed to select image',
       icon: 'none'
     })
   }
 }
 
 /**
- * 重置模特照片上传表单
+ * 模特上传弹窗确认：执行上传
  */
-const resetModelUploadForm = () => {
-  modelUploadFormData.value = {
-    photo_name: '',
-    description: '',
-    is_primary: false
-  }
-}
-
-/**
- * 确认上传模特照片
- */
-const confirmModelUpload = async () => {
-  // 验证必填字段
-  if (!modelUploadFormData.value.photo_name) {
-    uni.showToast({
-      title: '请输入模特照片名称',
-      icon: 'none'
-    })
-    return
-  }
-  
+const handleModelUploadConfirm = async (formData) => {
   if (!selectedModelImageFile.value) {
-    uni.showToast({
-      title: '未选择图片',
-      icon: 'none'
-    })
+    uni.showToast({ title: 'No image selected', icon: 'none' })
     return
   }
-  
   try {
-    // 显示加载提示
-    uni.showLoading({
-      title: '上传中...',
-      mask: true
-    })
-    
-    // 执行上传
-    await performModelUpload(selectedModelImageFile.value)
-    
+    uni.showLoading({ title: 'Uploading...', mask: true })
+    await performModelUpload(selectedModelImageFile.value, formData)
+    uni.showToast({ title: 'Model photo uploaded', icon: 'success' })
+    closeModelUploadModal()
+    loadModelPhotos()
   } catch (error) {
     console.error('上传模特照片失败:', error)
-    uni.hideLoading()
-    uni.showToast({
-      title: '上传失败',
-      icon: 'none'
-    })
-  }
-}
-
-/**
- * 执行模特照片上传的实际方法
- */
-const performModelUpload = async (filePath) => {
-  try {
-    const result = await uploadModelPhoto({
-      token: userToken.value,
-      filePath,
-      formData: modelUploadFormData.value
-    })
-    uni.showToast({ title: '模特照片上传成功！', icon: 'success' })
-    closeModelUploadModal()
-    selectedModelImageFile.value = null
-    loadModelPhotos()
-    return result
-  } catch (err) {
-    const errorMsg = err.message || err.errMsg || '网络错误'
-    uni.showToast({ title: errorMsg, icon: 'none' })
-    throw err
+    uni.showToast({ title: 'Upload failed', icon: 'none' })
   } finally {
     uni.hideLoading()
   }
 }
 
 /**
- * 关闭模特照片上传模态框
+ * 执行模特照片上传
  */
+const performModelUpload = async (filePath, formData) => {
+  const result = await uploadModelPhoto({
+    token: userToken.value,
+    filePath,
+    formData: {
+      photo_name: formData.photo_name ?? '',
+      description: formData.description ?? '',
+      is_primary: formData.is_primary === true
+    }
+  })
+  if (result.statusCode !== 200 || !result.data?.success) {
+    throw new Error(result.data?.message || 'Upload failed')
+  }
+  return result
+}
+
 const closeModelUploadModal = () => {
   showModelUploadModal.value = false
   selectedModelImageFile.value = null
-  resetModelUploadForm()
 }
 
 /**
@@ -1615,13 +1422,13 @@ const handleModelDelete = (id) => {
 const doDeleteModel = async (id) => {
   try {
     console.log('=== 开始删除模特照片 ===', id)
-    uni.showLoading({ title: '删除中...', mask: true })
+    uni.showLoading({ title: 'Deleting...', mask: true })
     const response = await deleteModelPhoto(userToken.value, id, false)
     uni.hideLoading()
     if (response.statusCode === 200 && response.data.success) {
       const modelIndex = models.value.findIndex((m) => m.id === id)
       if (modelIndex !== -1) models.value[modelIndex].is_active = false
-      uni.showToast({ title: '删除成功', icon: 'success', duration: 2000 })
+      uni.showToast({ title: 'Deleted', icon: 'success', duration: 2000 })
       if (selectedModel.value && selectedModel.value.id === id) {
         showModelModal.value = false
         selectedModel.value = {}
@@ -1629,7 +1436,7 @@ const doDeleteModel = async (id) => {
       loadModelPhotos()
     } else {
       uni.showToast({
-        title: response.data?.message || '删除失败',
+        title: response.data?.message || 'Delete failed',
         icon: 'none',
         duration: 3000
       })
@@ -1637,7 +1444,7 @@ const doDeleteModel = async (id) => {
   } catch (error) {
     uni.hideLoading()
     console.error('删除模特照片失败:', error)
-    uni.showToast({ title: '删除失败：网络错误', icon: 'none', duration: 3000 })
+    uni.showToast({ title: 'Delete failed: network error', icon: 'none', duration: 3000 })
   }
 }
 
@@ -1650,7 +1457,7 @@ const handleSetDefaultModel = async (id) => {
     
     // 显示加载提示
     uni.showLoading({
-      title: '设置中...',
+      title: 'Setting...',
       mask: true
     })
     
@@ -1668,13 +1475,13 @@ const handleSetDefaultModel = async (id) => {
       })
       
       uni.showToast({
-        title: '已设置为主要模特照片',
+        title: 'Set as default model photo',
         icon: 'success',
         duration: 2000
       })
       
     } else {
-      const errorMsg = response.data?.message || '设置失败'
+      const errorMsg = response.data?.message || 'Set failed'
       uni.showToast({
         title: errorMsg,
         icon: 'none',
@@ -1686,7 +1493,7 @@ const handleSetDefaultModel = async (id) => {
     uni.hideLoading()
     console.error('设置默认模特照片失败:', error)
     uni.showToast({
-      title: '设置失败：网络错误',
+      title: 'Set failed: network error',
       icon: 'none',
       duration: 3000
     })
@@ -1708,7 +1515,7 @@ const handleModelUpdate = async ({ id, field, value }) => {
     
     // 显示加载提示
     uni.showLoading({
-      title: '更新中...',
+      title: 'Updating...',
       mask: true
     })
     
@@ -1728,13 +1535,13 @@ const handleModelUpdate = async ({ id, field, value }) => {
       }
       
       uni.showToast({
-        title: '更新成功',
+        title: 'Updated',
         icon: 'success',
         duration: 2000
       })
       
     } else {
-      const errorMsg = response.data?.message || '更新失败'
+      const errorMsg = response.data?.message || 'Update failed'
       uni.showToast({
         title: errorMsg,
         icon: 'none',
@@ -1746,7 +1553,7 @@ const handleModelUpdate = async ({ id, field, value }) => {
     uni.hideLoading()
     console.error('更新模特照片失败:', error)
     uni.showToast({
-      title: '更新失败：网络错误',
+      title: 'Update failed: network error',
       icon: 'none',
       duration: 3000
     })
@@ -2173,12 +1980,12 @@ const handleItemUpdate = async ({ id, field, value }) => {
 		if (res.statusCode !== 200 || !res.data?.success) {
 			clothes.value[idx] = prev
 			selectedItem.value = { ...prev }
-			uni.showToast({ title: res.data?.message || '更新失败', icon: 'none' })
+			uni.showToast({ title: res.data?.message || 'Update failed', icon: 'none' })
 		}
 	} catch (err) {
 		clothes.value[idx] = prev
 		selectedItem.value = { ...prev }
-		uni.showToast({ title: '网络错误，未同步到后端', icon: 'none' })
+		uni.showToast({ title: 'Network error, not synced', icon: 'none' })
 	}
 }
 
@@ -2202,25 +2009,25 @@ const handleUploadDrop = async (event) => {
 	if (!files || files.length === 0) return
 	const file = files[0]
 	if (!file.type || !file.type.startsWith('image/')) {
-		uni.showToast({ title: '请拖入图片文件', icon: 'none' })
+		uni.showToast({ title: 'Drop an image file', icon: 'none' })
 		return
 	}
 	// 仅 Cloth 模式支持拖拽上传；且必须走后端打标，绝不往列表里塞假数据
 	if (viewMode.value !== 'Cloth') {
-		uni.showToast({ title: '请在「Cloth」模式下拖拽上传衣物', icon: 'none' })
+		uni.showToast({ title: 'Switch to Cloth mode to drag & drop', icon: 'none' })
 		return
 	}
 	if (!isLoggedIn.value) {
-		uni.showToast({ title: '请先登录', icon: 'none' })
+		uni.showToast({ title: 'Please log in first', icon: 'none' })
 		return
 	}
 	if (file.size > 10 * 1024 * 1024) {
-		uni.showToast({ title: '文件大小不能超过10MB', icon: 'none' })
+		uni.showToast({ title: 'File size must be under 10MB', icon: 'none' })
 		return
 	}
 	uploadLoading.value = true
 	createdItemIdForEdit.value = null
-	uni.showLoading({ title: '上传并打标中...', mask: true })
+	uni.showLoading({ title: 'Uploading & tagging...', mask: true })
 	let blobUrl = null
 	try {
 		let result = null
@@ -2246,19 +2053,22 @@ const handleUploadDrop = async (event) => {
 			})
 		}
 		if (!result || result.statusCode !== 200 || !result.data?.success) {
-			throw new Error(result?.data?.message || result?.data?.detail || '上传失败')
+			throw new Error(result?.data?.message || result?.data?.detail || 'Upload failed')
 		}
 		const data = result.data?.data || result.data
 		const raw = (data.auto_label && data.auto_label._raw) || data.auto_label || {}
-		const tagParts = [raw.style, raw.occasion].filter(Boolean).map(String)
+		const tagsFromApi = data.tags
+		const tagsStr = Array.isArray(tagsFromApi) && tagsFromApi.length
+			? tagsFromApi.map(String).filter(Boolean).join(', ')
+			: [raw.subcategory, raw.style, raw.occasion, raw.pattern].filter(Boolean).map(String).join(', ')
 		uploadFormData.value = {
-			name: data.name || raw.subcategory || raw.category || '未命名',
+			name: data.name || raw.subcategory || raw.category || 'Unnamed',
 			category: raw.category || data.category || '',
 			subcategory: raw.subcategory || '',
 			color: typeof raw.color === 'string' ? raw.color : (raw.color || ''),
 			season: Array.isArray(raw.season) ? (raw.season[0] || '') : (raw.season || ''),
 			brand: raw.brand || '',
-			tags: tagParts.join(','),
+			tags: tagsStr,
 			description: raw.description || '',
 			price: uploadFormData.value.price || '',
 			purchase_date: uploadFormData.value.purchase_date || ''
@@ -2266,7 +2076,7 @@ const handleUploadDrop = async (event) => {
 		createdItemIdForEdit.value = data.id
 		showCategoryModal.value = true
 	} catch (err) {
-		const msg = err?.message || err?.errMsg || '上传失败'
+		const msg = err?.message || err?.errMsg || 'Upload failed'
 		uni.showToast({ title: msg, icon: 'none' })
 	} finally {
 		if (blobUrl) URL.revokeObjectURL(blobUrl)
@@ -2310,6 +2120,12 @@ const handleUpload = () => {
 </script>
 
 <style scoped>
+.wardrobe-root {
+	width: 100%;
+	height: 100%;
+	position: relative;
+}
+
 .wardrobe-container {
 	width: 100%;
 	height: 100%;
@@ -2930,7 +2746,8 @@ const handleUpload = () => {
 .model-card {
 	background: transparent;
 	cursor: pointer;
-	transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+	perspective: 1200px;
+	transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease, opacity 0.28s ease;
 }
 
 .model-card:active {
@@ -2941,20 +2758,52 @@ const handleUpload = () => {
 	position: relative;
 	width: 100%;
 	aspect-ratio: 4 / 5;
-	background: #F5F0E6;
+	transform-style: preserve-3d;
+	background: radial-gradient(circle at 50% 40%, #ffffff, #F3F1EC);
+	box-shadow:
+		inset 0 1rpx 0 rgba(255, 255, 255, 0.7),
+		0 6rpx 16rpx rgba(0, 0, 0, 0.04);
 	border-radius: 16rpx;
 	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
+}
+
+.model-img-wrap:hover {
+	transform: translateY(-4rpx) rotateY(4deg);
+	box-shadow:
+		inset 0 1rpx 0 rgba(255, 255, 255, 0.8),
+		0 30px 60px rgba(0, 0, 0, 0.15);
+}
+
+.model-img-wrap:hover .model-img {
+	transform: scale(1.03);
+}
+
+.model-img-wrap:hover .card-overlay {
+	opacity: 1;
+	pointer-events: auto;
 }
 
 .model-img {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
+	transition: transform 0.3s ease;
 }
 
 .model-card.is-default .model-img-wrap {
 	border: 3rpx solid #9D8B70;
 	box-shadow: 0 4rpx 16rpx rgba(157, 139, 112, 0.25);
+}
+
+.model-card.is-default .model-img-wrap:hover {
+	box-shadow:
+		inset 0 1rpx 0 rgba(255, 255, 255, 0.8),
+		0 30px 60px rgba(0, 0, 0, 0.15),
+		0 0 0 3rpx #9D8B70;
 }
 
 .model-default-badge {
@@ -3221,248 +3070,6 @@ const handleUpload = () => {
 	}
 }
 
-/* 分类选择模态框样式 */
-.category-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.category-modal {
-  width: 90%;
-  max-width: 750rpx;
-  max-height: 85vh;
-  background: #FFF;
-  border-radius: 24rpx;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.2);
-}
-
-.modal-header {
-  padding: 32rpx;
-  border-bottom: 2rpx solid #E8E4DC;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: #FDFBF7;
-}
-
-.modal-title {
-  font-size: 36rpx;
-  font-weight: 600;
-  color: #1D1D1F;
-  font-family: "Didot", "Bodoni MT", "Noto Serif", "Songti SC", serif;
-}
-
-.close-btn {
-  font-size: 48rpx;
-  color: #999;
-  cursor: pointer;
-  padding: 0 12rpx;
-  line-height: 1;
-}
-
-.modal-content {
-  flex: 1;
-  padding: 32rpx;
-  overflow-y: auto;
-  max-height: calc(85vh - 200rpx);
-  /* 确保内容不会被截断 */
-  overflow-x: hidden;
-}
-
-/* 确保输入框有足够的点击区域 */
-.form-input {
-  width: 100%;
-  padding: 20rpx 24rpx;
-  border: 2rpx solid #E8E4DC;
-  border-radius: 12rpx;
-  font-size: 28rpx;
-  color: #1D1D1F;
-  background: #FFF;
-  box-sizing: border-box;
-  /* 添加这些确保可点击 */
-  min-height: 80rpx;
-  line-height: 40rpx;
-  position: relative;
-  z-index: 1;
-  /* 确保在uni-app中正常 */
-  -webkit-user-select: auto !important;
-  user-select: auto !important;
-}
-
-.form-textarea {
-  width: 100%;
-  height: 160rpx;
-  padding: 20rpx 24rpx;
-  border: 2rpx solid #E8E4DC;
-  border-radius: 12rpx;
-  font-size: 28rpx;
-  color: #1D1D1F;
-  background: #FFF;
-  resize: none;
-  box-sizing: border-box;
-  /* 添加这些确保可点击 */
-  min-height: 160rpx;
-  position: relative;
-  z-index: 1;
-  -webkit-user-select: auto !important;
-  user-select: auto !important;
-}
-
-.form-group {
-  margin-bottom: 32rpx;
-}
-
-.form-group:last-child {
-  margin-bottom: 0;
-}
-
-.form-label {
-  display: block;
-  font-size: 28rpx;
-  color: #1D1D1F;
-  margin-bottom: 16rpx;
-  font-weight: 500;
-}
-
-.form-label::after {
-  content: ' *';
-  color: #ff4444;
-}
-
-.form-label:not(:has(+ *[required]))::after {
-  content: '';
-}
-
-.form-input {
-  width: 100%;
-  padding: 20rpx 24rpx;
-  border: 2rpx solid #E8E4DC;
-  border-radius: 12rpx;
-  font-size: 28rpx;
-  color: #1D1D1F;
-  background: #FFF;
-  box-sizing: border-box;
-}
-
-.form-input:focus {
-  border-color: #9D8B70;
-  outline: none;
-}
-
-.category-options {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16rpx;
-}
-
-.category-option {
-  padding: 24rpx 12rpx;
-  border: 2rpx solid #E8E4DC;
-  border-radius: 12rpx;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 26rpx;
-}
-
-.category-option.active {
-  background: #FFF9F1;
-  border-color: #9D8B70;
-  color: #9D8B70;
-  font-weight: 600;
-  box-shadow: 0 4rpx 12rpx rgba(157, 139, 112, 0.2);
-}
-
-.color-options,
-.season-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12rpx;
-}
-
-.color-option,
-.season-option {
-  padding: 16rpx 24rpx;
-  border: 2rpx solid #E8E4DC;
-  border-radius: 8rpx;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 24rpx;
-  flex-shrink: 0;
-}
-
-.color-option.active,
-.season-option.active {
-  background: #FFF9F1;
-  border-color: #9D8B70;
-  color: #9D8B70;
-  font-weight: 600;
-}
-
-.form-textarea {
-  width: 100%;
-  height: 160rpx;
-  padding: 20rpx 24rpx;
-  border: 2rpx solid #E8E4DC;
-  border-radius: 12rpx;
-  font-size: 28rpx;
-  color: #1D1D1F;
-  background: #FFF;
-  resize: none;
-  box-sizing: border-box;
-}
-
-.modal-actions {
-  padding: 32rpx;
-  border-top: 2rpx solid #E8E4DC;
-  display: flex;
-  gap: 24rpx;
-}
-
-.btn-cancel,
-.btn-confirm {
-  flex: 1;
-  padding: 24rpx;
-  text-align: center;
-  border-radius: 12rpx;
-  font-size: 28rpx;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-cancel {
-  background: #F5F5F5;
-  color: #666;
-  border: 2rpx solid #E8E4DC;
-}
-
-.btn-confirm {
-  background: #9D8B70;
-  color: #FFF;
-  border: 2rpx solid #9D8B70;
-}
-
-.btn-cancel:active {
-  background: #E8E4DC;
-  transform: translateY(2rpx);
-}
-
-.btn-confirm:active {
-  background: #8b7a62;
-  transform: translateY(2rpx);
-}
 
 /* 模特照片上传模态框特有样式 */
 .switch-option {
@@ -3484,4 +3091,5 @@ const handleUpload = () => {
   margin-top: 8rpx;
   font-style: italic;
 }
+
 </style>

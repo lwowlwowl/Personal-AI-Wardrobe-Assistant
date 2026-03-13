@@ -900,6 +900,7 @@ async def upload_clothing_item(
                 "image_url": clothing_item.image_url,
                 "created_at": clothing_item.created_at.isoformat(),
                 "auto_label": label_result["_raw"] if label_result else None,
+                "tags": resolved.get("tags") or [],
             }
         }
 
