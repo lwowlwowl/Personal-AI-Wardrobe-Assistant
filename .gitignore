@@ -1,13 +1,13 @@
-# 前端本地快照，不提交到远程
+# Frontend local snapshots – do not commit
 src/frontend_snapshot/
 
-# Python 虛擬環境
+# Python virtual environments
 .venv/
 venv/
 .DS_Store
 Thumbs.db
 
-# Python
+# Python bytecode / build artifacts
 __pycache__/
 *.pyc
 *.pyo
@@ -22,7 +22,7 @@ env/
 dist/
 build/
 
-# Node / Frontend
+# Node / frontend
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -34,16 +34,16 @@ pnpm-debug.log*
 .vite/
 unpackage/
 
-# IDEs
+# IDE / editor settings
 .idea/
 .vscode/
 
-# OS / temp
+# OS / temp files
 *.swp
 *.swo
 *~
 
-# Env files
+# Environment files (secrets, local config)
 .env
 .env.*
 
