@@ -37,6 +37,7 @@
 									v-for="k in 3" 
 									:key="k" 
 									class="heart-wrap" 
+									:class="{ 'heart-pop': heartPopKey === k }"
 									@click="setFavourite(k)"
 								>
 									<image 
@@ -128,8 +129,11 @@ const emitField = (field, value) => {
 	emit('update', { id: props.item.id, field, value: v })
 }
 
+const heartPopKey = ref(null)
 const setFavourite = (level) => {
 	if (!props.item?.id) return
+	heartPopKey.value = level
+	setTimeout(() => { heartPopKey.value = null }, 400)
 	const next = editFavourite.value === level ? Math.max(0, level - 1) : level
 	editFavourite.value = next
 	emit('update', { id: props.item.id, field: 'favourite', value: next })
@@ -189,22 +193,22 @@ const handleDelete = () => {
 @keyframes modal-zoom-in {
 	from {
 		opacity: 0;
-		transform: scale(0.92) translateY(20rpx);
+		transform: scale(0.95);
 	}
 	to {
 		opacity: 1;
-		transform: scale(1) translateY(0);
+		transform: scale(1);
 	}
 }
 
 @keyframes modal-zoom-out {
 	from {
 		opacity: 1;
-		transform: scale(1) translateY(0);
+		transform: scale(1);
 	}
 	to {
 		opacity: 0;
-		transform: scale(0.95) translateY(16rpx);
+		transform: scale(0.95);
 	}
 }
 
@@ -240,6 +244,11 @@ const handleDelete = () => {
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
+	border-radius: 50%;
+	transition: background 0.2s ease;
+}
+.close-btn:hover {
+	background: #f3f1ec;
 }
 
 .icon-close {
@@ -332,6 +341,12 @@ const handleDelete = () => {
 	gap: 12rpx;
 }
 
+@keyframes heart-pop {
+	0% { transform: scale(1); }
+	50% { transform: scale(1.25); }
+	100% { transform: scale(1); }
+}
+
 .heart-wrap {
 	display: flex;
 	align-items: center;
@@ -340,9 +355,11 @@ const handleDelete = () => {
 	cursor: pointer;
 	transition: transform 0.2s, opacity 0.2s;
 }
+.heart-wrap.heart-pop {
+	animation: heart-pop 0.4s ease;
+}
 
 .heart-wrap:active {
-	transform: scale(0.92);
 	opacity: 0.85;
 }
 

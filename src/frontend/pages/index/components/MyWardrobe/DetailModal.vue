@@ -83,9 +83,12 @@
 								<view class="select-apply" @click="applyField('season')">Apply</view>
 							</view>
 						</view>
-						<view class="info-row info-row-readonly">
+						<view class="info-row info-row-tags">
 							<text class="label">Tags:</text>
-							<text class="value">{{ tagsDisplayText }}</text>
+							<view class="tags-pills" v-if="tagsList.length">
+								<view class="tag-pill" v-for="(tag, i) in tagsList" :key="i">{{ tag }}</view>
+							</view>
+							<text class="value" v-else>—</text>
 						</view>
 						<view class="info-row info-row-favourite">
 							<text class="label">Favourite:</text>
@@ -94,6 +97,7 @@
 									v-for="k in 3" 
 									:key="k" 
 									class="heart-wrap" 
+									:class="{ 'heart-pop': heartPopKey === k }"
 									@click="setFavourite(k)"
 								>
 									<image 
@@ -168,16 +172,18 @@ function parseMulti (val) {
 const categoryDisplayText = computed(() => editCategory.value ? (TYPE_LABEL_BY_CODE[editCategory.value] || editCategory.value) : '—')
 const seasonDisplayText = computed(() => codesToLabels(editSeasons.value, SEASON_LABEL_BY_CODE))
 
-/** 解析 tags：支持数组字符串、数组对象 {tag}、逗号分隔字符串 */
-const tagsDisplayText = computed(() => {
+/** 解析 tags 为数组，用于 pill 展示 */
+const tagsList = computed(() => {
 	const val = props.item?.tags
-	if (!val) return '—'
+	if (!val) return []
 	if (Array.isArray(val)) {
-		const arr = val.map((t) => (typeof t === 'string' ? t : (t?.tag || t))).filter(Boolean)
-		return arr.length ? arr.join(', ') : '—'
+		return val.map((t) => (typeof t === 'string' ? t : (t?.tag || t))).filter(Boolean)
 	}
-	if (typeof val === 'string') return val.trim() || '—'
-	return '—'
+	if (typeof val === 'string') {
+		const s = val.trim()
+		return s ? s.split(/[,/]+/).map((x) => x.trim()).filter(Boolean) : []
+	}
+	return []
 })
 
 watch(() => props.item, (val) => {
@@ -253,8 +259,11 @@ const applyField = (field) => {
 	openField.value = null
 }
 
+const heartPopKey = ref(null)
 const setFavourite = (level) => {
 	if (!props.item?.id) return
+	heartPopKey.value = level
+	setTimeout(() => { heartPopKey.value = null }, 400)
 	const next = editFavourite.value === level ? Math.max(0, level - 1) : level
 	editFavourite.value = next
 	emit('update', { id: props.item.id, field: 'favourite', value: next })
@@ -264,22 +273,8 @@ const handleTryOn = () => {
 	emit('try-on', props.item)
 }
 
-const handleDelete = async () => {
-  try {
-    const result = await uni.showModal({
-      title: '确认删除',
-      content: '确定要删除这件衣物吗？',
-      confirmText: '删除',
-      confirmColor: '#ff4444',
-      cancelText: '取消'
-    })
-    
-    if (result.confirm) {
-      emit('delete', props.item.id)
-    }
-  } catch (error) {
-    console.error('删除确认失败:', error)
-  }
+const handleDelete = () => {
+  emit('delete', props.item.id)
 }
 </script>
 
@@ -326,22 +321,22 @@ const handleDelete = async () => {
 @keyframes modal-zoom-in {
 	from {
 		opacity: 0;
-		transform: scale(0.92) translateY(20rpx);
+		transform: scale(0.95);
 	}
 	to {
 		opacity: 1;
-		transform: scale(1) translateY(0);
+		transform: scale(1);
 	}
 }
 
 @keyframes modal-zoom-out {
 	from {
 		opacity: 1;
-		transform: scale(1) translateY(0);
+		transform: scale(1);
 	}
 	to {
 		opacity: 0;
-		transform: scale(0.95) translateY(16rpx);
+		transform: scale(0.95);
 	}
 }
 
@@ -387,6 +382,11 @@ const handleDelete = async () => {
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
+	border-radius: 50%;
+	transition: background 0.2s ease;
+}
+.close-btn:hover {
+	background: #f3f1ec;
 }
 
 .icon-close {
@@ -445,6 +445,26 @@ const handleDelete = async () => {
 	font-weight: 400;
 }
 
+.info-row-tags {
+	align-items: flex-start;
+}
+.info-row-tags .label {
+	margin-top: 2rpx;
+}
+.tags-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8rpx;
+}
+.tag-pill {
+	background: #F3F1EC;
+	border-radius: 999rpx;
+	padding: 8rpx 20rpx;
+	font-size: 24rpx;
+	color: #3A3631;
+	font-weight: 500;
+}
+
 .info-input {
 	flex: 1;
 	min-width: 0;
@@ -484,6 +504,12 @@ const handleDelete = async () => {
 	gap: 12rpx;
 }
 
+@keyframes heart-pop {
+	0% { transform: scale(1); }
+	50% { transform: scale(1.25); }
+	100% { transform: scale(1); }
+}
+
 .heart-wrap {
 	display: flex;
 	align-items: center;
@@ -492,9 +518,11 @@ const handleDelete = async () => {
 	cursor: pointer;
 	transition: transform 0.2s, opacity 0.2s;
 }
+.heart-wrap.heart-pop {
+	animation: heart-pop 0.4s ease;
+}
 
 .heart-wrap:active {
-	transform: scale(0.92);
 	opacity: 0.85;
 }
 
@@ -550,7 +578,7 @@ const handleDelete = async () => {
 	box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.1);
 	border: 2rpx solid #E8E4DC;
 	z-index: 10;
-	max-height: 280rpx;
+	max-height: 440rpx;
 	overflow-y: auto;
 }
 

@@ -11,43 +11,44 @@
 				<text>{{ uploadError }}</text>
 				<text class="close-error" @click="uploadError = ''">×</text>
 			</view>
-			<!-- Header: 标题可选，设计图上有的写 Wardrobe Management -->
-			<view class="header">
-				<view class="toggle-switch">
-					<view 
-						class="switch-item" 
-						:class="{ active: viewMode === 'Model' }" 
-						@click="viewMode = 'Model'"
-					>Model</view>
-					<view 
-						class="switch-item" 
-						:class="{ active: viewMode === 'Cloth' }" 
-						@click="viewMode = 'Cloth'"
-					>Cloth</view>
+			<!-- Control panel: primary controls (row 1) + filters (row 2) + upload card spanning two rows -->
+			<view class="control-panel">
+				<!-- Row 1: toggle + search -->
+				<view class="header">
+					<view class="toggle-switch">
+						<view 
+							class="switch-item" 
+							:class="{ active: viewMode === 'Model' }" 
+							@click="viewMode = 'Model'"
+						>Model</view>
+						<view 
+							class="switch-item" 
+							:class="{ active: viewMode === 'Cloth' }" 
+							@click="viewMode = 'Cloth'"
+						>Cloth</view>
+					</view>
+					<view class="search-bar">
+						<image src="/static/icons/icon-search.svg" mode="aspectFit" class="icon-search"></image>
+						<input 
+							v-if="viewMode === 'Cloth'"
+							class="search-input" 
+							type="text" 
+							placeholder="Search your wardrobe..." 
+							placeholder-class="search-placeholder"
+							v-model="searchQuery"
+						/>
+						<input 
+							v-else
+							class="search-input" 
+							type="text" 
+							placeholder="Search model gallery..." 
+							placeholder-class="search-placeholder"
+							v-model="modelSearchQuery"
+						/>
+					</view>
 				</view>
-				<view class="search-bar">
-					<image src="/static/icons/icon-search.svg" mode="aspectFit" class="icon-search"></image>
-					<input 
-						v-if="viewMode === 'Cloth'"
-						class="search-input" 
-						type="text" 
-						placeholder="Search your wardrobe..." 
-						placeholder-class="search-placeholder"
-						v-model="searchQuery"
-					/>
-					<input 
-						v-else
-						class="search-input" 
-						type="text" 
-						placeholder="Search model gallery..." 
-						placeholder-class="search-placeholder"
-						v-model="modelSearchQuery"
-					/>
-				</view>
-			</view>
 
-			<!-- Filter Section -->
-			<view class="filter-section">
+				<!-- Row 2: Filter label + chips -->
 				<view class="filter-header">
 					<text class="section-title">Filter</text>
 					<view class="filter-buttons">
@@ -183,7 +184,7 @@
 								:class="{ open: activeFilter === 'season', 'has-value': appliedSeasons.length > 0 }"
 								@click="toggleFilter('season')"
 							>
-								<text>Season</text>
+								<text>{{ seasonLabel }}</text>
 								<image :src="activeFilter === 'season' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" mode="aspectFit" class="icon-arrow"></image>
 							</view>
 							<transition name="filter-panel">
@@ -207,6 +208,8 @@
 						</view>
 					</view>
 				</view>
+
+				<!-- Upload card: spans both rows, aligned to the right -->
 				<view class="upload-widget" @click="viewMode === 'Cloth' ? testSimpleUpload() : openModelUpload()">
 					<div
 						class="upload-hero-card"
@@ -226,7 +229,6 @@
 					</div>
 				</view>
 			</view>
-			
 			<!-- 在 template 中的合适位置添加 -->
 			<view v-if="showCategoryModal" class="category-modal-overlay" @click="closeCategoryModal">
 			  <view class="category-modal" @click.stop>
@@ -394,6 +396,26 @@
 				<view :key="viewMode" class="view-switch-inner">
 					<!-- Cloth Grid -->
 					<template v-if="viewMode === 'Cloth'">
+						<view v-if="displayList.length === 0" class="empty-state-wrap" :class="{ 'empty-state-has-filters': hasActiveFilters }">
+							<template v-if="hasActiveFilters">
+								<text class="empty-state-title">没有符合筛选条件的衣物</text>
+								<text class="empty-state-hint">试试调整或清除筛选条件</text>
+								<view class="empty-state-btn" @click="clearAllFilters">清除筛选</view>
+							</template>
+							<template v-else>
+								<view class="empty-state-panel">
+									<view class="empty-state-bg-pattern" aria-hidden="true">👗 🧥 👕 👖</view>
+									<view class="empty-state-illustration">
+										<view class="empty-state-icon-texture" aria-hidden="true">👕 👗 👖</view>
+										<image src="/static/icons/icon-wardrobe.svg" mode="aspectFit" class="empty-state-icon" />
+									</view>
+									<text class="empty-state-headline">Your wardrobe is waiting</text>
+									<text class="empty-state-subtitle">Add your first clothing item to begin your styling journey.</text>
+									<view class="empty-state-cta" @click="testSimpleUpload">Upload first item</view>
+								</view>
+							</template>
+						</view>
+						<template v-else>
 						<transition name="page-fade" mode="out-in">
 							<view class="clothes-grid" :key="currentPage">
 								<view 
@@ -402,13 +424,14 @@
 									class="cloth-card"
 									@click="openDetail(item)"
 								>
-									<view class="img-wrapper">
+									<view class="img-wrapper" :class="{ 'is-loaded': item.imageLoaded }">
 										<!-- 方式1: 使用原生image -->
 										  <image 
 										    :src="item.image" 
 										    mode="aspectFill" 
 										    class="cloth-img"
 										    @load="handleImageLoad($event, item)"
+										    @error="handleImageError($event, item)"
 										  />
 										  
 										  <!-- 方式2: 使用web-view作为备选 -->
@@ -416,7 +439,7 @@
 										    <text class="fallback-text">{{ item.name }}</text>
 										  </view>
 
-										  <!-- 卡片 Hover 快捷操作浮層 -->
+										  <!-- 卡片 Hover 快捷操作浮层 -->
 										  <view class="card-overlay">
 											  <view class="card-overlay-top">
 												  <text class="card-tag">In wardrobe</text>
@@ -434,7 +457,7 @@
 											  </view>
 										  </view>
 									</view>
-									<!-- 底部名稱：在非 hover 狀態也給一點信息感 -->
+									<!-- 底部名称：在非 hover 状态也给一点信息感 -->
 									<view class="card-caption">
 										<text class="card-caption-name" :title="item.name">
 											{{ item.name || '未命名衣物' }}
@@ -464,6 +487,7 @@
 								@click="currentPage < totalPages && (currentPage = currentPage + 1)"
 							>Next</view>
 						</view>
+						</template>
 					</template>
 
 					<!-- Model Grid -->
@@ -525,6 +549,13 @@
 			@update="handleModelUpdate"
 			@set-default="handleSetDefaultModel"
 		/>
+		<DeleteConfirmModal
+			:visible="showDeleteModal"
+			:title="deleteModalTitle"
+			:content="deleteModalContent"
+			@confirm="doDeleteConfirm"
+			@cancel="handleDeleteCancel"
+		/>
 	</scroll-view>
 </template>
 
@@ -532,11 +563,11 @@
 import { ref, computed, watch, onMounted, inject } from 'vue'
 import DetailModal from './DetailModal.vue'
 import ModelDetailModal from './ModelDetailModal.vue'
+import DeleteConfirmModal from './DeleteConfirmModal.vue'
 import { TYPE_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
 import {
   API_BASE_URL,
   authVerify,
-  healthCheck,
   getClothingList,
   uploadClothing,
   deleteClothing,
@@ -646,33 +677,8 @@ function clearAuthData() {
   updateAuthState?.(false)
 }
 
-// ============ 调试方法 ============
-const testBackendConnection = async () => {
-  try {
-    console.log('测试后端连接...')
-    const healthResponse = await healthCheck()
-    
-    // 2. 测试登录（如果有测试账号）
-    console.log('健康检查响应:', healthResponse)
-    
-    if (userToken.value) {
-      const verifyResponse = await authVerify(userToken.value)
-      console.log('Token验证响应:', verifyResponse)
-    }
-  } catch (error) {
-    console.error('后端连接测试失败:', error)
-  }
-}
-
-// 在onMounted中调用测试
 onMounted(async () => {
-  // 页面加载时检查认证状态
   await checkAuthStatus()
-  
-  // 测试后端连接
-  await testBackendConnection()
-  
-  // 如果已登录，加载用户数据
   if (isLoggedIn.value) {
     await loadClothingData()
   }
@@ -1271,43 +1277,23 @@ const testImageUrlAsync = (url) => {
   })
 }
 
-const handleDeleteItem = async (id) => {
-  try {
-	  console.log('=== 开始删除衣物 ===')
-	  console.log('衣物ID:', id)
-	  console.log('用户Token:', userToken.value.substring(0, 20) + '...')
-    // 显示确认对话框
-    const result = await uni.showModal({
-      title: '确认删除',
-      content: '确定要删除这件衣物吗？此操作不可撤销。',
-      confirmText: '删除',
-      confirmColor: '#ff4444',
-      cancelText: '取消'
-    })
-    
-    if (!result.confirm) return
-    
-    // 显示加载提示
-    uni.showLoading({
-      title: '删除中...',
-      mask: true
-    })
-    
-    const response = await deleteClothing(userToken.value, id)
-	console.log('删除响应:', response)
-	console.log('状态码:', response.statusCode)
-	console.log('响应数据:', response.data)
-    
-    uni.hideLoading()
+const handleDeleteItem = (id) => {
+  deletePayload.value = { type: 'cloth', id }
+  showDeleteModal.value = true
+}
 
+const doDeleteClothing = async (id) => {
+  try {
+    console.log('=== 开始删除衣物 ===', id)
+    uni.showLoading({ title: '删除中...', mask: true })
+    const response = await deleteClothing(userToken.value, id)
+    uni.hideLoading()
     const notFound = response.statusCode === 404 ||
       (response.data && (
         String(response.data.detail || '').includes('不存在') ||
         String(response.data.message || '').includes('不存在')
       ))
-
     if (response.statusCode === 200 && response.data && response.data.success) {
-      // 从前端列表中移除
       clothes.value = clothes.value.filter((c) => c.id !== id)
       uni.showToast({ title: '删除成功', icon: 'success', duration: 2000 })
       if (selectedItem.value && selectedItem.value.id === id) {
@@ -1318,7 +1304,6 @@ const handleDeleteItem = async (id) => {
         await loadClothingData()
       }
     } else if (notFound) {
-      // 后端不存在（例如之前仅前端的拖拽假数据）：仍从列表移除，便于用户清理
       clothes.value = clothes.value.filter((c) => c.id !== id)
       if (selectedItem.value && selectedItem.value.id === id) {
         showModal.value = false
@@ -1326,14 +1311,12 @@ const handleDeleteItem = async (id) => {
       }
       uni.showToast({ title: '已从列表中移除', icon: 'none', duration: 2000 })
     } else {
-      const errorMsg = response.data?.message || response.data?.detail || '删除失败'
       uni.showToast({
-        title: errorMsg,
+        title: response.data?.message || response.data?.detail || '删除失败',
         icon: 'none',
         duration: 3000
       })
     }
-    
   } catch (error) {
     uni.hideLoading()
     console.error('删除衣物失败:', error)
@@ -1347,13 +1330,22 @@ const handleDeleteItem = async (id) => {
       }
       uni.showToast({ title: '已从列表中移除', icon: 'none', duration: 2000 })
     } else {
-      uni.showToast({
-        title: '删除失败：网络错误',
-        icon: 'none',
-        duration: 3000
-      })
+      uni.showToast({ title: '删除失败：网络错误', icon: 'none', duration: 3000 })
     }
   }
+}
+
+function doDeleteConfirm() {
+  const { type, id } = deletePayload.value
+  showDeleteModal.value = false
+  deletePayload.value = { type: null, id: null }
+  if (type === 'cloth' && id != null) doDeleteClothing(id)
+  else if (type === 'model' && id != null) doDeleteModel(id)
+}
+
+function handleDeleteCancel() {
+  showDeleteModal.value = false
+  deletePayload.value = { type: null, id: null }
 }
 
 // ============ 模特照片相关状态 ============
@@ -1618,81 +1610,39 @@ const closeModelUploadModal = () => {
 }
 
 /**
- * 删除模特照片
+ * 删除模特照片：仅打开自定义确认弹窗
  */
-const handleModelDelete = async (id) => {
+const handleModelDelete = (id) => {
+  deletePayload.value = { type: 'model', id }
+  showDeleteModal.value = true
+}
+
+const doDeleteModel = async (id) => {
   try {
-    console.log('=== 开始删除模特照片 ===')
-    console.log('模特照片ID:', id)
-    console.log('用户Token:', userToken.value.substring(0, 20) + '...')
-    
-    // 显示确认对话框
-    const result = await uni.showModal({
-      title: '确认删除',
-      content: '确定要删除这张模特照片吗？此操作不可撤销。',
-      confirmText: '删除',
-      confirmColor: '#ff4444',
-      cancelText: '取消'
-    })
-    
-    if (!result.confirm) return
-    
-    // 显示加载提示
-    uni.showLoading({
-      title: '删除中...',
-      mask: true
-    })
-    
+    console.log('=== 开始删除模特照片 ===', id)
+    uni.showLoading({ title: '删除中...', mask: true })
     const response = await deleteModelPhoto(userToken.value, id, false)
-    
-    console.log('删除响应:', response)
-    console.log('状态码:', response.statusCode)
-    console.log('响应数据:', response.data)
-    
     uni.hideLoading()
-    
     if (response.statusCode === 200 && response.data.success) {
-      // 从前端列表中移除（软删除，只是标记为不活跃）
       const modelIndex = models.value.findIndex((m) => m.id === id)
-      if (modelIndex !== -1) {
-        models.value[modelIndex].is_active = false
-      }
-      
-      uni.showToast({
-        title: '删除成功',
-        icon: 'success',
-        duration: 2000
-      })
-      
-      // 如果当前选中项被删除，关闭模态框
+      if (modelIndex !== -1) models.value[modelIndex].is_active = false
+      uni.showToast({ title: '删除成功', icon: 'success', duration: 2000 })
       if (selectedModel.value && selectedModel.value.id === id) {
         showModelModal.value = false
         selectedModel.value = {}
       }
-      
-      // 重新加载模特照片列表（过滤掉不活跃的）
       loadModelPhotos()
-      
     } else {
-      const errorMsg = response.data?.message || '删除失败'
       uni.showToast({
-        title: errorMsg,
+        title: response.data?.message || '删除失败',
         icon: 'none',
         duration: 3000
       })
     }
-    
   } catch (error) {
     uni.hideLoading()
     console.error('删除模特照片失败:', error)
-    if (error.errMsg) console.error('错误信息:', error.errMsg)
-    if (error.data) console.error('错误数据:', error.data)
-    
-    uni.showToast({
-      title: '删除失败：网络错误',
-      icon: 'none',
-      duration: 3000
-    })
+    uni.showToast({ title: '删除失败：网络错误', icon: 'none', duration: 3000 })
   }
 }
 
@@ -1848,6 +1798,16 @@ const modelSearchQuery = ref('')
 const activeFilter = ref(null)
 const showModal = ref(false)
 const selectedItem = ref({})
+const showDeleteModal = ref(false)
+const deletePayload = ref({ type: null, id: null })
+const deleteModalTitle = computed(() =>
+	deletePayload.value.type === 'model' ? 'Delete model photo' : 'Delete item'
+)
+const deleteModalContent = computed(() =>
+	deletePayload.value.type === 'model'
+		? 'Are you sure you want to delete this model photo?\nThis action cannot be undone.'
+		: 'Are you sure you want to delete this clothing item?\nThis action cannot be undone.'
+)
 const currentPage = ref(1)
 
 // Favourite: filter by heart count 0-3 (multi-select)
@@ -1871,6 +1831,10 @@ const appliedColors = ref([])
 const seasonOptions = SEASON_OPTIONS
 const selectedSeasons = ref([])
 const appliedSeasons = ref([])
+const seasonLabel = computed(() => {
+	const count = appliedSeasons.value.length
+	return count > 0 ? `Season (${count})` : 'Season'
+})
 
 // 衣物列表：初始为空，登录后由 loadClothingData 从接口拉取
 const clothes = ref([])
@@ -2097,17 +2061,58 @@ const resetSeason = () => {
 	activeFilter.value = null
 }
 
+/** 一键清除所有筛选条件 */
+const clearAllFilters = () => {
+	activeFilter.value = null
+	appliedFavouriteLevels.value = []
+	selectedFavouriteLevels.value = []
+	appliedDate.value = null
+	dateSortOrder.value = 'desc'
+	appliedTypes.value = []
+	selectedTypes.value = []
+	appliedColors.value = []
+	selectedColors.value = []
+	appliedSeasons.value = []
+	selectedSeasons.value = []
+	currentPage.value = 1
+}
+
+const hasActiveFilters = computed(() =>
+	appliedFavouriteLevels.value.length > 0 ||
+	appliedDate.value != null ||
+	appliedTypes.value.length > 0 ||
+	appliedColors.value.length > 0 ||
+	appliedSeasons.value.length > 0
+)
+
 const openDetail = (item) => {
 	selectedItem.value = { ...item }
 	showModal.value = true
 }
 
-// 图片加载成功时清除错误标记
+// 图片加载成功时清除错误标记并标记为已加载（用于 skeleton 过渡）
 const handleImageLoad = (_event, item) => {
-	if (!item?.id || !item.imageError) return
+	if (!item?.id) return
 	const idx = clothes.value.findIndex((c) => c.id === item.id)
 	if (idx >= 0) {
-		clothes.value[idx] = { ...clothes.value[idx], imageError: false }
+		clothes.value[idx] = {
+			...clothes.value[idx],
+			imageError: false,
+			imageLoaded: true
+		}
+	}
+}
+
+// 图片加载失败时标记错误并结束 skeleton
+const handleImageError = (_event, item) => {
+	if (!item?.id) return
+	const idx = clothes.value.findIndex((c) => c.id === item.id)
+	if (idx >= 0) {
+		clothes.value[idx] = {
+			...clothes.value[idx],
+			imageError: true,
+			imageLoaded: true
+		}
 	}
 }
 
@@ -2118,13 +2123,13 @@ const handleVirtualTryOn = (item) => {
 	emit('switch-to-tryon', item, defaultModelImage)
 }
 
-// 卡片上的快捷操作：直接進入虛擬試穿
+// 卡片上的快捷操作：直接进入虚拟试穿
 const quickTryOn = (item) => {
 	if (!item) return
 	handleVirtualTryOn(item)
 }
 
-// 卡片上的快捷操作：直接刪除衣物
+// 卡片上的快捷操作：直接删除衣物
 const quickDelete = (item) => {
 	if (!item?.id) return
 	handleDeleteItem(item.id)
@@ -2151,7 +2156,7 @@ const handleItemUpdate = async ({ id, field, value }) => {
 		if (res.statusCode !== 200 || !res.data?.success) {
 			clothes.value[idx] = prev
 			selectedItem.value = { ...prev }
-			uni.showToast({ title: res.data?.message || '更新失敗', icon: 'none' })
+			uni.showToast({ title: res.data?.message || '更新失败', icon: 'none' })
 		}
 	} catch (err) {
 		clothes.value[idx] = prev
@@ -2161,8 +2166,6 @@ const handleItemUpdate = async ({ id, field, value }) => {
 }
 
 const uploadDragging = ref(false)
-
-
 
 const handleUploadDragOver = (event) => {
 	uploadDragging.value = true
@@ -2286,6 +2289,7 @@ const handleUpload = () => {
 		},
 	})
 }
+
 </script>
 
 <style scoped>
@@ -2293,7 +2297,7 @@ const handleUpload = () => {
 	width: 100%;
 	height: 100%;
 	min-height: 100%;
-	background-color: #FDFBF7;
+	background: radial-gradient(circle at 10% 10%, #F9F8F6, #F1EEE8);
 	box-sizing: border-box;
 }
 
@@ -2341,18 +2345,15 @@ const handleUpload = () => {
 
 .search-bar {
 	flex: 1;
-	border-radius: 50rpx;
+	border-radius: 999rpx;
 	padding: 18rpx 26rpx;
 	display: flex;
 	align-items: center;
-	background: rgba(255, 255, 255, 0.6);
-	backdrop-filter: blur(12rpx);
-	-webkit-backdrop-filter: blur(12rpx);
+	background: #ffffff;
+	border: 2rpx solid #E6E2DC;
 	gap: 16rpx;
-	box-shadow:
-		0 8rpx 20rpx rgba(0, 0, 0, 0.06),
-		inset 0 1rpx 0 rgba(255, 255, 255, 0.6);
-	transition: all 0.2s ease;
+	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+	transition: all 0.25s ease;
 }
 
 .icon-search {
@@ -2369,9 +2370,8 @@ const handleUpload = () => {
 }
 
 .search-bar:focus-within {
-	box-shadow:
-		0 10rpx 28rpx rgba(0, 0, 0, 0.12),
-		inset 0 1rpx 0 rgba(255, 255, 255, 0.7);
+	border-color: #8C7355;
+	box-shadow: 0 0 0 4rpx rgba(140, 115, 85, 0.15);
 }
 
 .search-placeholder {
@@ -2380,17 +2380,40 @@ const handleUpload = () => {
 	font-family: serif;
 }
 
-.filter-section {
-	display: flex;
-	justify-content: space-between;
-	align-items: flex-start;
-	gap: 32rpx;
-	flex-wrap: wrap;
+/* Two-row control panel: row 1 = primary controls, row 2 = filters; upload spans both rows */
+.control-panel {
+	display: grid;
+	grid-template-columns: auto 1fr auto;
+	grid-template-rows: auto auto;
+	column-gap: 32rpx;
+	row-gap: 24rpx;
+	padding: 32rpx 32rpx 28rpx;
+	margin-bottom: 32rpx;
+	border-radius: 24rpx;
+	background: rgba(255, 255, 255, 0.65);
+	border: 2rpx solid rgba(0, 0, 0, 0.05);
+	box-shadow:
+		0 10px 30px rgba(0, 0, 0, 0.05),
+		inset 0 1px 0 rgba(255, 255, 255, 0.6);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	position: sticky;
+	top: 24rpx;
+	z-index: 20;
+}
+
+.control-panel .header {
+	grid-column: 1 / span 2;
+	grid-row: 1;
 }
 
 .filter-header {
-	flex: 1;
+	grid-column: 1 / span 2;
+	grid-row: 2;
 	min-width: 0;
+	display: flex;
+	align-items: center;
+	gap: 18rpx;
 }
 
 .section-title {
@@ -2398,14 +2421,28 @@ const handleUpload = () => {
 	font-size: 48rpx;
 	font-weight: 600;
 	color: #1D1D1F;
-	margin-bottom: 24rpx;
-	display: block;
+	display: inline-flex;
+	align-items: center;
+	margin: 0rpx 20rpx;
+	margin-right: 24rpx;
+}
+
+.section-title-icon {
+	font-size: 34rpx;
+	margin-right: 10rpx;
+	font-weight: 500;
+	color: #7B766F;
+	letter-spacing: 0.04em;
 }
 
 .filter-buttons {
 	display: flex;
-	flex-wrap: wrap;
-	gap: 20rpx;
+	flex-wrap: nowrap;
+	gap: 16rpx;
+	padding-bottom: 4rpx;
+	flex: 1;
+	min-width: 0;
+	overflow: visible;
 }
 
 .filter-group {
@@ -2413,7 +2450,7 @@ const handleUpload = () => {
 }
 
 .filter-btn {
-	background: #F3EFE8;
+	background: #F5F3F0;
 	border-radius: 20rpx;
 	padding: 14rpx 26rpx;
 	font-weight: 600;
@@ -2421,16 +2458,18 @@ const handleUpload = () => {
 	display: inline-flex;
 	align-items: center;
 	gap: 10rpx;
+	border: 2rpx solid #E8E4DC;
 	box-shadow: none;
-	transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+	transition: all 0.2s ease;
 	cursor: pointer;
 	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
 	font-size: 26rpx;
 }
 
 .filter-chip:hover {
-	transform: scale(1.05);
-	background: #EDE7DC;
+	transform: translateY(-1rpx);
+	background: #F8F5F1;
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
 }
 
 .filter-chip:active {
@@ -2439,8 +2478,9 @@ const handleUpload = () => {
 
 .filter-chip.open,
 .filter-chip.has-value {
-	background: linear-gradient(135deg, #BFA98C, #9E8B6D);
+	background: #8C7355;
 	color: #FFFFFF;
+	border-color: #8C7355;
 	box-shadow: 0 10rpx 26rpx rgba(129, 112, 88, 0.45);
 }
 
@@ -2454,31 +2494,34 @@ const handleUpload = () => {
 	height: 24rpx;
 }
 
-/* 下沉式小面板：貼著 chip，scale + fade 動畫 */
+/* Filter panel: overlay under chips (does not stretch control panel height) */
 .filter-floating-panel {
 	position: absolute;
-	top: 100%;
+	top: calc(100% + 12rpx);
 	left: 0;
-	margin-top: 12rpx;
-	background: #FFF;
+	background: rgba(255, 255, 255, 0.92);
 	border-radius: 20rpx;
 	padding: 24rpx 26rpx;
-	box-shadow: 0 12rpx 40rpx rgba(0, 0, 0, 0.12), 0 0 0 1rpx rgba(0, 0, 0, 0.06);
-	z-index: 100;
-	width: 320rpx;
 	border: 2rpx solid #E8E4DC;
+	box-shadow:
+		0 20px 40px rgba(0, 0, 0, 0.08),
+		0 4px 10px rgba(0, 0, 0, 0.05);
+	z-index: 2000;
+	width: 320rpx;
 	transform-origin: top left;
+	backdrop-filter: blur(14rpx);
+	-webkit-backdrop-filter: blur(14rpx);
 }
 
 .filter-panel-enter-active,
 .filter-panel-leave-active {
-	transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
+	transition: all 0.22s ease;
 }
 
 .filter-panel-enter-from,
 .filter-panel-leave-to {
 	opacity: 0;
-	transform: translateY(-8rpx) scale(0.98);
+	transform: translateY(-6rpx) scale(0.97);
 }
 
 .filter-panel-enter-to,
@@ -2519,6 +2562,13 @@ const handleUpload = () => {
 	max-height: 320rpx;
 	overflow-y: auto;
 	margin-bottom: 4rpx;
+	scrollbar-width: none; /* Firefox: hide scrollbar thumb */
+}
+
+.filter-floating-panel .option-list::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+	display: none; /* Chrome / Edge / Safari: hide scrollbar thumb */
 }
 
 .filter-floating-panel .option-item {
@@ -2527,12 +2577,13 @@ const handleUpload = () => {
 	color: #1D1D1F;
 	border-radius: 14rpx;
 	cursor: pointer;
-	transition: background 0.2s ease, color 0.2s ease;
+	transition: all 0.15s ease;
 }
 
 .option-item:hover,
 .option-item.active {
-	background-color: #FFF9F1;
+	background-color: #F5F3F0;
+	transform: translateX(3rpx);
 }
 
 .option-item.active {
@@ -2589,36 +2640,40 @@ const handleUpload = () => {
 }
 
 .upload-widget {
-	width: 560rpx;
-	flex-shrink: 0;
+	grid-column: 3;
+	grid-row: 1 / span 2;
+	align-self: stretch;
+	width: 360rpx;
 	min-width: 320rpx;
 }
 
-/* 高級展示入口卡：雙層邊框 + 徑向漸變 + hover 浮起 */
+/* fashion dropzone */
 .upload-hero-card {
 	position: relative;
+	height: 100%;
 	border-radius: 24rpx;
 	padding: 6rpx;
-	background: linear-gradient(180deg, #FAF7F2, #F4EFE8);
+	border: 2rpx dashed #D9D3CA;
+	background: rgba(255, 255, 255, 0.6);
 	cursor: pointer;
-	transition: transform 0.2s ease, box-shadow 0.2s ease;
-	/* 外層極淡虛線 */
-	border: 2rpx dashed rgba(216, 211, 199, 0.9);
-	box-shadow: inset 0 0 0 2rpx rgba(255, 255, 255, 0.6);
+	box-shadow: none;
+	transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
 .upload-hero-card:hover {
-	transform: translateY(-4rpx);
-	box-shadow: 0 10rpx 28rpx rgba(0, 0, 0, 0.08), inset 0 0 0 2rpx rgba(255, 255, 255, 0.6);
+	border-color: #8C7355;
+	background: rgba(140, 115, 85, 0.05);
+	transform: scale(1.02);
 }
 
 .upload-hero-card:active {
-	transform: translateY(0);
+	transform: scale(0.99);
 }
 
 .upload-hero-card.dragging {
-	border-color: rgba(157, 139, 112, 0.5);
-	box-shadow: 0 12rpx 30rpx rgba(0, 0, 0, 0.12), inset 0 0 0 2rpx rgba(191, 169, 140, 0.2);
+	border-color: #8C7355;
+	background: rgba(140, 115, 85, 0.08);
+	box-shadow: 0 10px 40px rgba(140, 115, 85, 0.15);
 }
 
 .upload-hero-inner {
@@ -2629,9 +2684,9 @@ const handleUpload = () => {
 	flex-direction: column;
 	align-items: center;
 	text-align: center;
-	/* 內層柔和實邊 */
+	/* 内层柔和实边 */
 	border: 2rpx solid rgba(191, 169, 140, 0.22);
-	/* 極淡徑向漸變 + 線性漸變 */
+	/* 极淡径向渐变 + 线性渐变 */
 	background: radial-gradient(circle at 50% 0%, rgba(191, 169, 140, 0.1), transparent 55%),
 		linear-gradient(180deg, #FAF7F2, #F4EFE8);
 	transition: background 0.2s ease, border-color 0.2s ease;
@@ -2680,9 +2735,10 @@ const handleUpload = () => {
 }
 
 .divider {
-	height: 2rpx;
-	background: #E8E4DC;
-	margin: 40rpx 0;
+	height: 1rpx;
+	margin: 24rpx 0 32rpx;
+	background: linear-gradient(90deg, transparent, #E8E4DC, transparent);
+	border-bottom: 1rpx solid #E8E4DC;
 }
 
 .clothes-grid {
@@ -2694,37 +2750,71 @@ const handleUpload = () => {
 .cloth-card {
 	background: transparent;
 	cursor: pointer;
-	transition: transform 0.26s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.26s ease;
-}
-
-.cloth-card:hover {
-	transform: translateY(-6rpx);
-	box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.12);
-}
-
-.cloth-card:active {
-	transform: scale(0.98);
+	perspective: 1200px;
+	transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease, opacity 0.28s ease;
 }
 
 .img-wrapper {
 	position: relative;
 	width: 100%;
 	aspect-ratio: 4 / 5;
-	background: #F5F0E6;
+	transform-style: preserve-3d;
+	/* studio 展示：电商拍摄感 */
+	background: radial-gradient(circle at 50% 40%, #ffffff, #F3F1EC);
+	box-shadow:
+		inset 0 1rpx 0 rgba(255, 255, 255, 0.7),
+		0 6rpx 16rpx rgba(0, 0, 0, 0.04);
 	border-radius: 16rpx;
 	overflow: hidden;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.28s ease;
+}
+
+.img-wrapper:hover {
+	transform: translateY(-4rpx) rotateY(4deg);
+	box-shadow:
+		inset 0 1rpx 0 rgba(255, 255, 255, 0.8),
+		0 30px 60px rgba(0, 0, 0, 0.15);
 }
 
 .cloth-img {
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
+	transition: transform 0.3s ease;
 }
 
-/* 卡片 Hover 浮層：快捷操作 + 名稱 */
+.img-wrapper:hover .cloth-img {
+	transform: scale(1.03);
+}
+
+/* skeleton shimmer for image container before load */
+.img-wrapper::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(120deg, #f5f1e6 0%, #f9f5ec 20%, #f5f1e6 40%, #f5f1e6 100%);
+	background-size: 200% 100%;
+	animation: cloth-skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+.img-wrapper.is-loaded::before {
+	animation: none;
+	opacity: 0;
+	transition: opacity 0.3s ease-out;
+}
+
+@keyframes cloth-skeleton-shimmer {
+	0% {
+		background-position: 200% 0;
+	}
+	100% {
+		background-position: -200% 0;
+	}
+}
+/* 卡片 Hover 浮层：快捷操作 + 名称 */
 .card-overlay {
 	position: absolute;
 	inset: 0;
@@ -2738,7 +2828,7 @@ const handleUpload = () => {
 	transition: opacity 0.22s ease;
 }
 
-.cloth-card:hover .card-overlay {
+.img-wrapper:hover .card-overlay {
 	opacity: 1;
 	pointer-events: auto;
 }
@@ -2793,9 +2883,9 @@ const handleUpload = () => {
 }
 
 .quick-btn.danger {
-	background: rgba(255, 255, 255, 0.15);
-	color: #FEE4E4;
-	border: 1rpx solid rgba(255, 255, 255, 0.55);
+	background: #C62828;
+	color: #FFF;
+	border: 1rpx solid rgba(255, 255, 255, 0.3);
 }
 
 .quick-btn:active {
@@ -2803,15 +2893,16 @@ const handleUpload = () => {
 	transform: scale(0.97);
 }
 
-/* 卡片底部標題：在非 hover 狀態也提供輕量資訊 */
+/* 卡片底部标题：在非 hover 状态也提供轻量信息 */
 .card-caption {
 	margin-top: 10rpx;
 	padding: 0 4rpx;
+	transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .card-caption-name {
 	display: block;
-	font-size: 26rpx;
+	font-size: 32rpx;
 	color: #5b5b5f;
 	font-weight: 500;
 	overflow: hidden;
@@ -2864,6 +2955,147 @@ const handleUpload = () => {
 
 .view-switch-inner {
 	width: 100%;
+}
+
+@keyframes empty-float {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-6px); }
+}
+
+.empty-state-wrap {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 420rpx;
+	padding: 64rpx 48rpx;
+	text-align: center;
+	overflow: hidden;
+}
+
+/* 空状态轻背景容器：磨砂面板 */
+.empty-state-panel {
+	position: relative;
+	width: 100%;
+	max-width: 1200rpx;
+	background: rgba(255, 255, 255, 0.6);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	border-radius: 24rpx;
+	padding: 96rpx 160rpx;
+	box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	overflow: hidden;
+}
+
+.empty-state-bg-pattern {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 120rpx;
+	letter-spacing: 0.4em;
+	opacity: 0.03;
+	pointer-events: none;
+	user-select: none;
+}
+
+.empty-state-illustration {
+	position: relative;
+	margin-bottom: 32rpx;
+	animation: empty-float 4s ease-in-out infinite;
+}
+
+/* icon 后方淡淡服装纹理 */
+.empty-state-icon-texture {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 100rpx;
+	letter-spacing: 0.3em;
+	opacity: 0.05;
+	pointer-events: none;
+	white-space: nowrap;
+}
+
+.empty-state-icon {
+	position: relative;
+	width: 160rpx;
+	height: 160rpx;
+	opacity: 0.9;
+}
+
+.empty-state-headline {
+	font-family: "Playfair Display", "Didot", "Bodoni MT", "Noto Serif", "Songti SC", serif;
+	font-size: 56rpx;
+	font-weight: 600;
+	color: #3A3631;
+	margin-bottom: 20rpx;
+	line-height: 1.3;
+}
+
+.empty-state-subtitle {
+	font-family: Georgia, 'Times New Roman', Times, serif;
+	font-size: 27rpx;
+	color: #8A847C;
+	margin-bottom: 48rpx;
+	line-height: 1.5;
+	max-width: 1600rpx;
+}
+
+.empty-state-cta {
+	padding: 24rpx 56rpx;
+	border-radius: 999rpx;
+	background: #8C7355;
+	color: #FFF;
+	font-size: 30rpx;
+	font-weight: 600;
+	font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+	cursor: pointer;
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.empty-state-cta:hover {
+	transform: translateY(-2rpx);
+	box-shadow: 0 6rpx 20rpx rgba(140, 115, 85, 0.35);
+}
+.empty-state-cta:active {
+	transform: translateY(0);
+}
+
+/* 有筛选时的简洁空状态 */
+.empty-state-wrap.empty-state-has-filters .empty-state-title {
+	font-size: 32rpx;
+	font-weight: 600;
+	color: #1D1D1F;
+	margin-bottom: 16rpx;
+}
+.empty-state-wrap.empty-state-has-filters .empty-state-hint {
+	font-size: 26rpx;
+	color: #8a8376;
+	margin-bottom: 32rpx;
+}
+.empty-state-btn {
+	padding: 18rpx 40rpx;
+	border-radius: 24rpx;
+	background: #8C7355;
+	color: #FFF;
+	font-size: 28rpx;
+	font-weight: 600;
+	cursor: pointer;
+	transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.empty-state-btn:hover {
+	transform: translateY(-2rpx);
+}
+.empty-state-btn:active {
+	opacity: 0.9;
+	transform: translateY(0);
 }
 
 .view-switch-enter-active,
