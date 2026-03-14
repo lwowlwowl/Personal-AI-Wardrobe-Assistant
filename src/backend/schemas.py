@@ -82,7 +82,9 @@ class UserResponse(BaseModel):
     """用户信息响应模型（返回给客户端的数据）"""
     id: int
     username: str
-    email: Optional[str]
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
     is_active: bool
     created_at: datetime
 
@@ -122,10 +124,16 @@ class TokenResponse(BaseModel):
 
 class UserUpdate(BaseModel):
     """用户信息更新模型"""
+    username: Optional[str] = Field(None, min_length=3, max_length=50)
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None  # 全名
     avatar_url: Optional[str] = None  # 头像URL
-    preferences: Optional[str] = None  # 用户偏好设置
+
+
+class PasswordChange(BaseModel):
+    """修改密码（需验证当前密码）"""
+    current_password: str
+    new_password: str = Field(..., min_length=6, max_length=100)
 
 
 # ==================== 衣物相关枚举 ====================

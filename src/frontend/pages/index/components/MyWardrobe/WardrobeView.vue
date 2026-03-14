@@ -444,9 +444,9 @@ import ModelUploadModal from './ModelUploadModal.vue'
 import ClothUploadModal from './ClothUploadModal.vue'
 import DeleteConfirmModal from './DeleteConfirmModal.vue'
 import { TYPE_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
+import { authVerify } from '@/api/userApi.js'
 import {
   API_BASE_URL,
-  authVerify,
   getClothingList,
   uploadClothing,
   deleteClothing,

@@ -23,7 +23,6 @@ class User(Base):
     # 用户个人资料字段
     full_name = Column(String(100), nullable=True)                          # 用户全名
     avatar_url = Column(String(255), nullable=True)                         # 头像URL
-    preferences = Column(String(500), nullable=True)                        # 用户偏好设置（JSON格式）
 
     # 定义关系（一对多）
     clothing_items = relationship("ClothingItem", back_populates="user", cascade="all, delete-orphan")  # 用户拥有的衣物

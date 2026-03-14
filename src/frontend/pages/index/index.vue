@@ -91,10 +91,26 @@
 				<view class="user-status-card">
 					<transition name="user-menu-fade">
 						<view v-if="showUserMenu" class="user-menu-popup" @click.stop>
-							<view v-if="isLoggedIn" class="user-menu-item" @click="handleLogout">
-								<image src="/static/icons/icon-logout.svg" mode="aspectFit" class="user-menu-item-icon"></image>
-								<text class="user-menu-item-text">退出登录</text>
-							</view>
+							<template v-if="isLoggedIn">
+								<view class="user-menu-header">
+									<view class="user-menu-avatar-wrap" @click="handleChooseAvatar">
+										<image v-if="userProfile?.avatar_url" :src="userAvatarUrl(userProfile.avatar_url)" mode="aspectFill" class="user-menu-avatar-img"></image>
+										<image v-else src="/static/icons/icon-user.svg" mode="aspectFit" class="user-menu-avatar-icon"></image>
+										<text v-if="uploadingAvatar" class="user-menu-avatar-loading">上傳中…</text>
+									</view>
+									<text class="user-menu-username">{{ userProfile?.username || displayUserName }}</text>
+								</view>
+								<view v-if="userProfile?.email" class="user-menu-email">{{ userProfile.email }}</view>
+								<view class="user-menu-divider"></view>
+								<view class="user-menu-item" @click="openSettings">
+									<image src="/static/icons/icon-setting.svg" mode="aspectFit" class="user-menu-item-icon"></image>
+									<text class="user-menu-item-text">Settings</text>
+								</view>
+								<view class="user-menu-item" @click="handleLogout">
+									<image src="/static/icons/icon-logout.svg" mode="aspectFit" class="user-menu-item-icon"></image>
+									<text class="user-menu-item-text">Log out</text>
+								</view>
+							</template>
 							<view v-else class="user-menu-item" @click="handleGoToLogin">
 								<image src="/static/icons/icon-logout.svg" mode="aspectFit" class="user-menu-item-icon"></image>
 								<text class="user-menu-item-text">前往登录</text>
@@ -103,7 +119,8 @@
 					</transition>
 					<view class="footer-item user-status-trigger" @click.stop="toggleUserMenu">
 						<view class="nav-icon">
-							<image src="/static/icons/icon-user.svg" mode="aspectFit" class="icon-img icon-20"></image>
+							<image v-if="isLoggedIn && userProfile?.avatar_url" :src="userAvatarUrl(userProfile.avatar_url)" mode="aspectFill" class="icon-img icon-20 user-avatar-img"></image>
+							<image v-else src="/static/icons/icon-user.svg" mode="aspectFit" class="icon-img icon-20"></image>
 						</view>
 						<text class="nav-text" v-show="!isCollapsed">{{ displayUserName }}</text>
 					</view>
@@ -140,19 +157,28 @@
 				</transition>
 			</view>
 		</view>
+
+		<SettingsModal
+			:visible="showSettingsModal"
+			:user-profile="userProfile"
+			:display-user-name="displayUserName"
+			@close="closeSettingsModal"
+			@update:userProfile="onSettingsUpdateUserProfile"
+		/>
 	</view>
 </template>
 
 <script setup>
 import { ref, nextTick, provide } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { authVerify } from '@/api/wardrobe.js'
+import { authVerify, getUsersMe, uploadUserAvatar, API_BASE_URL } from '@/api/userApi.js'
 import RecommendationAI from './components/RecommendationAI/RecommendationAI.vue'
 import ConversationSidebar from './components/RecommendationAI/ConversationSidebar.vue'
 import VirtualTryOn from './components/VirtualTryOn.vue'
 import WardrobeView from './components/MyWardrobe/WardrobeView.vue'
 import MyCalendar from './components/MyCalendar/MyCalendar.vue'
 import WardrobeAnalysis from './components/WardrobeAnalysis/WardrobeAnalysis.vue'
+import SettingsModal from './SettingsModal.vue'
 
 const activeMenu = ref('recommendation')
 const isCollapsed = ref(false)
@@ -171,6 +197,8 @@ const conversationState = ref({
 // 侧边栏显示的用户名：登录后显示用户名，否则显示 Guest User
 const displayUserName = ref('Guest User')
 const isLoggedIn = ref(false)
+// 当前用户资料（登录后由 getUsersMe 拉取，含头像、邮箱）
+const userProfile = ref(null)
 
 // 供子组件（如 WardrobeView）在 checkAuthStatus 后同步登入状态
 const updateAuthState = (loggedIn, username) => {
@@ -183,6 +211,7 @@ const refreshDisplayUserName = async () => {
 	if (!token) {
 		displayUserName.value = 'Guest User'
 		isLoggedIn.value = false
+		userProfile.value = null
 		return
 	}
 	try {
@@ -191,17 +220,86 @@ const refreshDisplayUserName = async () => {
 			const username = res.data?.username || uni.getStorageSync('user_info')?.username
 			displayUserName.value = username || 'Guest User'
 			isLoggedIn.value = true
+			// 拉取完整用户资料（头像、邮箱）
+			try {
+				const meRes = await getUsersMe(token)
+				if (meRes.statusCode === 200 && meRes.data) {
+					userProfile.value = {
+						username: meRes.data.username ?? username,
+						email: meRes.data.email ?? '',
+						avatar_url: meRes.data.avatar_url ?? null
+					}
+				} else {
+					userProfile.value = { username: displayUserName.value, email: '', avatar_url: null }
+				}
+			} catch {
+				userProfile.value = { username: displayUserName.value, email: '', avatar_url: null }
+			}
 		} else {
 			uni.removeStorageSync('auth_token')
 			uni.removeStorageSync('user_info')
 			displayUserName.value = 'Guest User'
 			isLoggedIn.value = false
+			userProfile.value = null
 		}
 	} catch {
 		// 网络错误等保持当前显示，不强制清除
 		displayUserName.value = uni.getStorageSync('user_info')?.username || 'Guest User'
 		isLoggedIn.value = !!(token && uni.getStorageSync('user_info'))
+		if (!isLoggedIn.value) userProfile.value = null
 	}
+}
+
+// 头像完整 URL（后端返回的是相对路径）
+const userAvatarUrl = (url) => {
+	if (!url) return ''
+	return url.startsWith('http') ? url : `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`
+}
+
+const uploadingAvatar = ref(false)
+const showSettingsModal = ref(false)
+
+function openSettings() {
+	showUserMenu.value = false
+	showSettingsModal.value = true
+}
+
+function closeSettingsModal() {
+	showSettingsModal.value = false
+}
+
+function onSettingsUpdateUserProfile(payload) {
+	if (payload.username != null) {
+		displayUserName.value = payload.username
+		if (userProfile.value) userProfile.value.username = payload.username
+		uni.setStorageSync('user_info', { ...uni.getStorageSync('user_info'), username: payload.username })
+	}
+	if (payload.avatar_url != null && userProfile.value) {
+		userProfile.value.avatar_url = payload.avatar_url
+	}
+}
+
+const handleChooseAvatar = () => {
+	if (!isLoggedIn.value || uploadingAvatar.value) return
+	uni.chooseImage({
+		count: 1,
+		sizeType: ['compressed'],
+		sourceType: ['album', 'camera'],
+		success: async (res) => {
+			const filePath = res.tempFilePaths[0]
+			const token = uni.getStorageSync('auth_token')
+			if (!token) return
+			uploadingAvatar.value = true
+			try {
+				const upRes = await uploadUserAvatar({ token, filePath })
+				if (upRes.statusCode === 200 && upRes.data?.avatar_url) {
+					if (userProfile.value) userProfile.value.avatar_url = upRes.data.avatar_url
+				}
+			} finally {
+				uploadingAvatar.value = false
+			}
+		}
+	})
 }
 ;(async () => { await refreshDisplayUserName() })()
 onShow(() => {
@@ -427,6 +525,12 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	width: 20px;
 	height: 20px;
 }
+.user-avatar-img {
+	width: 48rpx;
+	height: 48rpx;
+	border-radius: 50%;
+	object-fit: cover;
+}
 
 .sidebar.collapsed .nav-icon {
 	margin-right: 0;
@@ -520,6 +624,69 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	overflow: hidden;
 	z-index: 100;
 }
+.user-menu-header {
+	display: flex;
+	align-items: center;
+	gap: 20rpx;
+	padding: 24rpx 28rpx 16rpx;
+}
+.user-menu-avatar-wrap {
+	position: relative;
+	width: 96rpx;
+	height: 96rpx;
+	border-radius: 50%;
+	overflow: hidden;
+	flex-shrink: 0;
+	background: #F1ECE4;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+.user-menu-avatar-img {
+	width: 100%;
+	height: 100%;
+}
+.user-menu-avatar-icon {
+	width: 52rpx;
+	height: 52rpx;
+	opacity: 0.7;
+}
+.user-menu-avatar-loading {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0,0,0,0.5);
+	color: #fff;
+	font-size: 20rpx;
+	text-align: center;
+	padding: 4rpx 0;
+}
+.user-menu-username {
+	font-size: 38rpx;
+	font-weight: 700;
+	color: #1D1D1F;
+	letter-spacing: 0.02em;
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.user-menu-email {
+	padding: 0 28rpx 16rpx;
+	font-size: 24rpx;
+	color: #666;
+	font-weight: normal;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.user-menu-divider {
+	height: 1px;
+	background: rgba(0, 0, 0, 0.08);
+	margin: 0 16rpx;
+}
 .user-menu-item {
 	display: flex;
 	align-items: center;
@@ -583,5 +750,4 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	opacity: 1;
 	transform: translateX(0);
 }
-
 </style>

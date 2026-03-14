@@ -1,6 +1,6 @@
 /**
  * 衣柜与后端联调 API 模块
- * 集中管理认证、衣物、模特照片等接口，便于复用与维护
+ * 衣物、模特照片等接口。用户/认证相关见 userApi.js
  */
 
 const API_BASE_URL = 'http://localhost:8000'
@@ -31,21 +31,6 @@ export function request(options) {
  */
 export function healthCheck() {
   return request({ url: '/api/health', method: 'GET' })
-}
-
-// ============ 认证 ============
-
-/**
- * 验证 JWT token 是否有效
- * @param {string} token
- * @returns {Promise<{ statusCode, data }>}
- */
-export function authVerify(token) {
-  return request({
-    url: '/api/auth/verify',
-    method: 'GET',
-    data: { token }
-  })
 }
 
 // ============ 衣物 (Clothing) ============

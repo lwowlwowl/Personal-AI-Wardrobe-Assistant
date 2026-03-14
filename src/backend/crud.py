@@ -74,6 +74,44 @@ def get_user_by_id(db: Session, user_id: int) -> Optional[models.User]:
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 
+def update_user(db: Session, user_id: int, **kwargs) -> Optional[models.User]:
+    """
+    更新用户信息（仅更新传入的非空字段）
+    参数: db, user_id, 以及 User 表可更新字段如 username, email, full_name, avatar_url
+    返回: 更新后的用户对象，不存在则返回 None；若更新 username 且已被占用则抛出 ValueError
+    """
+    user = get_user_by_id(db, user_id)
+    if not user:
+        return None
+    if "username" in kwargs:
+        new_username = (kwargs["username"] or "").strip()
+        if new_username:
+            existing = get_user_by_username(db, new_username)
+            if existing and existing.id != user_id:
+                raise ValueError("用户名已被使用")
+    for key, value in kwargs.items():
+        if hasattr(user, key):
+            setattr(user, key, value)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def change_password(db: Session, user_id: int, current_password: str, new_password: str) -> Tuple[bool, Optional[str]]:
+    """
+    修改当前用户密码（需验证当前密码）
+    返回: (成功与否, 错误信息)
+    """
+    user = get_user_by_id(db, user_id)
+    if not user:
+        return False, "用户不存在"
+    if not verify_password(current_password, user.hashed_password):
+        return False, "当前密码错误"
+    user.hashed_password = hash_password(new_password)
+    db.commit()
+    return True, None
+
+
 def create_user(db: Session, user_data: dict) -> Tuple[Optional[models.User], Optional[str]]:
     """
     创建新用户

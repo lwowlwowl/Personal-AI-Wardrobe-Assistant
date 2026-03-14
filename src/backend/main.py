@@ -531,6 +531,57 @@ async def read_users_me(
         )
 
 
+@app.patch("/api/users/me", response_model=schemas.UserResponse)
+async def update_users_me(
+        body: schemas.UserUpdate,
+        token: str = Query(...),
+        db: Session = Depends(get_db)
+):
+    """更新当前登录用户信息（如 username、email、full_name、avatar_url）"""
+    current_user = get_current_user(token, db)
+    update_data = body.model_dump(exclude_unset=True)
+    if not update_data:
+        return current_user
+    if "username" in update_data and (update_data["username"] or "").strip() == "":
+        del update_data["username"]
+    try:
+        updated = crud.update_user(db, current_user.id, **update_data)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    if updated is None:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    return updated
+
+
+@app.patch("/api/users/me/password")
+async def change_password_me(
+        body: schemas.PasswordChange,
+        token: str = Query(...),
+        db: Session = Depends(get_db)
+):
+    """修改当前用户密码（需提供当前密码）"""
+    current_user = get_current_user(token, db)
+    ok, err = crud.change_password(
+        db, current_user.id, body.current_password, body.new_password
+    )
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err or "修改失败")
+    return {"message": "密码已更新"}
+
+
+@app.post("/api/users/me/avatar", response_model=schemas.UserResponse)
+async def upload_user_avatar(
+        file: UploadFile = File(...),
+        token: str = Query(...),
+        db: Session = Depends(get_db)
+):
+    """上传当前用户头像，保存后更新用户的 avatar_url"""
+    current_user = get_current_user(token, db)
+    image_url = save_upload_file(file, current_user.id, file_type="avatar")
+    crud.update_user(db, current_user.id, avatar_url=image_url)
+    return crud.get_user_by_id(db, current_user.id)
+
+
 async def get_user_by_id(
         user_id: int,
         token: str,
@@ -679,7 +730,8 @@ def save_upload_file(file: UploadFile, user_id: int, file_type: str = "clothing"
     prefix_map = {
         "clothing": "clothing_",
         "model": "model_",
-        "outfit": "outfit_"
+        "outfit": "outfit_",
+        "avatar": "avatar_"
     }
     prefix = prefix_map.get(file_type, "")
 
