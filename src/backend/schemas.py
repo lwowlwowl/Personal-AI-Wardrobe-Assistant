@@ -595,3 +595,24 @@ class ExportData(BaseModel):
 class ChatReq(BaseModel):
   query: str
   history: list[dict] = Field(default_factory=list)
+
+
+# 推荐 AI 对话持久化（Your conversations）
+class AIConversationCreate(BaseModel):
+    title: str = "New conversation"
+    messages: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class AIConversationUpdate(BaseModel):
+    title: Optional[str] = None
+    messages: Optional[List[Dict[str, Any]]] = None
+
+
+class AIConversationResponse(BaseModel):
+    id: int
+    title: str
+    messages: List[Dict[str, Any]]
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)

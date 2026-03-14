@@ -115,4 +115,81 @@ export function getWeatherNow(lat, lon) {
   })
 }
 
+/**
+ * 推荐 AI 对话持久化（Your conversations）：需登录后使用
+ */
+
+function getAuthToken() {
+  return uni.getStorageSync('auth_token') || ''
+}
+
+/**
+ * 获取当前用户的对话列表
+ * @returns {Promise<{ data: Array<{ id: number, title: string, messages: Array }>, total: number }>}
+ */
+export function listConversations() {
+  const token = getAuthToken()
+  if (!token) return Promise.resolve({ data: [], total: 0 })
+  const url = `${API_BASE_URL}/api/ai/conversations?token=${encodeURIComponent(token)}`
+  return request({ url, method: 'GET' }).then(res => {
+    if (res.statusCode === 200 && res.data && res.data.success) {
+      return { data: res.data.data || [], total: res.data.total || 0 }
+    }
+    throw new Error((res.data && res.data.detail) || '获取对话列表失败')
+  })
+}
+
+/**
+ * 创建一条对话
+ * @param {Object} payload - { title?: string, messages?: Array }
+ * @returns {Promise<{ id: number, title: string, messages: Array }>}
+ */
+export function createConversation(payload = {}) {
+  const token = getAuthToken()
+  if (!token) return Promise.reject(new Error('请先登录'))
+  const url = `${API_BASE_URL}/api/ai/conversations?token=${encodeURIComponent(token)}`
+  return request({
+    url,
+    method: 'POST',
+    data: { title: payload.title || 'New conversation', messages: payload.messages || [] }
+  }).then(res => {
+    if (res.statusCode === 200 && res.data && res.data.success) {
+      return res.data.data
+    }
+    throw new Error((res.data && res.data.detail) || '创建对话失败')
+  })
+}
+
+/**
+ * 更新对话
+ * @param {number|string} id - 对话 id
+ * @param {Object} payload - { title?: string, messages?: Array }
+ */
+export function updateConversation(id, payload) {
+  const token = getAuthToken()
+  if (!token) return Promise.reject(new Error('请先登录'))
+  const url = `${API_BASE_URL}/api/ai/conversations/${id}?token=${encodeURIComponent(token)}`
+  const body = {}
+  if (payload.title !== undefined) body.title = payload.title
+  if (payload.messages !== undefined) body.messages = payload.messages
+  return request({ url, method: 'PUT', data: body }).then(res => {
+    if (res.statusCode === 200 && res.data && res.data.success) return res.data.data
+    throw new Error((res.data && res.data.detail) || '更新对话失败')
+  })
+}
+
+/**
+ * 删除对话
+ * @param {number|string} id - 对话 id
+ */
+export function deleteConversation(id) {
+  const token = getAuthToken()
+  if (!token) return Promise.reject(new Error('请先登录'))
+  const url = `${API_BASE_URL}/api/ai/conversations/${id}?token=${encodeURIComponent(token)}`
+  return request({ url, method: 'DELETE' }).then(res => {
+    if (res.statusCode === 200 && res.data && res.data.success) return
+    throw new Error((res.data && res.data.detail) || '删除对话失败')
+  })
+}
+
 export { API_BASE_URL, WEATHER_THROTTLE_MS }

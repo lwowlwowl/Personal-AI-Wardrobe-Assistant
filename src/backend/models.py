@@ -30,6 +30,7 @@ class User(Base):
     outfits = relationship("Outfit", back_populates="user", cascade="all, delete-orphan")               # 用户创建的搭配
     wear_history = relationship("WearHistory", back_populates="user", cascade="all, delete-orphan")     # 用户的穿着记录
     model_photos = relationship("ModelPhoto", back_populates="user", cascade="all, delete-orphan")      # 用户的模特照片
+    ai_conversations = relationship("AIConversation", back_populates="user", cascade="all, delete-orphan")  # 推荐 AI 对话记录
 
 # ========== 枚举定义 ==========
 class ClothingCategory(str, enum.Enum):
@@ -259,6 +260,29 @@ class OutfitItem(Base):
         Index('idx_outfit_items_outfit', 'outfit_id', 'order_index'),      # 按搭配和顺序查询
         Index('idx_outfit_items_clothing', 'clothing_id'),                 # 按衣物查询
     )
+
+class AIConversation(Base):
+    """
+    推荐 AI 对话表
+    存储用户与推荐 AI 的对话列表，支持登出后再次登录恢复
+    """
+    __tablename__ = "ai_conversations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    title = Column(String(200), nullable=False, default="New conversation")  # 对话标题（首条消息摘要）
+    messages = Column(JSON, nullable=False, default=list)  # 消息列表 [{ role, content }, ...]
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="ai_conversations")
+
+    __table_args__ = (
+        Index("idx_ai_conversations_user_updated", "user_id", "updated_at"),
+    )
+
 
 class WearHistory(Base):
     """

@@ -3620,6 +3620,97 @@ async def set_primary_model_photo(
         )
 
 
+# ============ 推荐 AI 对话持久化（Your conversations） ============
+
+@app.get("/api/ai/conversations")
+async def list_ai_conversations(
+        token: str = Query(...),
+        db: Session = Depends(get_db)
+):
+    """获取当前用户的推荐 AI 对话列表，按更新时间降序"""
+    current_user = get_current_user(token, db)
+    items, total, error = crud.ai_conversation_crud.list_by_user(db, user_id=current_user.id)
+    if error:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error)
+    return {
+        "success": True,
+        "data": [
+            {"id": c.id, "title": c.title, "messages": c.messages or [], "created_at": c.created_at.isoformat() if c.created_at else None, "updated_at": c.updated_at.isoformat() if c.updated_at else None}
+            for c in items
+        ],
+        "total": total
+    }
+
+
+@app.get("/api/ai/conversations/{conversation_id}")
+async def get_ai_conversation(
+        conversation_id: int,
+        token: str = Query(...),
+        db: Session = Depends(get_db)
+):
+    """获取单条对话详情"""
+    current_user = get_current_user(token, db)
+    conv, error = crud.ai_conversation_crud.get_by_id_and_user(db, conversation_id=conversation_id, user_id=current_user.id)
+    if error or not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="对话不存在或无权访问")
+    return {
+        "success": True,
+        "data": {"id": conv.id, "title": conv.title, "messages": conv.messages or [], "created_at": conv.created_at.isoformat() if conv.created_at else None, "updated_at": conv.updated_at.isoformat() if conv.updated_at else None}
+    }
+
+
+@app.post("/api/ai/conversations")
+async def create_ai_conversation(
+        body: schemas.AIConversationCreate,
+        token: str = Query(...),
+        db: Session = Depends(get_db)
+):
+    """创建一条新对话"""
+    current_user = get_current_user(token, db)
+    conv, error = crud.ai_conversation_crud.create(db, user_id=current_user.id, title=body.title, messages=body.messages)
+    if error or not conv:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error or "创建失败")
+    return {
+        "success": True,
+        "data": {"id": conv.id, "title": conv.title, "messages": conv.messages or [], "created_at": conv.created_at.isoformat() if conv.created_at else None, "updated_at": conv.updated_at.isoformat() if conv.updated_at else None}
+    }
+
+
+@app.put("/api/ai/conversations/{conversation_id}")
+async def update_ai_conversation(
+        conversation_id: int,
+        body: schemas.AIConversationUpdate,
+        token: str = Query(...),
+        db: Session = Depends(get_db)
+):
+    """更新对话标题和/或消息列表"""
+    current_user = get_current_user(token, db)
+    conv, error = crud.ai_conversation_crud.update(
+        db, conversation_id=conversation_id, user_id=current_user.id,
+        title=body.title, messages=body.messages
+    )
+    if error or not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND if not conv else status.HTTP_400_BAD_REQUEST, detail=error or "更新失败")
+    return {
+        "success": True,
+        "data": {"id": conv.id, "title": conv.title, "messages": conv.messages or [], "created_at": conv.created_at.isoformat() if conv.created_at else None, "updated_at": conv.updated_at.isoformat() if conv.updated_at else None}
+    }
+
+
+@app.delete("/api/ai/conversations/{conversation_id}")
+async def delete_ai_conversation(
+        conversation_id: int,
+        token: str = Query(...),
+        db: Session = Depends(get_db)
+):
+    """删除一条对话"""
+    current_user = get_current_user(token, db)
+    ok, error = crud.ai_conversation_crud.delete(db, conversation_id=conversation_id, user_id=current_user.id)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error or "删除失败")
+    return {"success": True, "message": "已删除"}
+
+
 react_agent = ReactAgent()
 
 

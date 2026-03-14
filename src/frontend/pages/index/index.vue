@@ -77,6 +77,7 @@
 				<ConversationSidebar
 					ref="conversationSidebarRef"
 					:conversation-state="conversationState"
+					:is-logged-in="isLoggedIn"
 					@update:conversation-state="onConversationStateUpdate"
 					v-model:open-menu-conv-id="openConvMenuId"
 				/>

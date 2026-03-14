@@ -48,11 +48,13 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import RenameModal from './RenameModal.vue'
 import DeleteModal from './DeleteModal.vue'
+import { listConversations, createConversation, updateConversation, deleteConversation } from '@/api/recommendationApi.js'
 
 // 仅「点击主内容区关闭选单」需由 index 控制；conversationState 由 index 传入以便 collapse 时不丢失
 const props = defineProps({
 	conversationState: { type: Object, default: () => ({ conversations: [], currentConversationId: null, currentConversation: null }) },
-	openMenuConvId: { type: String, default: null }
+	openMenuConvId: { type: String, default: null },
+	isLoggedIn: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update:conversationState', 'update:openMenuConvId'])
@@ -62,6 +64,14 @@ const currentConversationId = ref(props.conversationState?.currentConversationId
 const openConvMenuId = ref(null)
 const renamingConvId = ref(null)
 const deletingConvId = ref(null)
+const loadingConversations = ref(false)
+
+// 是否為後端返回的 id（數字或數字字串）
+function isServerId(id) {
+	if (id == null) return false
+	if (typeof id === 'number') return true
+	return typeof id === 'string' && /^\d+$/.test(id)
+}
 
 const currentConversation = computed(() => {
 	if (!currentConversationId.value) return null
@@ -83,15 +93,54 @@ function syncState() {
 	})
 }
 
+// 登入後從後端拉取對話列表
+async function loadConversationsFromServer() {
+	if (!props.isLoggedIn) return
+	loadingConversations.value = true
+	try {
+		const { data } = await listConversations()
+		conversations.value = (data || []).map(c => ({
+			id: c.id,
+			title: c.title || 'New conversation',
+			messages: Array.isArray(c.messages) ? c.messages : []
+		}))
+		// 若當前選中的對話不在列表中，改選第一條或清空
+		const stillExists = conversations.value.some(c => c.id === currentConversationId.value)
+		if (!stillExists && conversations.value.length > 0) {
+			currentConversationId.value = conversations.value[0].id
+		} else if (!stillExists) {
+			currentConversationId.value = null
+		}
+	} catch (e) {
+		console.warn('[ConversationSidebar] 拉取对话列表失败', e?.message || e)
+	} finally {
+		loadingConversations.value = false
+		syncState()
+	}
+}
+
 watch([conversations, currentConversationId], syncState, { deep: true })
 
-onMounted(() => {
-	const state = props.conversationState
-	if (state && Array.isArray(state.conversations) && state.conversations.length > 0) {
-		conversations.value = state.conversations
-		currentConversationId.value = state.currentConversationId ?? null
+watch(() => props.isLoggedIn, (loggedIn) => {
+	if (loggedIn) loadConversationsFromServer()
+	else {
+		conversations.value = []
+		currentConversationId.value = null
+		syncState()
 	}
-	syncState()
+}, { immediate: false })
+
+onMounted(() => {
+	if (props.isLoggedIn) {
+		loadConversationsFromServer()
+	} else {
+		const state = props.conversationState
+		if (state && Array.isArray(state.conversations) && state.conversations.length > 0) {
+			conversations.value = state.conversations
+			currentConversationId.value = state.currentConversationId ?? null
+		}
+		syncState()
+	}
 })
 
 // 与 index 的 openMenuConvId 双向同步（index 可通过 closeConvMenu 清空）
@@ -143,27 +192,54 @@ const cancelDelete = () => {
 	deletingConvId.value = null
 }
 
-const confirmDelete = () => {
+const confirmDelete = async () => {
 	const id = deletingConvId.value
-	if (id) {
-		conversations.value = conversations.value.filter(c => c.id !== id)
-		if (currentConversationId.value === id) {
-			currentConversationId.value = conversations.value[0]?.id ?? null
+	deletingConvId.value = null
+	if (!id) return
+	if (props.isLoggedIn && isServerId(id)) {
+		try {
+			await deleteConversation(id)
+		} catch (e) {
+			console.warn('[ConversationSidebar] 删除对话失败', e?.message || e)
 		}
 	}
-	deletingConvId.value = null
+	conversations.value = conversations.value.filter(c => c.id !== id)
+	if (currentConversationId.value === id) {
+		currentConversationId.value = conversations.value[0]?.id ?? null
+	}
 	syncState()
 }
 
-function handleCreateConversation({ id: providedId, title, firstMessage }) {
-	const id = providedId || 'c' + Date.now()
+async function handleCreateConversation({ id: providedId, title, firstMessage }) {
+	const clientId = providedId || 'c' + Date.now()
+	const messages = firstMessage ? [firstMessage] : []
 	conversations.value.unshift({
-		id,
+		id: clientId,
 		title: title || 'New conversation',
-		messages: firstMessage ? [firstMessage] : []
+		messages
 	})
-	currentConversationId.value = id
+	currentConversationId.value = clientId
 	syncState()
+
+	if (props.isLoggedIn) {
+		try {
+			const serverConv = await createConversation({ title: title || 'New conversation', messages })
+			const idx = conversations.value.findIndex(c => c.id === clientId)
+			if (idx !== -1) {
+				conversations.value[idx] = {
+					id: serverConv.id,
+					title: serverConv.title || 'New conversation',
+					messages: Array.isArray(serverConv.messages) ? serverConv.messages : messages
+				}
+				if (currentConversationId.value === clientId) {
+					currentConversationId.value = serverConv.id
+				}
+			}
+			syncState()
+		} catch (e) {
+			console.warn('[ConversationSidebar] 创建对话同步失败', e?.message || e)
+		}
+	}
 }
 
 function handleUpdateConversation({ id, messages, title }) {
@@ -173,6 +249,16 @@ function handleUpdateConversation({ id, messages, title }) {
 		if (title !== undefined) conv.title = title
 	}
 	syncState()
+
+	if (props.isLoggedIn && isServerId(id)) {
+		const payload = {}
+		if (messages !== undefined) payload.messages = messages
+		if (title !== undefined) payload.title = title
+		if (Object.keys(payload).length === 0) return
+		updateConversation(id, payload).catch(e => {
+			console.warn('[ConversationSidebar] 更新对话同步失败', e?.message || e)
+		})
+	}
 }
 
 defineExpose({
