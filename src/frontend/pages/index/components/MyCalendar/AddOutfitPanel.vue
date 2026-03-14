@@ -120,8 +120,11 @@
 		<view class="add-inline">
 			<view class="add-inline-list">
 				<transition name="filter-list-fade" mode="out-in">
-					<view v-if="wardrobeLoading" key="loading" class="add-empty">
-						<text class="add-empty-text">加载衣橱中…</text>
+					<view v-if="wardrobeLoading" key="loading" class="filter-list-container">
+						<view v-for="n in 5" :key="n" class="add-item-card skeleton-card">
+							<view class="skeleton-thumb"></view>
+							<view class="skeleton-text"></view>
+						</view>
 					</view>
 					<view v-else-if="filteredWardrobeItems.length > 0" key="filter-list" class="filter-list-container">
 						<view
@@ -190,7 +193,8 @@ watch(() => props.initialSelection, (newVal) => {
 
 /** 衣柜项目：来自 GET /api/clothing，字段映射 image_url -> image，color 可作 accentColor */
 const wardrobeItems = ref([])
-const wardrobeLoading = ref(false)
+/* 初始必须为 true，防止刚进组件时闪烁空状态 */
+const wardrobeLoading = ref(true)
 
 async function loadWardrobe() {
 	// 优先用父组件传入的 token，否则从本地存储读取（与「我的衣柜」同源）
@@ -311,7 +315,6 @@ const filterCategoryLabel = computed(() => {
 	})
 	return arr.length >= 2 ? `Clothing type (${arr.length})` : labels[0]
 })
-/** 筛选按钮显示的标签：未选中时显示默认文本，选中1项显示该项标签，选中多项显示数量 */
 const filterColorLabel = computed(() => {
 	const arr = filterColor.value
 	if (!arr.length) return 'Color'
@@ -322,7 +325,6 @@ const filterColorLabel = computed(() => {
 	})
 	return arr.length >= 2 ? `Color (${arr.length})` : labels[0]
 })
-/** 筛选按钮显示的标签：未选中时显示默认文本，选中1项显示该项标签，选中多项显示数量 */
 const filterSeasonLabel = computed(() => {
 	const arr = filterSeason.value
 	if (!arr.length) return 'Season'
@@ -827,5 +829,37 @@ function resetFilter(type) {
 	line-height: 1.6;
 	max-width: 480rpx;
 	letter-spacing: 0.01em;
+}
+
+/* =========================================
+   高级呼吸骨架屏 (Skeleton Loader)
+========================================= */
+.skeleton-card {
+	pointer-events: none; /* 骨架屏不可点击 */
+	background: rgba(255, 255, 255, 0.4);
+	border-color: transparent;
+}
+
+.skeleton-thumb {
+	width: 88rpx;
+	height: 88rpx;
+	border-radius: 12rpx 16rpx 16rpx 12rpx;
+	background: rgba(184, 107, 31, 0.08); /* 使用品牌主题色作为底色 */
+	animation: skeleton-pulse 1.5s infinite ease-in-out;
+}
+
+.skeleton-text {
+	width: 45%;
+	height: 28rpx;
+	border-radius: 8rpx;
+	background: rgba(184, 107, 31, 0.08);
+	animation: skeleton-pulse 1.5s infinite ease-in-out;
+	animation-delay: 0.2s; /* 文字比图片晚一点呼吸，增加错落感 */
+}
+
+@keyframes skeleton-pulse {
+	0% { opacity: 0.4; }
+	50% { opacity: 1; }
+	100% { opacity: 0.4; }
 }
 </style>

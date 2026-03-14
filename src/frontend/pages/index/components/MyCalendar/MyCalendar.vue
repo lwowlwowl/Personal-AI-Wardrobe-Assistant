@@ -1,62 +1,120 @@
 <template>
-	<view class="calendar-container">
+	<view
+		class="calendar-container"
+		@mousemove="onMagneticMouseMove"
+		@mouseleave="onMagneticMouseLeave"
+	>
 		<view class="calendar-inner">
-			<!-- 标题区 -->
-			<view class="header">
-				<text class="page-title">My Calendar</text>
-				<text class="page-sub">— outfit diary —</text>
-				<view class="header-divider" />
+			<text class="bg-watermark">{{ monthLabel.split(' ')[0].toUpperCase() }}</text>
+
+			<view class="scatter-bg-container" :class="{ 'panel-open': selectedDateKey }" aria-hidden="true">
+				<view
+					v-for="(item, index) in backgroundScatterItems"
+					:key="'scatter-' + item.id + '-' + index"
+					class="scatter-card"
+					:style="item.style"
+				>
+					<view class="scatter-thumb-wrap">
+						<image :src="item.image" mode="aspectFill" class="scatter-img" />
+					</view>
+				</view>
 			</view>
 
-			<!-- 主体：未选中居中 / 已选中左右分栏 -->
+			<view class="wardrobe-decor" aria-hidden="true">
+				<view class="tailor-mark top-left"></view>
+				<view class="tailor-mark bottom-right"></view>
+
+				<view class="pattern-curve"></view>
+
+				<view class="meta-text left-meta">AI_ANALYSIS: ON // WARDROBE_CAPACITY: 84%</view>
+				<view class="meta-text right-meta">
+					<text class="care-symbols">⏽ ◿ ⎔</text>
+					DRY CLEAN ONLY · HANDLE WITH CARE
+				</view>
+			</view>
+			<!-- 主体：未选中日历时居中；选中时日历后退失焦，右侧面板悬浮于正前方 -->
 			<view class="main-wrapper">
-				<!-- 左侧：日历 + This Month -->
-				<view class="main-left">
-					<view class="side-panel">
+				<!-- 左侧：日历 + This Month（选中时 is-shrunk：缩小宽度，为右侧抽屉腾出空间） -->
+				<view class="main-left" :class="{ 'is-shrunk': selectedDateKey }">
+					<view class="side-panel glass-panel">
 						<text class="side-title">This Month</text>
-						<view class="stat-item">
-							<text class="stat-num">{{ monthStats.daysRecorded }}</text>
-							<text class="stat-label">days recorded</text>
-						</view>
-						<view class="stat-item">
-							<text class="stat-num">{{ monthStats.uniqueItems }}</text>
-							<text class="stat-label">unique items</text>
-						</view>
-						<view v-if="currentStreak > 0" class="stat-item streak-item">
-							<text class="streak-emoji">🔥</text>
-							<text class="stat-num streak-num">{{ currentStreak }}</text>
-							<text class="stat-label">day streak</text>
+						<view class="stat-bars">
+							<view class="stat-bar-wrap">
+								<view class="stat-bar-label">
+									<text class="stat-num">{{ monthStats.daysRecorded }}</text>
+									<text class="stat-label">days recorded</text>
+								</view>
+								<view class="stat-bar-track">
+									<view class="stat-bar-fill" :style="{ width: daysRecordedPercent + '%' }" />
+								</view>
+							</view>
+							<view class="stat-bar-wrap">
+								<view class="stat-bar-label">
+									<text class="stat-num">{{ monthStats.uniqueItems }}</text>
+									<text class="stat-label">unique items</text>
+								</view>
+								<view class="stat-bar-track">
+									<view class="stat-bar-fill stat-bar-fill--secondary" :style="{ width: uniqueItemsPercent + '%' }" />
+								</view>
+							</view>
+							<view v-if="currentStreak > 0" class="stat-bar-wrap streak-bar">
+								<view class="stat-bar-label">
+									<text class="streak-emoji">🔥</text>
+									<text class="stat-num streak-num">{{ currentStreak }}</text>
+									<text class="stat-label">day streak</text>
+								</view>
+								<view class="stat-bar-track">
+									<view class="stat-bar-fill stat-bar-fill--streak" :style="{ width: Math.min(currentStreak * 20, 100) + '%' }" />
+								</view>
+							</view>
 						</view>
 					</view>
 					<view class="calendar-block">
-						<view class="calendar-card">
+						<view class="calendar-card glass-card">
 							<view class="calendar-nav">
-								<view class="nav-btn month-switch" @click="prevMonth">
+								<view
+									ref="prevMonthBtnRef"
+									class="nav-btn month-switch magnetic-btn"
+									:style="magneticStyle(prevMonthOffset)"
+									@click="prevMonth"
+								>
 									<text class="nav-arrow">‹</text>
 								</view>
 								<text class="month-label">{{ monthLabel }}</text>
-								<view class="nav-btn month-switch" @click="nextMonth">
+								<view
+									ref="nextMonthBtnRef"
+									class="nav-btn month-switch magnetic-btn"
+									:style="magneticStyle(nextMonthOffset)"
+									@click="nextMonth"
+								>
 									<text class="nav-arrow">›</text>
 								</view>
 							</view>
 							<view class="weekday-row">
 								<text v-for="d in weekdays" :key="d" class="weekday-cell">{{ d }}</text>
 							</view>
-							<view>
+							<view
+								class="calendar-grid-wrap"
+								ref="gridWrapRef"
+								:style="gridMouseStyle"
+								@mousemove="onGridMouseMove"
+								@mouseleave="onGridMouseLeave"
+							>
+								<view class="day-cell-glow" aria-hidden="true" />
 								<transition :name="slideDirection === 'left' ? 'month-slide-left' : 'month-slide-right'" mode="out-in">
-									<view :key="monthKey" class="calendar-grid">
+									<view :key="monthKey" class="calendar-grid calendar-grid--perspective">
 										<view
 											v-for="(cell, idx) in calendarCells"
 											:key="cell.dateKey"
-											class="day-cell"
+												class="day-cell"
 											:class="{
 												'other-month': !cell.isCurrentMonth,
 												'today': cell.isToday,
 												'has-items': (outfitsByDate[cell.dateKey]?.length || 0) > 0,
 												'selected': selectedDateKey === cell.dateKey
 											}"
-											:style="{ animationDelay: idx * 20 + 'ms' }"
-											@click="selectDay(cell)"
+											:style="getDayCellStyle(idx)"
+											@click="selectDay(cell, $event)"
 											@mouseenter="hoveredDateKey = (outfitsByDate[cell.dateKey]?.length || 0) > 0 ? cell.dateKey : null"
 											@mouseleave="hoveredDateKey = null"
 										>
@@ -97,21 +155,37 @@
 					</view>
 				</view>
 
-				<!-- 右侧：Outfit Panel（仅选中时显示） -->
-				<transition name="panel-fade">
+				<!-- FLIP 共享元素：从日格飞向面板标题的浮层 -->
+				<view
+					v-if="flyVisible"
+					class="fly-date-pill"
+					:style="flyStyle"
+					@transitionend="onFlyTransitionEnd"
+				>
+					<text class="fly-date-pill-text">{{ flyLabel }}</text>
+				</view>
+				<!-- 右侧：穿搭面板（选中时 absolute 居中悬浮，景深最前） -->
+				<transition name="split-panel-fade">
 					<view v-if="selectedDateKey" class="main-right">
-						<view class="outfit-panel">
-							<view class="outfit-panel-header">
+						<view class="outfit-panel glass-panel">
+							<view class="outfit-panel-header" ref="panelHeaderRef">
 								<view class="outfit-header-row1">
 									<text class="outfit-panel-title">{{ selectedDateLabel }}</text>
+									<view class="close-panel-btn magnetic-btn" @click="closePanel" role="button" aria-label="关闭面板">
+										<text class="close-icon">✕</text>
+									</view>
 								</view>
 								<text class="outfit-panel-subtitle">{{ selectedDaySummary }}</text>
-								<view v-if="!showAddPanel && (outfitsByDate[selectedDateKey]?.length || 0) > 0" class="add-btn add-btn-primary" @click="openAddPanel">
+								<view
+									v-if="!showAddPanel && (outfitsByDate[selectedDateKey]?.length || 0) > 0"
+									ref="addBtnPrimaryRef"
+									class="add-btn add-btn-primary"
+									@click="openAddPanel"
+								>
 									<image src="/static/icons/icon-plus.svg" mode="aspectFit" class="add-icon" />
 									<text>Add Outfit</text>
 								</view>
 							</view>
-							<!-- 选择衣服模式 / 列表·空状态：用 transition 做淡入淡出 -->
 							<transition name="panel-inner-fade" mode="out-in">
 								<AddOutfitPanel
 									v-if="showAddPanel"
@@ -124,18 +198,37 @@
 							<view v-else class="panel-inner">
 								<transition name="panel-content-fade" mode="out-in">
 									<view v-if="!outfitsByDate[selectedDateKey]?.length" key="empty" class="empty-day">
-										<view class="empty-illus">
-											<view class="empty-icon-gradient" />
-											<image src="/static/icons/icon-wardrobe.svg" mode="aspectFit" class="empty-icon" />
+										<view
+											class="empty-illus-wrap"
+											ref="emptyIllusRef"
+											:style="emptyIllusMouseStyle"
+											@mousemove="onEmptyIllusMouseMove"
+											@mouseleave="onEmptyIllusMouseLeave"
+										>
+											<view class="empty-illus-premium">
+												<image src="/static/icons/icon-wardrobe.svg" mode="aspectFit" class="empty-illus-icon" />
+											</view>
 										</view>
 										<text class="empty-text">✨ No outfit logged yet</text>
 										<text class="empty-hint">Start your style diary today.</text>
-										<view class="empty-add-btn" @click="openAddPanel">
+										<view
+											ref="emptyAddBtnRef"
+											class="empty-add-btn"
+											@click="openAddPanel"
+										>
 											<image src="/static/icons/icon-plus.svg" mode="aspectFit" class="add-icon" />
 											<text>Add Outfit</text>
 										</view>
 									</view>
-									<view v-else key="list" class="outfit-list" :class="{ 'is-clearing': isClearing }">
+									<view
+										v-else
+										key="list"
+										class="outfit-list"
+										ref="outfitListRef"
+										:class="{ 'is-clearing': isClearing }"
+										:data-scroll="outfitListScroll"
+										@scroll="onOutfitListScroll"
+									>
 									<view
 										v-for="(item, i) in outfitsByDate[selectedDateKey]"
 										:key="item.id || i"
@@ -144,7 +237,7 @@
 											'outfit-item-enter': !isClearing,
 											'outfit-item-leave': isClearing
 										}"
-										:style="{ animationDelay: i * 50 + 'ms' }"
+										:style="getOutfitItemStyle(i)"
 									>
 										<view class="outfit-thumb-wrap" :style="{ '--thumb-accent': item.accentColor || '#8d6e63' }">
 											<image v-if="item.image" class="outfit-thumb" :src="item.image" mode="aspectFill" />
@@ -173,7 +266,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import AddOutfitPanel from './AddOutfitPanel.vue'
 import { getCalendarOutfits, saveCalendarOutfits, API_BASE_URL } from '@/api/calendarApi.js'
 
@@ -184,13 +277,130 @@ const currentDate = new Date()
 const displayYear = ref(currentDate.getFullYear())
 const displayMonth = ref(currentDate.getMonth())
 const slideDirection = ref('right') // 'left' | 'right' - 用于月份切换动画方向
+/** 进入页面时预设不选中，展现完整日历（点选某日后再出现悬浮面板） */
 const selectedDateKey = ref(null)
 const showAddPanel = ref(false)
 const hoveredDateKey = ref(null) // 用于 hover 预览浮层
 const isClearing = ref(false) // 用于清除动画状态（清空当天全部时使用）
 
+// 玻璃态 / 动画 / FLIP
+const gridMouseX = ref(null)
+const gridMouseY = ref(null)
+const gridWrapRef = ref(null)
+const panelHeaderRef = ref(null)
+const outfitListRef = ref(null)
+const outfitListScroll = ref(0)
+const emptyIllusRef = ref(null)
+const emptyIllusMouseX = ref(null) // 百分比 0–100，用于空状态卡片反光
+const emptyIllusMouseY = ref(null)
+const flyVisible = ref(false)
+const flyStyle = ref({})
+const flyLabel = ref('')
+let flyTransitionEndHandler = null
+
+// 磁吸光标：鼠标靠近按钮 20px 时按钮向鼠标偏移，松开后弹簧回弹
+const MAGNETIC_RADIUS = 20
+const MAGNETIC_MAX_PULL = 10
+const prevMonthBtnRef = ref(null)
+const nextMonthBtnRef = ref(null)
+const addBtnPrimaryRef = ref(null)
+const emptyAddBtnRef = ref(null)
+const globalMouseX = ref(null)
+const globalMouseY = ref(null)
+const prevMonthOffset = ref({ x: 0, y: 0 })
+const nextMonthOffset = ref({ x: 0, y: 0 })
+const addBtnPrimaryOffset = ref({ x: 0, y: 0 })
+const emptyAddBtnOffset = ref({ x: 0, y: 0 })
+
+/** 鼠标在日历网格上的样式（用于光晕追踪） */
+const gridMouseStyle = computed(() => {
+	if (gridMouseX.value == null || gridMouseY.value == null) return {}
+	return {
+		'--mouse-x': gridMouseX.value + 'px',
+		'--mouse-y': gridMouseY.value + 'px'
+	}
+})
+
+/** 空状态卡片上的鼠标位置（百分比，用于全息反光） */
+const emptyIllusMouseStyle = computed(() => {
+	if (emptyIllusMouseX.value == null || emptyIllusMouseY.value == null) {
+		return { '--mouse-x': '50%', '--mouse-y': '50%' }
+	}
+	return {
+		'--mouse-x': emptyIllusMouseX.value + '%',
+		'--mouse-y': emptyIllusMouseY.value + '%'
+	}
+})
+
+/** 本月天数（用于进度条分母） */
+const daysInCurrentMonth = computed(() => {
+	const d = new Date(displayYear.value, displayMonth.value + 1, 0)
+	return d.getDate()
+})
+
+const daysRecordedPercent = computed(() => {
+	const n = monthStats.value.daysRecorded
+	const total = daysInCurrentMonth.value || 31
+	return Math.min(100, Math.round((n / total) * 100))
+})
+
+const uniqueItemsPercent = computed(() => {
+	const n = monthStats.value.uniqueItems
+	const cap = 50
+	return Math.min(100, Math.round((n / cap) * 100))
+})
+
 /** 每日穿搭记录：{ "2025-02-09": [{ id, name, image, accentColor? }] }，来自后端 GET /api/calendar/outfits */
 const outfitsByDate = ref({})
+
+/** 背景散落卡片 (Moodboard Scatter) - 分区均匀散布：最多 8 张，左 4 右 4，垂直区间错开 */
+const backgroundScatterItems = computed(() => {
+	const allItems = []
+	const seenIds = new Set()
+
+	for (const key in outfitsByDate.value) {
+		const outfits = outfitsByDate.value[key]
+		if (outfits && outfits.length) {
+			for (const item of outfits) {
+				if (item.image && !seenIds.has(item.id)) {
+					seenIds.add(item.id)
+					allItems.push(item)
+				}
+			}
+		}
+	}
+
+	const maxCards = 8
+	const selectedItems = allItems.sort(() => Math.random() - 0.5).slice(0, maxCards)
+
+	return selectedItems.map((item, index) => {
+		const isLeft = index % 2 === 0
+		const baseLeft = isLeft ? 2 : 78
+		const left = baseLeft + (Math.random() * 8)
+
+		const itemsPerSide = Math.ceil(maxCards / 2)
+		const verticalSlot = Math.floor(index / 2)
+		const slotHeight = 85 / itemsPerSide
+		const top = (verticalSlot * slotHeight) + (Math.random() * (slotHeight * 0.4)) + 2
+
+		const rotation = (Math.random() - 0.5) * 30
+		// 缩放范围：0.85 + [0, 0.5) = 0.85 ~ 1.35
+		const scale = 0.85 + Math.random() * 0.5
+		// 透明度范围：0.6 + [0, 0.35) = 0.6 ~ 0.95
+		const opacity = 0.6 + Math.random() * 0.35
+
+		return {
+			...item,
+			style: {
+				left: `${left}%`,
+				top: `${top}%`,
+				'--r': `${rotation}deg`,
+				'--s': scale,
+				'--opacity': opacity
+			}
+		}
+	})
+})
 
 /** 将后端返回的单品统一为前端格式（image 为完整 URL） */
 function normalizeItem(item) {
@@ -468,13 +678,160 @@ function nextMonth() {
 onMounted(() => fetchMonthOutfits())
 watch([displayYear, displayMonth], () => fetchMonthOutfits())
 
-/** 选择日期：如果当前处于 Add Outfit 模式，则退出该模式 */
-function selectDay(cell) {
-	// 如果切换日期时处于编辑状态，退出编辑状态
+/** 日格入场动画：按行列斜向波浪延迟（Spring） */
+function getDayCellStyle(idx) {
+	const row = Math.floor(idx / 7)
+	const col = idx % 7
+	const delay = (row + col) * 28
+	return { animationDelay: delay + 'ms' }
+}
+
+/** 日历网格鼠标移动：更新 CSS 变量供光晕使用 */
+function onGridMouseMove(e) {
+	const el = gridWrapRef.value
+	if (!el) return
+	const rect = el.getBoundingClientRect?.() ?? { left: 0, top: 0 }
+	const x = (e.clientX ?? e.touches?.[0]?.clientX ?? 0) - rect.left
+	const y = (e.clientY ?? e.touches?.[0]?.clientY ?? 0) - rect.top
+	gridMouseX.value = x
+	gridMouseY.value = y
+}
+
+function onGridMouseLeave() {
+	gridMouseX.value = null
+	gridMouseY.value = null
+}
+
+/** 磁吸：根据按钮 ref 与全局鼠标位置计算偏移 */
+function getMagneticOffset(btnRef) {
+	const mx = globalMouseX.value
+	const my = globalMouseY.value
+	if (mx == null || my == null) return { x: 0, y: 0 }
+	const el = btnRef?.value?.$el ?? btnRef?.value
+	if (!el?.getBoundingClientRect) return { x: 0, y: 0 }
+	const rect = el.getBoundingClientRect()
+	const cx = rect.left + rect.width / 2
+	const cy = rect.top + rect.height / 2
+	const dx = mx - cx
+	const dy = my - cy
+	const distance = Math.sqrt(dx * dx + dy * dy)
+	if (distance >= MAGNETIC_RADIUS || distance < 1) return { x: 0, y: 0 }
+	const pull = (1 - distance / MAGNETIC_RADIUS) * MAGNETIC_MAX_PULL
+	const len = distance
+	return {
+		x: (dx / len) * pull,
+		y: (dy / len) * pull
+	}
+}
+
+function onMagneticMouseMove(e) {
+	globalMouseX.value = e.clientX ?? e.touches?.[0]?.clientX ?? null
+	globalMouseY.value = e.clientY ?? e.touches?.[0]?.clientY ?? null
+	prevMonthOffset.value = getMagneticOffset(prevMonthBtnRef)
+	nextMonthOffset.value = getMagneticOffset(nextMonthBtnRef)
+	addBtnPrimaryOffset.value = getMagneticOffset(addBtnPrimaryRef)
+	emptyAddBtnOffset.value = getMagneticOffset(emptyAddBtnRef)
+}
+
+function onMagneticMouseLeave() {
+	globalMouseX.value = null
+	globalMouseY.value = null
+	prevMonthOffset.value = { x: 0, y: 0 }
+	nextMonthOffset.value = { x: 0, y: 0 }
+	addBtnPrimaryOffset.value = { x: 0, y: 0 }
+	emptyAddBtnOffset.value = { x: 0, y: 0 }
+}
+
+/** 磁吸按钮的 transform 样式（弹簧回弹由 CSS transition 负责） */
+function magneticStyle(offset) {
+	if (!offset || (offset.x === 0 && offset.y === 0)) return {}
+	return { transform: `translate(${offset.x}px, ${offset.y}px)` }
+}
+
+/** 空状态卡片：鼠标相对于卡片的百分比，供全息反光使用 */
+function onEmptyIllusMouseMove(e) {
+	const el = emptyIllusRef.value?.$el ?? emptyIllusRef.value
+	if (!el?.getBoundingClientRect) return
+	const rect = el.getBoundingClientRect()
+	const x = ((e.clientX ?? e.touches?.[0]?.clientX ?? 0) - rect.left) / rect.width * 100
+	const y = ((e.clientY ?? e.touches?.[0]?.clientY ?? 0) - rect.top) / rect.height * 100
+	emptyIllusMouseX.value = Math.max(0, Math.min(100, x))
+	emptyIllusMouseY.value = Math.max(0, Math.min(100, y))
+}
+function onEmptyIllusMouseLeave() {
+	emptyIllusMouseX.value = null
+	emptyIllusMouseY.value = null
+}
+
+/** 格式化日期为面板标题样式（用于 FLIP 飞入文字） */
+function formatDateLabel(dateKey) {
+	if (!dateKey) return ''
+	const [y, m, d] = dateKey.split('-')
+	const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
+	return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+}
+
+/** 选择日期：FLIP 共享元素飞入 + 若在 Add 模式则退出 */
+function selectDay(cell, e) {
 	if (showAddPanel.value) {
 		showAddPanel.value = false
 	}
+	const fromRect = e?.currentTarget?.getBoundingClientRect?.() ?? e?.target?.getBoundingClientRect?.() ?? null
 	selectedDateKey.value = cell.dateKey
+	flyLabel.value = formatDateLabel(cell.dateKey)
+
+	if (fromRect && fromRect.width > 0) {
+		flyVisible.value = true
+		flyStyle.value = {
+			left: fromRect.left + 'px',
+			top: fromRect.top + 'px',
+			width: fromRect.width + 'px',
+			height: fromRect.height + 'px',
+			transition: 'none'
+		}
+		nextTick(() => {
+			const header = panelHeaderRef.value
+			const el = header?.$el ?? header
+			const toRect = el?.getBoundingClientRect?.()
+			if (toRect && toRect.width > 0) {
+				flyStyle.value = {
+					left: toRect.left + 'px',
+					top: toRect.top + 'px',
+					width: toRect.width + 'px',
+					height: toRect.height + 'px',
+					transition: '0.52s cubic-bezier(0.34, 1.56, 0.64, 1)'
+				}
+				flyTransitionEndHandler = () => {
+					flyVisible.value = false
+					flyTransitionEndHandler = null
+				}
+			} else {
+				flyVisible.value = false
+			}
+		})
+	}
+}
+
+function onFlyTransitionEnd() {
+	if (flyTransitionEndHandler) flyTransitionEndHandler()
+}
+
+function onOutfitListScroll(e) {
+	const target = e?.target
+	outfitListScroll.value = target ? target.scrollTop : 0
+}
+
+/** 右侧列表项：入场延迟 + 滚动视差倾斜（用 --tilt 与入场动画并存） */
+function getOutfitItemStyle(i) {
+	const scroll = outfitListScroll.value
+	const base = 80
+	const offset = scroll - i * base
+	const tilt = Math.max(-4, Math.min(4, offset * 0.04))
+	const delay = i * 50
+	return {
+		animationDelay: delay + 'ms',
+		'--tilt': tilt + 'deg'
+	}
 }
 
 /** 格式化预览浮层显示的日期 */
@@ -521,7 +878,7 @@ async function handleAddOutfitConfirm(selectedItems) {
 	showAddPanel.value = false
 }
 
-/** 打开 Add Outfit 面板：同步最新 token，便于子组件拉取衣橱列表 */
+/** 打开 Add Outfit 面板 */
 function openAddPanel() {
 	userToken.value = uni.getStorageSync('auth_token') || userToken.value
 	showAddPanel.value = true
@@ -529,6 +886,12 @@ function openAddPanel() {
 
 /** 关闭 Add Outfit 面板 */
 function closeAddPanel() {
+	showAddPanel.value = false
+}
+
+/** 关闭悬浮面板，让日历重新聚焦 */
+function closePanel() {
+	selectedDateKey.value = null
 	showAddPanel.value = false
 }
 
@@ -603,133 +966,397 @@ function clearAllOutfits() {
 </script>
 
 <style scoped>
+/* =========================================
+   1. 赋予背景「布料纹理」(Fabric Weave Texture)
+========================================= */
 .calendar-container {
 	width: 100%;
-	height: 100vh;      /* 锁定一屏 */
-	overflow: hidden;   /* 不让整页滚 */
-	background: #FDFBF7;
+	height: 100vh;
+	overflow: hidden;
+	background-color: #FDFBF7;
+	/* 极细的网格线，模拟高级亚麻或纯棉布料的经纬线 */
+	background-image:
+		linear-gradient(rgba(141, 110, 99, 0.02) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(141, 110, 99, 0.02) 1px, transparent 1px);
+	background-size: 8rpx 8rpx;
+	position: relative;
+	z-index: 0;
 }
 
-/* 整页外边距：上 左右 下，调整页面内容与边缘的距离 */
+/* =========================================
+   2. AI 衣橱主题装饰层 (Thematic Decor)
+========================================= */
+.wardrobe-decor {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 0;
+	overflow: hidden;
+}
+
+/* 裁缝打版十字定位标 (Tailor Crosshairs) */
+.tailor-mark {
+	position: absolute;
+	width: 40rpx;
+	height: 40rpx;
+}
+.tailor-mark::before,
+.tailor-mark::after {
+	content: '';
+	position: absolute;
+	background: rgba(184, 107, 31, 0.2);
+}
+.tailor-mark::before {
+	top: 0;
+	bottom: 0;
+	left: 50%;
+	width: 2rpx;
+	transform: translateX(-50%);
+}
+.tailor-mark::after {
+	left: 0;
+	right: 0;
+	top: 50%;
+	height: 2rpx;
+	transform: translateY(-50%);
+}
+.tailor-mark.top-left {
+	top: 8%;
+	left: 6%;
+}
+.tailor-mark.bottom-right {
+	bottom: 8%;
+	right: 6%;
+}
+
+/* 服装制版弧形虚线 (Pattern Drafting Curve) */
+.pattern-curve {
+	position: absolute;
+	top: -10%;
+	left: -5%;
+	width: 45vw;
+	height: 80vh;
+	border: 2rpx dashed rgba(184, 107, 31, 0.08);
+	border-radius: 50%;
+	transform: rotate(15deg);
+}
+
+/* 边缘排版：AI 数据与洗标 (Vertical Editorial Text) */
+.meta-text {
+	position: absolute;
+	font-family: "Courier New", Courier, monospace;
+	font-size: 20rpx;
+	color: rgba(141, 110, 99, 0.25);
+	letter-spacing: 0.15em;
+	writing-mode: vertical-rl;
+	transform: rotate(180deg);
+}
+
+.left-meta {
+	bottom: 8%;
+	left: 3%;
+}
+
+.right-meta {
+	top: 8%;
+	right: 3%;
+	display: flex;
+	align-items: center;
+	gap: 16rpx;
+}
+
+.care-symbols {
+	font-family: sans-serif;
+	font-size: 28rpx;
+	letter-spacing: 0.3em;
+	transform: rotate(90deg);
+	margin-bottom: 24rpx;
+}
+
+/* =========================================
+   背景情绪板散落卡片 (Moodboard Scatter) - 高级静态版
+========================================= */
+.scatter-bg-container {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	overflow: hidden;
+}
+
+/* 拍立得相纸质感：使用 CSS 变量便于面板打开时统一缩小与降透明 */
+.scatter-card {
+	position: absolute;
+	width: 240rpx;
+	height: 280rpx;
+	padding: 16rpx 16rpx 56rpx 16rpx;
+	background: #ffffff;
+	border-radius: 4rpx;
+	box-shadow:
+		0 30rpx 60rpx rgba(141, 110, 99, 0.12),
+		0 4rpx 16rpx rgba(0, 0, 0, 0.06),
+		inset 0 0 0 1rpx rgba(0, 0, 0, 0.03);
+	filter: contrast(0.95) sepia(10%);
+	transform: rotate(var(--r)) scale(var(--s));
+	opacity: var(--opacity);
+	transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+	will-change: transform;
+}
+
+/* 右侧面板打开时：背景卡片等比例缩小且透明度降低，不抢主内容 */
+.scatter-bg-container.panel-open .scatter-card {
+	transform: rotate(var(--r)) scale(calc(var(--s) * 0.75));
+	opacity: calc(var(--opacity) * 0.55);
+}
+
+/* 纸胶带 (Masking Tape) 手工质感 */
+.scatter-card::before {
+	content: '';
+	position: absolute;
+	top: -12rpx;
+	left: 50%;
+	width: 80rpx;
+	height: 24rpx;
+	transform: translateX(-50%) rotate(-2deg);
+	background: rgba(230, 225, 215, 0.85);
+	box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.05);
+	border-left: 2rpx dashed rgba(255, 255, 255, 0.4);
+	border-right: 2rpx dashed rgba(255, 255, 255, 0.4);
+	backdrop-filter: blur(2px);
+	z-index: 10;
+}
+
+.scatter-thumb-wrap {
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	background: #f5f2ee;
+	box-shadow: inset 0 4rpx 10rpx rgba(0, 0, 0, 0.04);
+}
+
+.scatter-img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: block;
+}
+
 .calendar-inner {
-	padding: 80rpx 24rpx 48rpx;
+	padding: 80rpx 24rpx 48rpx; /* 顶部留白，避免两侧组件贴顶 */
 	width: 100%;
 	max-width: 100%;
 	height: 100%;
 	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
+	position: relative;
 }
 
-/* 标题区：Aesop 风格 - 奢侈留白、大标题、淡副标 */
-.header {
-	margin-bottom: 60rpx;
-	text-align: center;
-}
-
-.page-title {
-	display: block;
-	font-size: 72rpx;
-	font-weight: 600;
-	font-family: "Didot", "Bodoni MT", "Noto Serif", serif;
-	color: #1d1d1f;
+/* =========================================
+   巨型环境水印 (解决背景空旷感)
+========================================= */
+.bg-watermark {
+	position: absolute;
+	top: 45%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 32vw;
+	font-family: "Didot", "Bodoni MT", "Times New Roman", serif;
+	font-weight: 700;
+	color: rgba(184, 107, 31, 0.03);
+	white-space: nowrap;
+	pointer-events: none;
+	z-index: 0;
+	user-select: none;
 	letter-spacing: -0.04em;
-	line-height: 1.1;
 }
 
-.page-sub {
-	display: block;
-	font-size: 24rpx;
-	font-weight: 400;
-	color: #c0c0c0;
-	margin-top: 12rpx;
-	letter-spacing: 0.2em;
-}
-
-.header-divider {
-	height: 1rpx;
-	background: linear-gradient(90deg, transparent, rgba(0,0,0,0.06) 20%, rgba(0,0,0,0.06) 80%, transparent);
-	margin-top: 48rpx;
-}
-
-/* ========== 左侧日历与右侧面板：大小 / 比例 / 位置 控制说明 ==========
- * 调整下面 .main-wrapper / .main-left / .main-right 中的数值即可生效。
- * 未选中日期时只显示左侧日历；选中后右侧面板出现在日历右侧，布局不跳变。
- */
-
-/* 主内容区域（版心）：控制整体宽度与左右栏间距、对齐 */
+/* =========================================
+   1. 容器：移除 gap 和 :has，改用 margin 物理占位
+========================================= */
 .main-wrapper {
 	width: 100%;
-	max-width: 2700rpx;   /* 整体最大宽度，大屏不会无限变宽，可改为 1200rpx / 1600rpx */
-	margin: 0 auto;       /* 水平居中 */
+	max-width: 2400rpx;
+	margin: 0 auto;
 	display: flex;
-	flex-direction: row;
-	gap: 275rpx;          /* 左侧日历与右侧面板之间的间距，可改为 32rpx / 48rpx 等 */
-	align-items: stretch; /* 左右两栏等高 */
+	justify-content: center;
+	align-items: center;
 	flex: 1;
 	min-height: 0;
+	position: relative;
+	/* 删除了原本的 gap: 0 和 transition: gap */
 }
 
-/* 左侧日历：控制宽度与在左栏内的位置 */
+/* =========================================
+   2. 左侧日历：让出更多空间
+========================================= */
 .main-left {
-	flex: 0 0 1080rpx;    /* 基准宽度，建议与 min/max 协调，如 760rpx / 800rpx */
-	min-width: 720rpx;   /* 最小宽度，小屏时不会被压得太窄 */
-	max-width: 2060rpx;   /* 最大宽度，避免日历在大屏时过宽 */
+	flex: 0 1 1400rpx;
+	width: 100%;
 	display: flex;
-	margin-left: 130rpx;
 	flex-direction: column;
-	align-items: center;   /* 左栏内内容水平居中，改为 flex-start 靠左、flex-end 靠右 */
-	justify-content: flex-start; /* 左栏内内容垂直靠上，改为 center 居中、flex-end 靠下 */
-	gap: 28rpx;          /* 左栏内部（This Month 与日历之间）的间距 */
+	align-items: center;
+	justify-content: center;
+	gap: 28rpx;
+	/* 该贝塞尔曲线与右边面板保持绝对同步 */
+	transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+	will-change: flex-basis, max-width;
 }
 
-/* 右侧面板：控制宽度与占比，选中日期时显示 */
+.main-left.is-shrunk {
+	/* 从原来的 1080rpx 改小，给中间留出更多呼吸空间 */
+	flex: 0 1 960rpx;
+}
+
+/* =========================================
+   3. 右侧面板：释放玻璃的完整形态 (移除裁剪)
+========================================= */
 .main-right {
-	flex: 1 1 auto;     /* 占满剩余空间；若想固定宽度可改为 flex: 0 0 600rpx */
-	min-width: 520rpx;  /* 最小宽度，防止被压得太窄 */
-	max-width: 1080rpx;  /* 最大宽度，与左侧日历宽度协调 */
+	position: relative;
+	width: 880rpx;
+	max-width: 880rpx;
+	margin-left: 200rpx;
+	height: calc(100vh - 260rpx);
 	display: flex;
 	flex-direction: column;
-	min-height: 0;
-	animation: panel-fade-in 0.28s ease;
+	/* 删除 overflow: hidden，让玻璃边框与阴影在滑动全程保持完整，不被切断 */
 }
 
-@keyframes panel-fade-in {
-	from {
-		opacity: 0;
+.outfit-panel.glass-panel {
+	/* 内部面板强制固定宽度，不受外层 shrink 影响 */
+	width: 880rpx;
+	flex-shrink: 0;
+	height: 100%;
+	max-height: 100%;
+	/* 下方材质由「重塑高级玻璃材质」区块统一覆盖 */
+}
+
+/* =========================================
+   4. 右侧抽屉滑入/滑出动画：解耦透明度与空间位移
+========================================= */
+.split-panel-fade-enter-active,
+.split-panel-fade-leave-active {
+	/* 透明度用较短的 0.35s ease-out，在位移结束前就已 100% 清晰，消除顿挫感 */
+	transition:
+		opacity 0.35s ease-out,
+		transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+		max-width 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+		margin-left 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.split-panel-fade-enter-from,
+.split-panel-fade-leave-to {
+	opacity: 0;
+	transform: translateX(60rpx);
+	max-width: 0;
+	margin-left: 0;
+}
+.split-panel-fade-enter-to,
+.split-panel-fade-leave-from {
+	opacity: 1;
+	transform: translateX(0);
+	max-width: 880rpx;
+	margin-left: 200rpx;
+}
+
+/* =========================================
+   重塑高级玻璃材质 (Apple-style Glassmorphism)
+========================================= */
+.glass-panel,
+.glass-card {
+	/* 底色改为高纯净度透白，与背景 FDFBF7 产生明显对比 */
+	background: rgba(255, 255, 255, 0.65);
+	backdrop-filter: blur(30px) saturate(120%);
+	-webkit-backdrop-filter: blur(30px) saturate(120%);
+
+	/* 顶部与左侧反光白边，模拟玻璃被光照的厚度 */
+	border-top: 2rpx solid rgba(255, 255, 255, 1);
+	border-left: 2rpx solid rgba(255, 255, 255, 0.8);
+	border-right: 1rpx solid rgba(255, 255, 255, 0.4);
+	border-bottom: 1rpx solid rgba(255, 255, 255, 0.2);
+
+	box-shadow:
+		inset 0 2rpx 0 rgba(255, 255, 255, 0.6), /* 顶部内侧高光 */
+		0 12rpx 40rpx rgba(141, 110, 99, 0.06),
+		0 4rpx 12rpx rgba(0, 0, 0, 0.03);
+}
+
+/* 右侧抽屉面板层级最高，材质更不透明且厚重 */
+.outfit-panel.glass-panel {
+	background: rgba(255, 255, 255, 0.85);
+	backdrop-filter: blur(40px);
+	-webkit-backdrop-filter: blur(40px);
+
+	box-shadow:
+		inset 0 2rpx 0 rgba(255, 255, 255, 0.8),
+		0 40rpx 100rpx rgba(141, 110, 99, 0.12),
+		0 10rpx 30rpx rgba(0, 0, 0, 0.04);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+	.glass-panel,
+	.glass-card {
+		background: rgba(255, 255, 255, 0.95);
 	}
-	to {
-		opacity: 1;
+	.outfit-panel.glass-panel {
+		background: #FFFFFF;
 	}
 }
 
 .side-panel {
 	width: 100%;
-	display: flex;
-	flex-direction: row;
-	flex-wrap: wrap;
-	align-items: baseline;
-	gap: 24rpx;
 	padding: 28rpx 32rpx;
 	border-radius: 24rpx;
-	background: rgba(255, 255, 255, 0.6);
-	border: 1rpx solid rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
-/* 顶部统计条：背景信息，更轻 - 字体更小、灰度更淡 */
 .side-title {
+	display: block;
 	font-size: 22rpx;
 	font-weight: 600;
 	color: #aaa;
 	text-transform: uppercase;
 	letter-spacing: 0.1em;
+	margin-bottom: 20rpx;
 }
 
-.stat-item {
+/* 流体进度条：非对称视觉 */
+.stat-bars {
+	display: flex;
+	flex-direction: column;
+	gap: 20rpx;
+}
+.stat-bar-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 8rpx;
+}
+.stat-bar-label {
 	display: flex;
 	align-items: baseline;
 	gap: 8rpx;
-	margin-bottom: 0;
+}
+.stat-bar-track {
+	height: 20rpx;
+	min-height: 8px;
+	border-radius: 999rpx;
+	background: rgba(0, 0, 0, 0.08);
+	overflow: hidden;
+}
+.stat-bar-fill {
+	height: 100%;
+	min-width: 4px;
+	border-radius: 999rpx;
+	background: linear-gradient(90deg, rgba(184, 107, 31, 0.7) 0%, rgba(141, 110, 99, 0.6) 100%);
+	transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.stat-bar-fill--secondary {
+	background: linear-gradient(90deg, rgba(100, 80, 70, 0.55) 0%, rgba(120, 95, 85, 0.5) 100%);
+}
+.stat-bar-fill--streak {
+	background: linear-gradient(90deg, rgba(200, 120, 60, 0.75) 0%, rgba(184, 107, 31, 0.65) 100%);
+}
+.streak-bar .stat-bar-label {
+	gap: 6rpx;
 }
 .stat-num {
 	font-size: 36rpx;
@@ -741,9 +1368,6 @@ function clearAllOutfits() {
 	font-size: 20rpx;
 	color: #bbb;
 	margin-top: 0;
-}
-.streak-item {
-	gap: 6rpx;
 }
 .streak-emoji {
 	font-size: 28rpx;
@@ -759,20 +1383,40 @@ function clearAllOutfits() {
 	flex: 1;
 }
 
-/* 日历 Card：主角，更聚焦 - 加强阴影让它更「浮」 */
 .calendar-card {
 	width: 100%;
 	padding: 28rpx 24rpx 32rpx;
-	background: #fff;
 	border-radius: 24rpx;
-	border: 1rpx solid rgba(0, 0, 0, 0.06);
-	box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.08), 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
 }
 
-/* 右侧 Outfit Panel：用 height + max-height 限制高度（不用 flex:1 避免被父级拉满导致改数值无效）
- * 调长度：只改这一处的 260rpx。数值越小面板越高（如 220rpx），数值越大面板越矮（如 300rpx）
- */
-/* 右侧 Outfit Panel：辅助，更柔和 - 更轻、更像「抽屉」 */
+/* 日历网格容器：鼠标光晕追踪 */
+.calendar-grid-wrap {
+	position: relative;
+}
+.day-cell-glow {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	border-radius: 12rpx;
+	background: radial-gradient(
+		circle 120rpx at var(--mouse-x, -999px) var(--mouse-y, -999px),
+		rgba(255, 255, 255, 0.25) 0%,
+		rgba(255, 255, 255, 0.08) 40%,
+		transparent 70%
+	);
+	opacity: 0.9;
+	transition: opacity 0.2s ease;
+	z-index: 0;
+}
+.calendar-grid-wrap:not(:hover) .day-cell-glow {
+	opacity: 0;
+}
+.calendar-grid--perspective {
+	perspective: 1200px;
+	transform-style: preserve-3d;
+}
+
+/* 右侧 Outfit Panel：玻璃拟态 */
 .outfit-panel {
 	height: calc(100vh - 260rpx);
 	max-height: calc(100vh - 360rpx);
@@ -780,10 +1424,33 @@ function clearAllOutfits() {
 	display: flex;
 	flex-direction: column;
 	padding: 40rpx 44rpx 52rpx;
-	background: rgba(255, 255, 255, 0.95);
 	border-radius: 28rpx;
-	border: 1rpx solid rgba(0, 0, 0, 0.04);
-	box-shadow: 0 2rpx 16rpx rgba(0, 0, 0, 0.03), 0 1rpx 4rpx rgba(0, 0, 0, 0.02);
+	box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.06), 0 2rpx 16rpx rgba(0, 0, 0, 0.03);
+}
+
+/* FLIP 共享元素：飞入的日期胶囊 */
+.fly-date-pill {
+	position: fixed;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0 24rpx;
+	border-radius: 16rpx;
+	background: rgba(184, 107, 31, 0.2);
+	border: 2rpx solid rgba(184, 107, 31, 0.35);
+	box-shadow: 0 8rpx 24rpx rgba(184, 107, 31, 0.2);
+	z-index: 9999;
+	pointer-events: none;
+	box-sizing: border-box;
+}
+.fly-date-pill-text {
+	font-size: 32rpx;
+	font-weight: 700;
+	color: #1d1d1f;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	max-width: 100%;
 }
 
 .outfit-panel-header {
@@ -804,6 +1471,29 @@ function clearAllOutfits() {
 	font-weight: 700;
 	color: #1d1d1f;
 	letter-spacing: -0.02em;
+}
+.close-panel-btn {
+	width: 64rpx;
+	height: 64rpx;
+	border-radius: 50%;
+	background: rgba(0, 0, 0, 0.04);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+.close-panel-btn:hover {
+	background: rgba(0, 0, 0, 0.08);
+	transform: rotate(90deg);
+}
+.close-panel-btn:active {
+	transform: scale(0.9) rotate(90deg);
+}
+.close-icon {
+	font-size: 32rpx;
+	color: #666;
+	line-height: 1;
 }
 
 .outfit-panel-subtitle {
@@ -826,6 +1516,10 @@ function clearAllOutfits() {
 	background: rgba(184, 107, 31, 0.28);
 	border-color: rgba(184, 107, 31, 0.5);
 }
+.add-btn-primary:active {
+	transform: translateY(2rpx);
+	box-shadow: inset 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+}
 .add-btn-primary .add-icon {
 	width: 36rpx;
 	height: 36rpx;
@@ -838,6 +1532,7 @@ function clearAllOutfits() {
 	display: flex;
 	flex-direction: column;
 }
+
 .panel-inner-fade-enter-active,
 .panel-inner-fade-leave-active {
 	transition: opacity 0.25s ease;
@@ -886,15 +1581,25 @@ function clearAllOutfits() {
 	align-items: center;
 	justify-content: center;
 	background: rgba(0, 0, 0, 0.04);
-	transition: background 0.25s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+	transition: background 0.25s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
 	cursor: pointer;
+}
+.nav-btn.magnetic-btn {
+	transition: background 0.25s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+.add-btn.magnetic-btn,
+.empty-add-btn.magnetic-btn {
+	transition: background 0.2s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
 }
 .month-switch:hover {
 	background: rgba(0, 0, 0, 0.08);
+	box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.06);
 }
 .month-switch:active {
-	transform: scale(0.88);
+	transform: scale(0.92) translateY(2rpx);
 	background: rgba(0, 0, 0, 0.1);
+	box-shadow: inset 0 4rpx 12rpx rgba(0, 0, 0, 0.12);
 }
 
 .nav-arrow {
@@ -966,9 +1671,11 @@ function clearAllOutfits() {
 	display: grid;
 	grid-template-columns: repeat(7, 1fr);
 	gap: 6rpx;
+	position: relative;
+	z-index: 1;
 }
 
-/* 日历格子：纸张感，预设无边框，hover 才浮现 */
+/* 日格：Stagger + Spring 入场（斜向波浪）+ 光随指动 */
 .day-cell {
 	aspect-ratio: 1;
 	display: flex;
@@ -978,8 +1685,17 @@ function clearAllOutfits() {
 	border-radius: 12rpx;
 	background: transparent;
 	border: 1rpx solid transparent;
-	transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+	transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 	position: relative;
+	opacity: 0;
+	transform: translateZ(-100px) rotateX(20deg);
+	animation: sophisticated-entry 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes sophisticated-entry {
+	to {
+		opacity: 1;
+		transform: translateZ(0) rotateX(0);
+	}
 }
 .day-cell:hover {
 	border-color: rgba(0, 0, 0, 0.08);
@@ -991,8 +1707,12 @@ function clearAllOutfits() {
 .day-cell:active {
 	transform: scale(0.97);
 }
+/* 非当月日期：数字用浅灰色，当月日期保持黑色 */
+.day-cell.other-month .day-num {
+	color: #999;
+}
 .day-cell.other-month {
-	opacity: 0.35;
+	opacity: 0.85;
 }
 .day-cell.today {
 	background: rgba(255, 242, 217, 0.55);
@@ -1044,7 +1764,7 @@ function clearAllOutfits() {
 .day-num {
 	font-size: 32rpx;
 	font-weight: 600;
-	color: #1d1d1f;
+	color: #1d1d1f; /* 当月日期：黑色 */
 }
 .day-num-wrap.today .day-num {
 	color: #fff;
@@ -1198,7 +1918,8 @@ function clearAllOutfits() {
 }
 .add-btn:active {
 	background: rgba(184, 107, 31, 0.25);
-	transform: scale(0.97);
+	transform: scale(0.97) translateY(2rpx);
+	box-shadow: inset 0 4rpx 12rpx rgba(0, 0, 0, 0.12);
 }
 
 .add-icon {
@@ -1216,30 +1937,61 @@ function clearAllOutfits() {
 	justify-content: center;
 }
 
-.empty-illus {
+/* 空状态：鼠标追踪容器，传递 --mouse-x / --mouse-y 给下方卡片 */
+.empty-illus-wrap {
 	width: 160rpx;
 	height: 160rpx;
 	margin: 0 auto 36rpx;
-	border-radius: 50%;
-	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	cursor: default;
+}
+
+/* Apple 级拟真光影：全息金属/绸缎反光卡片 + 原有衣橱图标 */
+.empty-illus-premium {
+	position: relative;
+	width: 160rpx;
+	height: 160rpx;
+	border-radius: 40rpx;
+	background: linear-gradient(135deg, #f5f2ee 0%, #e8e4df 100%);
+	box-shadow:
+		inset 2rpx 2rpx 4rpx rgba(255, 255, 255, 0.8),
+		inset -2rpx -2rpx 8rpx rgba(0, 0, 0, 0.05),
+		0 16rpx 32rpx rgba(141, 110, 99, 0.1);
 	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 }
-
-.empty-icon-gradient {
-	position: absolute;
-	inset: 0;
-	background: linear-gradient(135deg, rgba(184, 107, 31, 0.18) 0%, rgba(141, 110, 99, 0.08) 50%, rgba(184, 107, 31, 0.12) 100%);
-}
-
-.empty-icon {
+.empty-illus-icon {
 	width: 72rpx;
 	height: 72rpx;
-	opacity: 0.65;
+	opacity: 0.7;
 	position: relative;
 	z-index: 1;
+	pointer-events: none;
+}
+
+/* 跟随鼠标的光泽反射（丝绸/拉丝金属高光） */
+.empty-illus-premium::after {
+	content: '';
+	position: absolute;
+	inset: -50%;
+	background: radial-gradient(
+		circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+		rgba(255, 255, 255, 0.9) 0%,
+		rgba(255, 255, 255, 0) 60%
+	);
+	mix-blend-mode: overlay;
+	pointer-events: none;
+	transition: opacity 0.3s ease;
+}
+.empty-illus-wrap:hover .empty-illus-premium::after {
+	opacity: 1;
+}
+.empty-illus-wrap:not(:hover) .empty-illus-premium::after {
+	opacity: 0;
 }
 
 .empty-text {
@@ -1269,7 +2021,7 @@ function clearAllOutfits() {
 	color: #7a4e18;
 	font-size: 28rpx;
 	font-weight: 700;
-	transition: background 0.2s ease, transform 0.2s ease;
+	transition: background 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
 	cursor: pointer;
 }
 .empty-add-btn:hover {
@@ -1277,7 +2029,8 @@ function clearAllOutfits() {
 }
 .empty-add-btn:active {
 	background: rgba(184, 107, 31, 0.35);
-	transform: scale(0.97);
+	transform: scale(0.97) translateY(2rpx);
+	box-shadow: inset 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
 }
 .empty-add-btn .add-icon {
 	width: 36rpx;
@@ -1292,6 +2045,7 @@ function clearAllOutfits() {
 	min-height: 0;
 	overflow-y: auto;
 	padding-right: 8rpx;
+	perspective: 800px;
 }
 .outfit-list-footer {
 	margin-top: auto;
@@ -1308,7 +2062,7 @@ function clearAllOutfits() {
 	font-size: 28rpx;
 	font-weight: 600;
 	text-align: center;
-	transition: background 0.2s ease, transform 0.2s ease;
+	transition: background 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
 	cursor: pointer;
 }
 .clear-all-btn:hover {
@@ -1317,36 +2071,39 @@ function clearAllOutfits() {
 }
 .clear-all-btn:active {
 	background: rgba(184, 107, 31, 0.2);
-	transform: scale(0.98);
+	transform: scale(0.98) translateY(2rpx);
+	box-shadow: inset 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
 }
 
-/* 日记卡片风格：无分割线，用留白分隔，hover 时浮起 */
+/* 日记卡片：滚动视差倾斜 + hover 浮起 */
 .outfit-item {
 	display: flex;
 	align-items: center;
 	gap: 20rpx;
 	padding: 24rpx 28rpx;
 	border-radius: 24rpx;
-	background: #fff;
-	border: none;
+	background: rgba(255, 255, 255, 0.7);
+	backdrop-filter: blur(8px);
+	border: 1rpx solid rgba(255, 255, 255, 0.5);
 	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
-	transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s ease;
+	transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+	transform-origin: center center;
+	transform: perspective(800px) rotateX(var(--tilt, 0deg));
 }
 .outfit-item:hover {
-	transform: translateY(-4rpx);
 	box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.08), 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
 	cursor: pointer;
 }
-/* 瀑布流入场：依次从下往上浮起 + 淡入 */
+/* 瀑布流入场 + 视差倾斜（--tilt 由 JS 更新） */
 .outfit-item-enter {
 	opacity: 0;
-	transform: translateY(24rpx);
-	animation: outfit-item-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+	transform: perspective(800px) translateY(24rpx) rotateX(var(--tilt, 0deg));
+	animation: outfit-item-enter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 @keyframes outfit-item-enter {
 	to {
 		opacity: 1;
-		transform: translateY(0);
+		transform: perspective(800px) translateY(0) rotateX(var(--tilt, 0deg));
 	}
 }
 
@@ -1441,6 +2198,7 @@ function clearAllOutfits() {
 		flex: none;
 		min-width: 0;
 		max-width: 100%;
+		margin-left: 0;
 	}
 	.calendar-block {
 		max-width: 100%;
