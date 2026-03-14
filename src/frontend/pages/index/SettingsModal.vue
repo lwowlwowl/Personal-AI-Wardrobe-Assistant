@@ -1,41 +1,40 @@
 <template>
-	<view v-if="visible" class="settings-mask high-contrast" @click="handleClose">
-		<view class="settings-panel" @click.stop>
-			<view class="settings-header">
-				<text class="settings-title">Account Settings</text>
-				<text class="settings-desc">Manage your profile and security</text>
-			</view>
-
-			<!-- 个人信息块：头像 + 用户名 -->
-			<view class="settings-block settings-block-personal">
-				<text class="block-title">Personal information</text>
-				<text class="block-desc">Update your avatar and display name</text>
-
-				<view class="avatar-section">
-					<view class="avatar-wrap" @click="handleChooseAvatar">
-						<image
-							v-if="userProfile?.avatar_url"
-							:src="userAvatarUrl(userProfile.avatar_url)"
-							mode="aspectFill"
-							class="avatar-img"
-						></image>
-						<image v-else src="/static/icons/icon-user.svg" mode="aspectFit" class="avatar-placeholder"></image>
-						<view v-if="uploadingAvatar" class="avatar-loading">
-							<text class="avatar-loading-text">Uploading…</text>
-						</view>
-					</view>
+	<Transition name="modal">
+		<view v-if="visible" class="settings-mask" @click="handleClose">
+			<view class="settings-panel" @click.stop>
+				<view class="settings-header">
+					<text class="settings-title">Account Settings</text>
+					<text class="settings-desc">Manage your profile and security</text>
 				</view>
 
-				<view class="username-section">
-					<view class="field-row">
-						<view class="field-label-wrap">
-							<view class="field-label-row">
-								<text class="field-label">Username</text>
-								<image src="/static/icons/icon-edit.svg" mode="aspectFit" class="field-edit-icon"></image>
+				<!-- 个人信息块：头像 + 用户名 -->
+				<view class="settings-block settings-block-personal">
+					<text class="block-title">Personal information</text>
+					<text class="block-desc">Update your avatar and display name</text>
+
+					<view class="avatar-section">
+						<view class="avatar-wrap" @click="handleChooseAvatar">
+							<image
+								v-if="userProfile?.avatar_url"
+								:src="userAvatarUrl(userProfile.avatar_url)"
+								mode="aspectFill"
+								class="avatar-img"
+							></image>
+							<image v-else src="/static/icons/icon-user.svg" mode="aspectFit" class="avatar-placeholder"></image>
+							<view v-if="uploadingAvatar" class="avatar-loading">
+								<text class="avatar-loading-text">Uploading…</text>
 							</view>
-							<text class="field-hint">Editable, at least 3 characters</text>
+							<view class="avatar-overlay">
+								<image src="/static/icons/icon-edit.svg" mode="aspectFit" class="avatar-overlay-icon"></image>
+								<text class="avatar-overlay-text">Change</text>
+							</view>
 						</view>
-						<view class="field-input-wrap">
+					</view>
+
+					<view class="username-section">
+						<view class="field-stack">
+							<text class="field-label">Username</text>
+							<text class="field-hint" :class="{ 'field-hint-error': usernameLengthInvalid }">Editable, at least 3 characters</text>
 							<input
 								id="settings-username"
 								v-model="settingsUsername"
@@ -45,92 +44,96 @@
 								@input="onUsernameInput"
 							/>
 						</view>
-					</view>
-					<text v-if="settingsUsernameError" class="field-error">{{ settingsUsernameError }}</text>
-					<view class="btn-row-right">
-						<view
-							class="btn-secondary btn-save-username"
-							:class="{ 'btn-disabled': !usernameValid, 'btn-active': usernameValid }"
-							@click="usernameValid && saveUsername()"
-						>
-							<text class="btn-text">Save</text>
+						<view v-if="settingsUsernameError" class="field-error-wrap">
+							<text class="field-error">{{ settingsUsernameError }}</text>
+						</view>
+						<view class="btn-row-right">
+							<view
+								class="btn-secondary btn-save-username"
+								:class="{ 'btn-disabled': !usernameValid, 'btn-active': usernameValid }"
+								@click="usernameValid && saveUsername()"
+							>
+								<text class="btn-text">Save</text>
+							</view>
 						</view>
 					</view>
 				</view>
-			</view>
 
 			<!-- 密码修改块 -->
-			<view class="settings-block settings-block-password">
-				<text class="block-title">Change password</text>
-				<text class="block-desc">Enter current password and set a new one. Password should be at least 6 characters long.</text>
+				<view class="settings-block settings-block-password">
+					<text class="block-title">Change password</text>
+					<text class="block-desc">Enter current password and set a new one. Password should be at least 6 characters long.</text>
 
-				<view class="field-row field-row-spaced">
-					<view class="field-label-wrap">
+					<view class="field-stack">
 						<text class="field-label">Current password</text>
+						<view class="field-input-wrap password-input-wrapper">
+							<input
+								v-model="settingsCurrentPassword"
+								class="field-input"
+								:password="!showCurrentPassword"
+								placeholder="Enter your current password"
+								@input="onPasswordInput"
+							/>
+							<view class="eye-icon" @click="toggleShowCurrentPassword">
+								<image class="eye-image" :src="showCurrentPassword ? '/static/eye-open.png' : '/static/eye-close.png'" mode="aspectFit"></image>
+							</view>
+						</view>
 					</view>
-					<view class="field-input-wrap">
-						<input
-							v-model="settingsCurrentPassword"
-							class="field-input"
-							type="password"
-							placeholder="Enter your current password"
-							@input="onPasswordInput"
-						/>
-					</view>
-				</view>
 
-				<view class="field-row field-row-spaced">
-					<view class="field-label-wrap">
+					<view class="field-stack">
 						<text class="field-label">New password</text>
-						<text class="field-hint field-hint-inline">At least 6 characters</text>
+						<view class="field-input-wrap password-input-wrapper">
+							<input
+								v-model="settingsNewPassword"
+								class="field-input"
+								:password="!showNewPassword"
+								placeholder="Enter your new password"
+								@input="onPasswordInput"
+							/>
+							<view class="eye-icon" @click="toggleShowNewPassword">
+								<image class="eye-image" :src="showNewPassword ? '/static/eye-open.png' : '/static/eye-close.png'" mode="aspectFit"></image>
+							</view>
+						</view>
+						<view v-if="settingsNewPassword.length > 0" class="password-strength">
+							<view class="strength-bar" :class="[passwordStrengthClass, (passwordStrengthClass === 'strength-medium' || passwordStrengthClass === 'strength-strong') ? 'strength-bar-ok' : '']"></view>
+							<text class="strength-text" :class="(passwordStrengthClass === 'strength-medium' || passwordStrengthClass === 'strength-strong') ? 'strength-text-green' : ''">{{ passwordStrengthText }}</text>
+						</view>
 					</view>
-					<view class="field-input-wrap">
-						<input
-							v-model="settingsNewPassword"
-							class="field-input"
-							type="password"
-							placeholder="Enter your new password"
-							@input="onPasswordInput"
-						/>
-					</view>
-				</view>
-				<text v-if="settingsNewPassword.length > 0 && settingsNewPassword.length < 6" class="field-error field-error-inline">Password should be at least 6 characters long.</text>
-				<view v-if="settingsNewPassword.length > 0" class="password-strength">
-					<view class="strength-bar" :class="passwordStrengthClass"></view>
-					<text class="strength-text">{{ passwordStrengthText }}</text>
-				</view>
 
-				<view class="field-row field-row-spaced">
-					<view class="field-label-wrap">
+					<view class="field-stack">
 						<text class="field-label">Confirm new password</text>
+						<view class="field-input-wrap password-input-wrapper">
+							<input
+								v-model="settingsConfirmPassword"
+								class="field-input"
+								:password="!showConfirmPassword"
+								placeholder="Confirm your new password"
+								@input="onPasswordInput"
+							/>
+							<view class="eye-icon" @click="toggleShowConfirmPassword">
+								<image class="eye-image" :src="showConfirmPassword ? '/static/eye-open.png' : '/static/eye-close.png'" mode="aspectFit"></image>
+							</view>
+						</view>
+						<view v-if="confirmMismatch || settingsPasswordError" class="field-error-wrap">
+							<text class="field-error">{{ confirmMismatch ? 'Passwords do not match.' : settingsPasswordError }}</text>
+						</view>
 					</view>
-					<view class="field-input-wrap">
-						<input
-							v-model="settingsConfirmPassword"
-							class="field-input"
-							type="password"
-							placeholder="Confirm your new password"
-							@input="onPasswordInput"
-						/>
-					</view>
-				</view>
-				<text v-if="confirmMismatch" class="field-error">Passwords do not match</text>
-				<text v-if="settingsPasswordError" class="field-error">{{ settingsPasswordError }}</text>
 
-				<view class="btn-row-right">
-					<view
-						class="btn-primary btn-change-password"
-						:class="{ 'btn-disabled': !passwordFormValid, 'btn-active': passwordFormValid }"
-						@click="passwordFormValid && savePassword()"
-					>
-						<text class="btn-text">Change password</text>
+					<view class="btn-row-right">
+						<view
+							class="btn-primary btn-change-password"
+							:class="{ 'btn-disabled': !passwordFormValid, 'btn-active': passwordFormValid }"
+							@click="onChangePasswordClick"
+						>
+							<text class="btn-text">Change password</text>
+						</view>
 					</view>
 				</view>
+
+				<view class="settings-close" @click="handleClose">Close</view>
 			</view>
-
-			<view class="settings-close" @click="handleClose">Close</view>
 		</view>
-	</view>
+	</Transition>
 </template>
 
 <script setup>
@@ -152,6 +155,9 @@ const settingsNewPassword = ref('')
 const settingsConfirmPassword = ref('')
 const settingsPasswordError = ref('')
 const uploadingAvatar = ref(false)
+const showCurrentPassword = ref(false)
+const showNewPassword = ref(false)
+const showConfirmPassword = ref(false)
 
 function userAvatarUrl(url) {
 	if (!url) return ''
@@ -164,13 +170,14 @@ const usernameValid = computed(() => {
 	return name.length >= 3
 })
 
+const usernameLengthInvalid = computed(() => {
+	const name = (settingsUsername.value || '').trim()
+	return name.length > 0 && name.length < 3
+})
+
 function onUsernameInput() {
 	const name = (settingsUsername.value || '').trim()
-	if (name.length > 0 && name.length < 3) {
-		settingsUsernameError.value = 'At least 3 characters'
-	} else {
-		settingsUsernameError.value = ''
-	}
+	if (name.length >= 3) settingsUsernameError.value = ''
 }
 
 // 密码强度（简单：仅按长度）
@@ -204,6 +211,10 @@ const passwordFormValid = computed(() => {
 	return current.length > 0 && newPwd.length >= 6 && newPwd === confirm
 })
 
+function toggleShowCurrentPassword() { showCurrentPassword.value = !showCurrentPassword.value }
+function toggleShowNewPassword() { showNewPassword.value = !showNewPassword.value }
+function toggleShowConfirmPassword() { showConfirmPassword.value = !showConfirmPassword.value }
+
 watch(() => [props.visible, props.userProfile?.username, props.displayUserName], () => {
 	if (props.visible) {
 		settingsUsername.value = props.userProfile?.username || props.displayUserName || ''
@@ -212,6 +223,9 @@ watch(() => [props.visible, props.userProfile?.username, props.displayUserName],
 		settingsNewPassword.value = ''
 		settingsConfirmPassword.value = ''
 		settingsPasswordError.value = ''
+		showCurrentPassword.value = false
+		showNewPassword.value = false
+		showConfirmPassword.value = false
 	}
 }, { immediate: true })
 
@@ -229,7 +243,8 @@ async function saveUsername() {
 		const res = await updateUsersMe(token, { username: name })
 		if (res.statusCode === 200 && res.data) {
 			emit('update:userProfile', { username: res.data.username || name })
-			uni.showToast({ title: 'Saved', icon: 'success' })
+			emit('close')
+			setTimeout(() => { uni.showToast({ title: 'Saved!', icon: 'success' }) }, 100)
 		} else {
 			const d = res.data?.detail
 			settingsUsernameError.value = Array.isArray(d) ? (d[0] || 'Save failed') : (d || 'Save failed')
@@ -239,8 +254,41 @@ async function saveUsername() {
 	}
 }
 
+/** 根据后端返回的 detail 和 statusCode 给出具体原因，方便用户知道是「当前密码错误」还是其他 */
+function passwordFailureMessage(detail, statusCode) {
+	const msg = Array.isArray(detail) ? (detail[0] || '') : (detail || '')
+	const s = (msg || '').toString()
+	if (/当前密码|密码错误|incorrect|wrong|修改失败/i.test(s)) return 'Current password is incorrect.'
+	if (statusCode === 400) return 'Current password is incorrect.'
+	return s || 'Failed to change password.'
+}
+
+/** 点击「Change password」时：先在校验处统一把错误显示在 Confirm 下方，再在通过时发请求 */
+function onChangePasswordClick() {
+	settingsPasswordError.value = ''
+	const current = settingsCurrentPassword.value
+	const newPwd = settingsNewPassword.value
+	const confirm = settingsConfirmPassword.value
+	if (!current.length) {
+		settingsPasswordError.value = 'Please enter your current password.'
+		return
+	}
+	if (newPwd.length < 6) {
+		settingsPasswordError.value = 'New password must be at least 6 characters.'
+		return
+	}
+	if (newPwd !== confirm) {
+		settingsPasswordError.value = 'Passwords do not match.'
+		return
+	}
+	if (current === newPwd) {
+		settingsPasswordError.value = 'New password cannot be the same as current password.'
+		return
+	}
+	savePassword()
+}
+
 async function savePassword() {
-	if (!passwordFormValid.value) return
 	const current = settingsCurrentPassword.value
 	const newPwd = settingsNewPassword.value
 	settingsPasswordError.value = ''
@@ -252,10 +300,11 @@ async function savePassword() {
 			settingsCurrentPassword.value = ''
 			settingsNewPassword.value = ''
 			settingsConfirmPassword.value = ''
-			uni.showToast({ title: 'Password updated', icon: 'success' })
+			emit('close')
+			setTimeout(() => { uni.showToast({ title: 'Changed!', icon: 'success' }) }, 100)
 		} else {
-			const d = res.data?.detail
-			settingsPasswordError.value = Array.isArray(d) ? (d[0] || 'Failed') : (d || 'Failed')
+			const d = res.data?.detail ?? res.data
+			settingsPasswordError.value = passwordFailureMessage(d, res.statusCode)
 		}
 	} catch {
 		settingsPasswordError.value = 'Network error'
@@ -291,13 +340,38 @@ function handleChooseAvatar() {
 </script>
 
 <style scoped>
+/* ========== 入场/离场动效 ========== */
+.modal-enter-active,
+.modal-leave-active {
+	transition: opacity 0.4s ease;
+}
+.modal-enter-active .settings-panel,
+.modal-leave-active .settings-panel {
+	transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-enter-from,
+.modal-leave-to {
+	opacity: 0;
+}
+.modal-enter-from .settings-panel {
+	transform: translateY(40rpx) scale(0.96);
+	opacity: 0;
+}
+.modal-leave-to .settings-panel {
+	transform: translateY(20rpx) scale(0.98);
+	opacity: 0;
+}
+
+/* ========== 毛玻璃遮罩 ========== */
 .settings-mask {
 	position: fixed;
 	left: 0;
 	right: 0;
 	top: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.45);
+	background: rgba(0, 0, 0, 0.25);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
 	z-index: 1000;
 	display: flex;
 	align-items: center;
@@ -306,30 +380,20 @@ function handleChooseAvatar() {
 	box-sizing: border-box;
 }
 
-.settings-mask.high-contrast {
-	background: rgba(0, 0, 0, 0.6);
-}
-
-.settings-mask.high-contrast .settings-panel {
-	background: #FFFEF9;
-	border: 2rpx solid #2C2C2C;
-	box-shadow: 0 24rpx 64rpx rgba(0, 0, 0, 0.25);
-}
-
-.settings-mask.high-contrast .settings-title,
-.settings-mask.high-contrast .block-title,
-.settings-mask.high-contrast .field-label { color: #1A1A1A; }
-.settings-mask.high-contrast .settings-desc,
-.settings-mask.high-contrast .block-desc,
-.settings-mask.high-contrast .field-hint { color: #444; }
-.settings-mask.high-contrast .field-input { border-width: 2rpx; border-color: #333; background: #fff; }
-
+/* ========== 弹窗本体：高阶玻璃拟态 (VisionOS 级光影) ========== */
 .settings-panel {
 	width: 100%;
 	max-width: 880rpx;
-	background: linear-gradient(165deg, #FDFBF7 0%, #F7F3EC 50%, #F0EAE0 100%);
+	background: linear-gradient(135deg, rgba(252, 250, 245, 0.9) 0%, rgba(246, 243, 238, 0.7) 100%);
+	backdrop-filter: blur(40px) saturate(120%);
+	-webkit-backdrop-filter: blur(40px) saturate(120%);
 	border-radius: 28rpx;
-	box-shadow: 0 24rpx 64rpx rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+	box-shadow:
+		inset 0 1px 1px rgba(255, 255, 255, 0.9),
+		inset 0 -1px 1px rgba(164, 147, 127, 0.1),
+		0 16px 40px -8px rgba(164, 147, 127, 0.2),
+		0 32px 80px -16px rgba(164, 147, 127, 0.15);
+	border: 1px solid rgba(255, 255, 255, 0.4);
 	padding: 48rpx 44rpx 40rpx;
 	max-height: 88vh;
 	overflow-y: auto;
@@ -345,46 +409,45 @@ function handleChooseAvatar() {
 .settings-title {
 	display: block;
 	font-family: "Didot", "Bodoni MT", "Noto Serif", "Songti SC", serif;
-	font-size: 44rpx;
+	font-size: 48rpx;
 	font-weight: 600;
-	color: #1D1D1F;
-	letter-spacing: 0.02em;
+	color: #3B3833;
+	letter-spacing: 0.04em;
 	margin-bottom: 12rpx;
 }
 
 .settings-desc {
 	display: block;
 	font-size: 26rpx;
-	color: #6B6B6B;
+	color: #8C857B;
 	font-weight: 400;
 	letter-spacing: 0.01em;
 }
 
-/* 分块卡片 */
+/* 分块卡片：极致留白，加大内边距约 20% */
 .settings-block {
 	border-radius: 22rpx;
-	box-shadow: 0 6rpx 24rpx rgba(0, 0, 0, 0.08), 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
-	padding: 36rpx 32rpx;
+	padding: 44rpx 40rpx;
 	margin-bottom: 28rpx;
+	border: none;
 }
 
 .settings-block-personal {
-	background: #fff;
-	border: 1rpx solid rgba(0, 0, 0, 0.06);
+	background: rgba(255, 255, 255, 0.7);
+	box-shadow: 0 4rpx 20rpx rgba(130, 120, 105, 0.04);
 }
 
 .settings-block-password {
 	margin-bottom: 24rpx;
-	background: #F8F6F2;
-	border: 1rpx solid rgba(0, 0, 0, 0.08);
-	box-shadow: 0 6rpx 24rpx rgba(0, 0, 0, 0.06), inset 0 1rpx 0 rgba(255, 255, 255, 0.8);
+	background: rgba(246, 243, 238, 0.6);
+	box-shadow: inset 0 2rpx 10rpx rgba(0, 0, 0, 0.01);
 }
 
 .block-title {
 	display: block;
 	font-size: 30rpx;
 	font-weight: 600;
-	color: #1D1D1F;
+	color: #3B3833;
 	margin-bottom: 8rpx;
 	letter-spacing: 0.02em;
 }
@@ -392,44 +455,88 @@ function handleChooseAvatar() {
 .block-desc {
 	display: block;
 	font-size: 24rpx;
-	color: #6B6B6B;
+	color: #8C857B;
 	margin-bottom: 28rpx;
 	line-height: 1.45;
 	font-weight: 400;
 }
 
-/* 头像区域 */
+/* 头像区域：破局 - 悬浮溢出 + 多层光环徽章感 */
 .avatar-section {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
+	margin-top: -24rpx;
 	margin-bottom: 28rpx;
 }
 
 .avatar-wrap {
 	position: relative;
-	width: 160rpx;
-	height: 160rpx;
+	width: 188rpx;
+	height: 188rpx;
 	border-radius: 50%;
 	overflow: hidden;
-	background: #F1ECE4;
+	background: rgba(0, 0, 0, 0.06);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
-	box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.12);
-	border: 4rpx solid rgba(255, 255, 255, 0.9);
+	box-shadow:
+		0 0 0 2rpx rgba(255, 255, 255, 0.9),
+		0 0 0 6rpx rgba(164, 147, 127, 0.12),
+		0 0 0 10rpx rgba(255, 255, 255, 0.5),
+		0 12rpx 40rpx rgba(164, 147, 127, 0.15),
+		0 24rpx 48rpx -8rpx rgba(164, 147, 127, 0.1);
+	border: none;
 	margin-bottom: 20rpx;
-	transition: transform 0.2s ease, box-shadow 0.2s ease;
+	transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.2, 1), box-shadow 0.3s ease;
 }
 
 .avatar-wrap:hover {
-	transform: scale(1.02);
-	box-shadow: 0 10rpx 28rpx rgba(0, 0, 0, 0.14);
+	transform: scale(1.03);
+	box-shadow:
+		0 0 0 2rpx rgba(255, 255, 255, 0.95),
+		0 0 0 6rpx rgba(164, 147, 127, 0.18),
+		0 0 0 10rpx rgba(255, 255, 255, 0.6),
+		0 16rpx 48rpx rgba(164, 147, 127, 0.2),
+		0 32rpx 64rpx -8rpx rgba(164, 147, 127, 0.12);
 }
 
 .avatar-wrap:active {
 	transform: scale(0.98);
+}
+
+.avatar-overlay {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.45);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 8rpx;
+	opacity: 0;
+	transition: opacity 0.25s ease;
+}
+
+.avatar-wrap:hover .avatar-overlay {
+	opacity: 1;
+}
+
+.avatar-overlay-icon {
+	width: 36rpx;
+	height: 36rpx;
+	filter: brightness(0) invert(1);
+}
+
+.avatar-overlay-text {
+	color: #fff;
+	font-size: 22rpx;
+	font-weight: 500;
+	letter-spacing: 0.02em;
 }
 
 .avatar-img {
@@ -454,6 +561,7 @@ function handleChooseAvatar() {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	z-index: 2;
 }
 
 .avatar-loading-text {
@@ -461,7 +569,7 @@ function handleChooseAvatar() {
 	font-size: 24rpx;
 }
 
-/* 次要按钮（Save）：浅色背景 + 圆角 + 边框 */
+/* 次要按钮（Save）：与暖色背景融为一体 */
 .btn-secondary {
 	display: inline-flex;
 	align-items: center;
@@ -470,28 +578,26 @@ function handleChooseAvatar() {
 	padding: 12rpx 24rpx;
 	font-size: 24rpx;
 	font-family: inherit;
-	font-weight: 600;
-	background: #E8E2D8;
-	border: 2rpx solid rgba(139, 115, 85, 0.25);
+	font-weight: 500;
+	background: rgba(164, 147, 127, 0.08);
+	color: #7A6F62;
+	border: 1px solid rgba(164, 147, 127, 0.15);
 	border-radius: 18rpx;
 	cursor: pointer;
-	transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-	box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.06);
+	transition: all 0.25s cubic-bezier(0.25, 0.8, 0.2, 1);
+	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
 }
 
 .btn-secondary:hover {
-	background: #DDD6CA;
-	border-color: rgba(139, 115, 85, 0.35);
-	box-shadow: 0 6rpx 16rpx rgba(0, 0, 0, 0.08);
+	background: #472904;
+	color: #fff;
+	box-shadow: 0 4rpx 12rpx rgba(110, 95, 80, 0.35);
 }
 
 .btn-secondary:active {
-	transform: scale(0.97);
-	background: #D2CABE;
-	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+	transform: scale(0.96);
 }
 
-/* 按钮右对齐 */
 .btn-row-right {
 	display: flex;
 	justify-content: flex-end;
@@ -502,101 +608,111 @@ function handleChooseAvatar() {
 	margin-top: 24rpx;
 }
 
-/* 左标签 + 右输入 横向行 */
-.field-row {
+/* 上下结构：Label 在上，Input 占满宽度 */
+.field-stack {
 	display: flex;
-	align-items: center;
-	gap: 28rpx;
+	flex-direction: column;
+	gap: 8rpx;
 	margin-bottom: 24rpx;
 }
 
-.field-row-spaced {
-	margin-bottom: 32rpx;
-	min-height: 88rpx;
-	align-items: center;
-}
-
-.field-label-wrap {
-	min-width: 200rpx;
-	flex-shrink: 0;
-}
-
-.field-input-wrap {
-	flex: 1;
-	min-width: 0;
-}
-
-/* 用户名区域 */
-.username-section {
-	margin-top: 8rpx;
-}
-
-.field-label-row {
-	display: flex;
-	align-items: center;
-	gap: 10rpx;
-	margin-bottom: 6rpx;
+.username-section .field-stack {
+	margin-bottom: 16rpx;
 }
 
 .field-label {
-	font-size: 28rpx;
-	font-weight: 600;
-	color: #333;
+	font-size: 26rpx;
+	font-weight: 500;
+	color: #6B655C;
 	letter-spacing: 0.01em;
-}
-
-.field-edit-icon {
-	width: 28rpx;
-	height: 28rpx;
-	opacity: 0.6;
 }
 
 .field-hint {
 	display: block;
 	font-size: 24rpx;
-	color: #8A8A8A;
-	margin-top: 4rpx;
+	color: #A39B90;
+	margin-top: 2rpx;
 	font-weight: 400;
 }
 
-.field-hint-inline {
-	margin-top: 6rpx;
+.field-hint-error {
+	color: #B86561;
 }
 
+/* 输入框：雕刻感 (Recessed) - 嵌入材质内部的凹陷感 */
 .field-input {
 	width: 100%;
 	height: 84rpx;
 	padding: 0 28rpx;
 	font-size: 28rpx;
 	font-weight: 400;
-	color: #1D1D1F;
-	border: 2rpx solid rgba(0, 0, 0, 0.1);
-	border-radius: 18rpx;
+	color: #3B3833;
+	border: 1px solid transparent;
+	border-radius: 16rpx;
 	box-sizing: border-box;
-	background: #FAFAFA;
-	box-shadow: inset 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
-	transition: border-color 0.22s ease, box-shadow 0.22s ease, background 0.2s ease;
+	background: rgba(164, 147, 127, 0.05);
+	box-shadow:
+		inset 0 2px 4px rgba(164, 147, 127, 0.1),
+		0 1px 0 rgba(255, 255, 255, 0.8);
+	transition: all 0.3s cubic-bezier(0.25, 0.8, 0.2, 1);
 }
 
 .field-input:focus {
 	outline: none;
-	border-color: #9D8B70;
-	background: #fff;
-	box-shadow: inset 0 2rpx 8rpx rgba(0, 0, 0, 0.04), 0 0 0 4rpx rgba(157, 139, 112, 0.22);
+	background: rgba(255, 255, 255, 0.9);
+	box-shadow:
+		0 0 0 1px #A4937F,
+		0 4px 12px rgba(164, 147, 127, 0.15);
+	transform: translateY(-1px);
+}
+
+.password-input-wrapper {
+	position: relative;
+	width: 100%;
+}
+
+.password-input-wrapper .field-input {
+	padding-right: 72rpx;
+}
+
+.eye-icon {
+	position: absolute;
+	right: 28rpx;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 40rpx;
+	height: 40rpx;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: opacity 0.2s ease;
+}
+
+.eye-icon:hover {
+	opacity: 0.7;
+}
+
+.eye-image {
+	width: 100%;
+	height: 100%;
+	user-select: none;
+}
+
+/* 报错：柔和浅红背景 + 淡红文字 */
+.field-error-wrap {
+	background: rgba(194, 116, 112, 0.08);
+	border-radius: 12rpx;
+	padding: 12rpx 16rpx;
+	margin-top: 8rpx;
+	margin-bottom: 4rpx;
 }
 
 .field-error {
 	display: block;
 	font-size: 24rpx;
 	font-weight: 500;
-	color: #C24A4A;
-	margin-bottom: 12rpx;
-	margin-left: 228rpx;
-}
-
-.field-error-inline {
-	margin-left: 228rpx;
-	margin-bottom: 12rpx;
+	color: #B86561;
 }
 
 /* 密码强度 */
@@ -604,8 +720,8 @@ function handleChooseAvatar() {
 	display: flex;
 	align-items: center;
 	gap: 16rpx;
-	margin-bottom: 20rpx;
-	margin-left: 228rpx;
+	margin-top: 12rpx;
+	margin-bottom: 8rpx;
 }
 
 .strength-bar {
@@ -617,17 +733,25 @@ function handleChooseAvatar() {
 
 .strength-bar.strength-weak {
 	width: 40rpx;
-	background: #E57373;
+	background: rgba(184, 84, 80, 0.5);
 }
 
 .strength-bar.strength-medium {
 	width: 80rpx;
-	background: #FFB74D;
+	background: rgba(200, 160, 80, 0.6);
 }
 
 .strength-bar.strength-strong {
 	width: 120rpx;
-	background: #81C784;
+	background: rgba(100, 160, 120, 0.5);
+}
+
+.strength-bar-ok.strength-medium {
+	background: rgba(76, 175, 80, 0.6);
+}
+
+.strength-bar-ok.strength-strong {
+	background: rgba(76, 175, 80, 0.75);
 }
 
 .strength-text {
@@ -636,73 +760,86 @@ function handleChooseAvatar() {
 	font-weight: 400;
 }
 
+.strength-text-green {
+	color: #2E7D32;
+}
+
 .btn-save-username.btn-disabled {
-	opacity: 0.6;
+	opacity: 0.5;
 	cursor: not-allowed;
-	background: #E5E0D8 !important;
-	border-color: rgba(0,0,0,0.08) !important;
+	background: rgba(0, 0, 0, 0.04) !important;
+}
+
+.btn-save-username.btn-active {
+	background: #8F7F6C;
+	color: #fff;
+	border-color: rgba(143, 127, 108, 0.6);
+	box-shadow: 0 4rpx 12rpx rgba(110, 95, 80, 0.2);
 }
 
 .btn-save-username.btn-active:hover {
-	background: #DDD6CA !important;
+	background: #7A6B5A;
+	color: #fff;
+	box-shadow: 0 6rpx 16rpx rgba(110, 95, 80, 0.35);
 }
 
-/* 主要按钮（Change password）：深色 + 悬浮/按下动效 */
+/* 主要按钮：提取主页选中菜单的灰棕/摩卡色 */
 .btn-primary {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	padding: 14rpx 28rpx;
 	font-size: 24rpx;
-	font-weight: 600;
+	font-weight: 500;
 	font-family: inherit;
 	border-radius: 18rpx;
 	margin-top: 24rpx;
 	cursor: pointer;
-	border: 2rpx solid transparent;
-	transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+	border: none;
+	transition: all 0.25s cubic-bezier(0.25, 0.8, 0.2, 1);
 }
 
 .btn-change-password.btn-active {
-	background: linear-gradient(180deg, #A89078 0%, #8B7355 100%);
+	background: #A4937F;
 	color: #fff;
-	box-shadow: 0 8rpx 24rpx rgba(139, 115, 85, 0.38);
+	box-shadow: 0 6rpx 20rpx rgba(164, 147, 127, 0.3);
 }
 
 .btn-change-password.btn-active:hover {
-	background: linear-gradient(180deg, #9A826A 0%, #7D6848 100%);
-	box-shadow: 0 10rpx 28rpx rgba(139, 115, 85, 0.45);
+	background: #8F7F6C;
+	box-shadow: 0 8rpx 24rpx rgba(164, 147, 127, 0.4);
 	transform: translateY(-2rpx);
 }
 
 .btn-change-password.btn-active:active {
-	transform: scale(0.98) translateY(0);
-	box-shadow: 0 4rpx 16rpx rgba(139, 115, 85, 0.35);
+	transform: scale(0.96) translateY(0);
+	box-shadow: 0 2rpx 12rpx rgba(164, 147, 127, 0.25);
 }
 
 .btn-change-password.btn-disabled {
-	background: #E0DCD6 !important;
-	color: #9A9A9A !important;
+	background: rgba(210, 200, 185, 0.4) !important;
+	color: #C0B7A8 !important;
 	cursor: not-allowed;
 	box-shadow: none;
 	transform: none;
 }
 
-/* Close */
+/* Close 按钮 */
 .settings-close {
 	text-align: center;
-	font-size: 30rpx;
-	font-weight: 600;
-	color: #8B7355;
+	font-size: 28rpx;
+	font-weight: 500;
+	color: #8C857B;
 	margin-top: 24rpx;
 	padding: 24rpx 0;
 	cursor: pointer;
-	transition: color 0.2s ease, transform 0.15s ease;
+	transition: color 0.2s ease, transform 0.2s cubic-bezier(0.25, 0.8, 0.2, 1);
 	letter-spacing: 0.02em;
 }
 
 .settings-close:hover {
-	color: #6B5A45;
+	color: #A4937F;
+	font-weight: 600;
 }
 
 .settings-close:active {

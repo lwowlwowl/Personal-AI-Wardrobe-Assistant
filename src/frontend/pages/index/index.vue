@@ -113,7 +113,7 @@
 							</template>
 							<view v-else class="user-menu-item" @click="handleGoToLogin">
 								<image src="/static/icons/icon-logout.svg" mode="aspectFit" class="user-menu-item-icon"></image>
-								<text class="user-menu-item-text">前往登录</text>
+								<text class="user-menu-item-text">Log in</text>
 							</view>
 						</view>
 					</transition>
@@ -693,8 +693,8 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	display: flex;
 	align-items: center;
 	justify-content: flex-start;
-	gap: 12rpx;
-	padding: 20rpx 28rpx;
+	gap: 14rpx;
+	padding: 20rpx 32rpx;
 	font-size: 26rpx;
 	font-weight: 500;
 	font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
