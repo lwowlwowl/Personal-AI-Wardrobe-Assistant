@@ -17,7 +17,7 @@
 						<text class="wave-emoji">👋</text>
 						<text class="greeting-text">Hi! Good Afternoon</text>
 					</view>
-					<view class="weather-card" :class="{ ready: !loadingWeather }">
+					<view v-if="isLoggedIn" class="weather-card" :class="{ ready: !loadingWeather }">
 						<view class="weather-row">
 							<text class="weather-info">Today {{ weatherTempDisplay }}{{ loadingWeather ? '' : '°C' }}</text>
 							<text class="weather-divider">|</text>
@@ -250,6 +250,7 @@ import { LOADING_STEPS, getMockAiResponse, MOCK_DELAY_MS, USE_RECOMMENDATION_MOC
 import { chatRecommendation, getWeatherNow } from '@/api/recommendationApi.js'
 
 const props = defineProps({
+	isLoggedIn: { type: Boolean, default: false },
 	currentConversationId: { type: String, default: null },
 	currentConversation: { type: Object, default: null }
 })
@@ -299,7 +300,12 @@ async function fetchWeatherForCoords(lat, lon) {
   }
 }
 
-onMounted(() => {
+function tryFetchWeather() {
+  if (!props.isLoggedIn) {
+    setWeatherReady()
+    return
+  }
+  loadingWeather.value = true
   uni.getLocation({
     type: 'wgs84',
     success: (res) => {
@@ -309,6 +315,14 @@ onMounted(() => {
       fetchWeatherForCoords(DEFAULT_LAT, DEFAULT_LON)
     }
   })
+}
+
+onMounted(() => {
+  tryFetchWeather()
+})
+
+watch(() => props.isLoggedIn, (loggedIn) => {
+  if (loggedIn) tryFetchWeather()
 })
 const chatHistory = ref([]) // 聊天历史记录
 const scrollTarget = ref('') // 用于自动滚动
@@ -400,6 +414,10 @@ const scrollToBottom = () => {
 }
 
 const handleSearch = async () => {
+	if (!props.isLoggedIn) {
+		uni.showToast({ title: 'Please log in first', icon: 'none' })
+		return
+	}
 	const query = searchQuery.value.trim()
 	const hasImages = uploadedImages.value.length > 0
 	if (!query && !hasImages) return

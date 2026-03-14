@@ -113,6 +113,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 
 const props = defineProps({
+	isLoggedIn: { type: Boolean, default: false },
 	mainContentRef: {
 		type: Object,
 		default: null
@@ -126,6 +127,14 @@ const props = defineProps({
 		default: null
 	}
 })
+
+function requireLogin() {
+	if (!props.isLoggedIn) {
+		uni.showToast({ title: 'Please log in first', icon: 'none' })
+		return true
+	}
+	return false
+}
 
 const personImg = ref('')
 const clothingImg = ref('')
@@ -218,6 +227,7 @@ const canGenerate = computed(() => {
 })
 
 const uploadImage = (type) => {
+	if (requireLogin()) return
 	uni.chooseImage({
 		count: 1,
 		sizeType: ['original', 'compressed'],
@@ -247,6 +257,7 @@ const handleDragLeave = (event, type) => {
 
 // 核心：处理放置
 const handleDrop = (event, type) => {
+	if (requireLogin()) return
 	draggingTarget.value = null // 重置 UI
 	
 	// 暴力获取 files，兼容各种 event 结构
@@ -287,6 +298,7 @@ const removeImage = (type) => {
 }
 
 const handleGenerate = () => {
+	if (requireLogin()) return
 	if (!canGenerate.value) {
 		return
 	}

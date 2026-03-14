@@ -40,7 +40,10 @@
 					</view>
 				</view>
 				<view class="chart-container">
-					<view v-if="loadingTrend" class="loading-state">
+					<view v-if="!isLoggedIn" class="loading-state">
+						<text class="loading-text">Please log in first</text>
+					</view>
+					<view v-else-if="loadingTrend" class="loading-state">
 						<text class="loading-text">加載趨勢數據...</text>
 					</view>
 					<template v-else>
@@ -82,7 +85,10 @@
 					</view>
 				</view>
 				<view class="worn-list">
-					<view v-if="loadingWorn" class="loading-state">
+					<view v-if="!isLoggedIn" class="loading-state">
+						<text class="loading-text">Please log in first</text>
+					</view>
+					<view v-else-if="loadingWorn" class="loading-state">
 						<text class="loading-text">加載中...</text>
 					</view>
 					<template v-else>
@@ -194,6 +200,10 @@ import ActivityReport from './ActivityReport.vue'
 import IdleItemsView from './IdleItemsView.vue'
 import { COLOR_HEX_BY_CODE } from '@/utils/wardrobeEnums.js'
 import * as analysisApi from '@/api/analysisApi.js'
+
+const props = defineProps({
+	isLoggedIn: { type: Boolean, default: false }
+})
 
 /** 点击卡片内链接后展示的展开页 */
 const expandedView = ref(null)
@@ -567,10 +577,23 @@ async function fetchMostWornItems() {
 }
 
 watch(viewByTotal, () => {
-	if (analysisApi.isLoggedIn()) fetchTrendData()
+	if (props.isLoggedIn) fetchTrendData()
 })
 watch(viewByWorn, () => {
-	if (analysisApi.isLoggedIn()) fetchMostWornItems()
+	if (props.isLoggedIn) fetchMostWornItems()
+})
+watch(() => props.isLoggedIn, (loggedIn) => {
+	if (loggedIn) {
+		loadingTrend.value = true
+		loadingWorn.value = true
+		fetchTrendData()
+		fetchSummaryData()
+		fetchMostWornItems()
+		fetchCategoryDistribution()
+		fetchIdleRate()
+		fetchTopColor()
+		fetchTopStyle()
+	}
 })
 
 onMounted(() => {
@@ -580,20 +603,23 @@ onMounted(() => {
 	animateCountUp(idlePercent, () => totalItemsCount.value ? (idleCount.value / totalItemsCount.value * 100) : 0, 800, countUpDelay + 60)
 	animateCountUp(topColorPercent, 38, 800, countUpDelay + 120)
 	animateCountUp(topStylePercent, 45, 800, countUpDelay + 180)
-	if (analysisApi.isLoggedIn()) {
-		Promise.all([
-			fetchTrendData(),
-			fetchSummaryData(),
-			fetchMostWornItems(),
-			fetchCategoryDistribution(),
-			fetchIdleRate(),
-			fetchTopColor(),
-			fetchTopStyle()
-		]).then(() => {
-			animateCountUp(activityPercent, activityPercentTarget, 400)
-			animateCountUp(idlePercent, () => totalItemsCount.value ? (idleCount.value / totalItemsCount.value * 100) : 0, 400)
-		}).catch(() => {})
+	if (!props.isLoggedIn) {
+		loadingTrend.value = false
+		loadingWorn.value = false
+		return
 	}
+	Promise.all([
+		fetchTrendData(),
+		fetchSummaryData(),
+		fetchMostWornItems(),
+		fetchCategoryDistribution(),
+		fetchIdleRate(),
+		fetchTopColor(),
+		fetchTopStyle()
+	]).then(() => {
+		animateCountUp(activityPercent, activityPercentTarget, 400)
+		animateCountUp(idlePercent, () => totalItemsCount.value ? (idleCount.value / totalItemsCount.value * 100) : 0, 400)
+	}).catch(() => {})
 })
 </script>
 

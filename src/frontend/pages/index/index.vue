@@ -135,6 +135,7 @@
 					<RecommendationAI
 						v-if="activeMenu === 'recommendation'"
 						key="recommendation"
+						:is-logged-in="isLoggedIn"
 						:current-conversation-id="conversationState.currentConversationId"
 						:current-conversation="conversationState.currentConversation"
 						@create-conversation="(e) => conversationSidebarRef?.handleCreateConversation(e)"
@@ -143,6 +144,7 @@
 					<VirtualTryOn
 					v-else-if="activeMenu === 'tryon'"
 					:key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')"
+					:is-logged-in="isLoggedIn"
 					:main-content-ref="mainContentRef"
 					:initial-clothing-image="initialClothingForTryon || null"
 					:initial-person-image="initialPersonImageForTryon || null"
@@ -153,7 +155,7 @@
 						@switch-to-tryon="handleSwitchToTryon"
 					/>
 					<MyCalendar v-else-if="activeMenu === 'calendar'" key="calendar" />
-					<WardrobeAnalysis v-else-if="activeMenu === 'analysis'" key="analysis" />
+					<WardrobeAnalysis v-else-if="activeMenu === 'analysis'" key="analysis" :is-logged-in="isLoggedIn" />
 				</transition>
 			</view>
 		</view>
