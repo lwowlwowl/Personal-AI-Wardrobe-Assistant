@@ -92,4 +92,9 @@ export function getIdleItemsDetail(params = {}) {
   return apiRequest('/api/analysis/idle-items/detail', q)
 }
 
+/** GET /api/analysis/suggested-additions?limit=3 */
+export function getSuggestedAdditions(limit = 3) {
+  return apiRequest('/api/analysis/suggested-additions', { limit })
+}
+
 export { API_BASE_URL }

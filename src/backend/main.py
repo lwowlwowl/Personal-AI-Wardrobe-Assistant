@@ -34,10 +34,13 @@ from AIwardrobe.agent.tools.agent_tools import (
     set_agent_request_user_id,
     reset_agent_request_user_id,
 )
+from AIwardrobe.model.factory import chat_model
 from AIwardrobe.services.weather_cache import (
     get_cached_location_by_coords,
     set_user_location_cache,
 )
+from AIwardrobe.utils.database_retriever import build_agent_context
+from langchain_core.messages import HumanMessage, SystemMessage
 
 # ============ 路径配置 ============
 # 项目根目录：.../Personal-AI-Wardrobe-Assistant
@@ -2016,6 +2019,97 @@ class TrendDataService:
             return func.extract('year', models.ClothingItem.created_at)
 
 
+def _build_suggested_additions_context(user_id: int, db: Session) -> dict[str, Any]:
+    context = build_agent_context(
+        user_id=user_id,
+        db=db,
+        closet_limit=120,
+        outfit_limit=40,
+        wear_history_limit=80,
+        include_summary=True,
+    )
+
+    closet_items = context.get("closet_items", [])
+    summary = context.get("summary", {})
+    sample_items = sorted(
+        closet_items,
+        key=lambda item: (
+            -(item.get("wear_count") or 0),
+            item.get("name") or "",
+        ),
+    )[:24]
+
+    compact_items = [
+        {
+            "name": item.get("name"),
+            "category": item.get("category"),
+            "style": item.get("style"),
+            "color": item.get("color"),
+            "season": item.get("season"),
+            "wear_count": item.get("wear_count"),
+            "last_worn_date": item.get("last_worn_date"),
+            "is_favorite": item.get("is_favorite"),
+        }
+        for item in sample_items
+    ]
+
+    return {
+        "summary": summary,
+        "sample_items": compact_items,
+    }
+
+
+def _parse_suggested_additions_content(content: str) -> list[str]:
+    raw = (content or "").strip()
+    if not raw:
+        return []
+
+    cleaned = raw.replace("```json", "").replace("```", "").strip()
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find("[")
+        end = cleaned.rfind("]")
+        if start == -1 or end == -1 or end <= start:
+            return []
+        try:
+            parsed = json.loads(cleaned[start:end + 1])
+        except json.JSONDecodeError:
+            return []
+
+    if not isinstance(parsed, list):
+        return []
+
+    items: list[str] = []
+    for item in parsed:
+        text = str(item).strip()
+        if text:
+            items.append(text)
+
+    return items[:3]
+
+
+async def _generate_suggested_additions(prompt_context: dict[str, Any]) -> list[str]:
+    system_prompt = (
+        "你是一名资深衣橱分析顾问。"
+        "请基于用户衣橱摘要，给出 3 条建议新增的单品建议。"
+        "每条建议都必须是纯中文一句话，20 到 40 个字，包含“建议补一件/一条/一双”这类明确单品方向，"
+        "并说明为什么适合当前衣橱。"
+        "不要输出品牌、价格、购买链接、编号、Markdown。"
+        "只返回 JSON 数组字符串，例如 "
+        "[\"建议补一件...\", \"建议补一条...\", \"建议补一双...\"]。"
+    )
+    user_prompt = json.dumps(prompt_context, ensure_ascii=False, indent=2)
+
+    response = await chat_model.ainvoke(
+        [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=f"用户衣橱摘要如下，请直接返回 JSON 数组：\n{user_prompt}"),
+        ]
+    )
+    return _parse_suggested_additions_content(getattr(response, "content", ""))
+
+
 @app.get("/api/analysis/total-items/trend")
 async def get_total_items_trend(
         token: str = Query(...),
@@ -2979,6 +3073,47 @@ async def get_most_worn_items(
         }
 
 
+@app.get("/api/analysis/suggested-additions")
+async def get_suggested_additions(
+        token: str = Query(...),
+        db: Session = Depends(get_db),
+        limit: int = Query(3, ge=1, le=3, description="固定返回 3 条建议")
+):
+    """
+    基于用户现有衣橱，返回 3 条纯文本建议新增项。
+    触发时机：前端进入 Wardrobe Analysis 且用户已登录时调用。
+    """
+    try:
+        current_user = get_current_user(token, db)
+        prompt_context = _build_suggested_additions_context(current_user.id, db)
+        closet_count = prompt_context.get("summary", {}).get("counts", {}).get("closet_items", 0)
+
+        if not closet_count:
+            items = []
+        else:
+            items = await _generate_suggested_additions(prompt_context)
+
+        if len(items) > limit:
+            items = items[:limit]
+
+        return {
+            "success": True,
+            "message": "获取推荐添加成功",
+            "data": {
+                "items": items[:limit],
+            },
+            "status_code": 200,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"获取推荐添加错误: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取推荐添加时发生错误: {str(e)}"
+        )
+
+
 # ============ 分类和枚举API ============
 
 @app.get("/api/clothing/categories")
@@ -3776,7 +3911,7 @@ async def ai_chat_stream(
     if token:
         current_user = get_current_user(token, db)
 
-    def event_stream():
+    async def event_stream():
         context_token = set_agent_request_user_id(current_user.id if current_user else None)
         try:
             # ReactAgent 当前接口仅接收 query；将历史上下文压成文本前缀传入。
@@ -3797,7 +3932,7 @@ async def ai_chat_stream(
                 full_query = f"以下是历史对话，请结合上下文回答：\n{history_text}\n\n当前问题：{req.query}"
 
             previous_text = ""
-            for chunk_text in react_agent.execute_stream(full_query):
+            async for chunk_text in react_agent.execute_stream(full_query):
                 if not chunk_text:
                     continue
                 if chunk_text.startswith(previous_text):

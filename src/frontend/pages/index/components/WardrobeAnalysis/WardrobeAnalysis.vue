@@ -119,22 +119,18 @@
 			<view class="card bento-suggested">
 				<text class="card-label">Suggested Additions</text>
 				<view class="suggest-list">
-					<view v-for="sug in suggested" :key="sug.name" class="suggest-item" :class="{ 'suggest-item-expanded': expandedSuggestKeys.includes(sug.name) }">
-						<view class="suggest-row">
-							<image class="suggest-thumb" :src="sug.image" mode="aspectFill" />
-							<view class="suggest-content">
-								<text class="suggest-title">{{ sug.name }}</text>
-								<view class="suggest-tags">
-									<text v-for="tag in sug.tags" :key="tag" class="suggest-tag">{{ tag }}</text>
-								</view>
-							</view>
-							<view class="suggest-expand-btn" @click.stop="toggleSuggest(sug.name)">
-								<text class="suggest-plus">{{ expandedSuggestKeys.includes(sug.name) ? '−' : '＋' }}</text>
-							</view>
-						</view>
-						<view class="suggest-detail">
-							<text class="suggest-text">{{ sug.desc }}</text>
-						</view>
+					<view v-if="!isLoggedIn" class="loading-state">
+						<text class="loading-text">Please log in first</text>
+					</view>
+					<view v-else-if="loadingSuggested" class="loading-state">
+						<text class="loading-text">Generating suggestions...</text>
+					</view>
+					<view v-else-if="suggestedTexts.length === 0" class="suggest-empty">
+						<text class="suggest-empty-text">No data</text>
+					</view>
+					<view v-else v-for="(sug, index) in suggestedTexts" :key="`${index}-${sug}`" class="suggest-text-item">
+						<text class="suggest-index">0{{ index + 1 }}</text>
+						<text class="suggest-plain-text">{{ sug }}</text>
 					</view>
 				</view>
 			</view>
@@ -212,7 +208,6 @@ const viewByTotal = ref('yearly')
 const viewByWorn = ref('yearly')
 const hoveredSegmentIndex = ref(null)
 const donutEntranceDone = ref(false)
-const expandedSuggestKeys = ref([])
 
 const activityTrend = ref(Math.random() >= 0.5 ? 'increase' : 'decrease')
 const activityPercentTarget = computed(() => (activityTrend.value === 'increase' ? 15 : 8))
@@ -223,6 +218,7 @@ const topColorPercent = ref(0)
 const topStylePercent = ref(0)
 const loadingTrend = ref(true)
 const loadingWorn = ref(true)
+const loadingSuggested = ref(true)
 
 const lineYears = ref(['2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023'])
 const lineData = ref([5, 12, 20, 18, 30, 60, 90, 106])
@@ -385,11 +381,7 @@ const mostWornWithDot = computed(() =>
 	}))
 )
 
-const suggested = [
-	{ name: 'Cream Knit Sweater', image: '/static/cloth_example.png', tags: ['Warm Layer', 'Minimal'], desc: 'Complements your white cotton tees; provides a clean seasonal outer layer. Pairs with 3 items in your wardrobe. Pairs well with your denim jacket — adds warmth & structure. Pairs well with your denim jacket — adds warmth & structure. ' },
-	{ name: 'Dark Denim Overshirt', image: '/static/cloth_example.png', tags: ['Layering', 'Versatile'], desc: 'Pairs well with the classic denim jacket; adds structure and versatility for casual or smart-casual looks.' },
-	{ name: 'Khaki Casual Pants', image: '/static/cloth_example.png', tags: ['Neutral', 'Balance'], desc: 'Balances your black knit top and enhances overall color harmony. Works with your existing earth-tone pieces.' }
-]
+const suggestedTexts = ref([])
 
 function toggleViewBy(which) {
 	filterOpen.value = filterOpen.value === which ? null : which
@@ -404,13 +396,25 @@ function goActivityReport() {
 function goIdleItems() {
 	expandedView.value = 'idle-items'
 }
-function toggleSuggest(key) {
-	const arr = expandedSuggestKeys.value
-	const i = arr.indexOf(key)
-	if (i >= 0) {
-		expandedSuggestKeys.value = arr.filter((k) => k !== key)
-	} else {
-		expandedSuggestKeys.value = [...arr, key]
+
+async function fetchSuggestedAdditions() {
+	loadingSuggested.value = true
+	try {
+		if (!analysisApi.isLoggedIn()) {
+			suggestedTexts.value = []
+			return
+		}
+		const response = await analysisApi.getSuggestedAdditions(3)
+		const items = response?.data?.items
+		if (response && response.success && Array.isArray(items) && items.length > 0) {
+			suggestedTexts.value = items.slice(0, 3)
+		} else {
+			suggestedTexts.value = []
+		}
+	} catch (e) {
+		suggestedTexts.value = []
+	} finally {
+		loadingSuggested.value = false
 	}
 }
 
@@ -586,6 +590,7 @@ watch(() => props.isLoggedIn, (loggedIn) => {
 	if (loggedIn) {
 		loadingTrend.value = true
 		loadingWorn.value = true
+		loadingSuggested.value = true
 		fetchTrendData()
 		fetchSummaryData()
 		fetchMostWornItems()
@@ -593,6 +598,10 @@ watch(() => props.isLoggedIn, (loggedIn) => {
 		fetchIdleRate()
 		fetchTopColor()
 		fetchTopStyle()
+		fetchSuggestedAdditions()
+	} else {
+		loadingSuggested.value = false
+		suggestedTexts.value = []
 	}
 })
 
@@ -606,6 +615,7 @@ onMounted(() => {
 	if (!props.isLoggedIn) {
 		loadingTrend.value = false
 		loadingWorn.value = false
+		loadingSuggested.value = false
 		return
 	}
 	Promise.all([
@@ -615,7 +625,8 @@ onMounted(() => {
 		fetchCategoryDistribution(),
 		fetchIdleRate(),
 		fetchTopColor(),
-		fetchTopStyle()
+		fetchTopStyle(),
+		fetchSuggestedAdditions()
 	]).then(() => {
 		animateCountUp(activityPercent, activityPercentTarget, 400)
 		animateCountUp(idlePercent, () => totalItemsCount.value ? (idleCount.value / totalItemsCount.value * 100) : 0, 400)
@@ -1080,111 +1091,40 @@ onMounted(() => {
 	margin-top: 15rpx;
 }
 
-.suggest-item {
+.suggest-text-item {
 	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-	border-radius: 16rpx;
-	background: #FFFEFB;
-	border: 1rpx solid rgba(141, 110, 99, 0.12);
-	box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
-	transition: box-shadow 0.25s ease, transform 0.2s ease;
-}
-.suggest-item:hover {
-	box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.08);
-}
-.suggest-item:active {
-	transform: scale(0.99);
+	gap: 16rpx;
+	padding: 18rpx 4rpx;
+	border-top: 1rpx solid rgba(0, 0, 0, 0.06);
 }
 
-.suggest-row {
-	display: flex;
-	align-items: center;
-	gap: 20rpx;
-	padding: 16rpx 18rpx;
-	min-height: 0;
+.suggest-text-item:first-child {
+	border-top: none;
+	padding-top: 6rpx;
 }
 
-.suggest-thumb {
-	width: 88rpx;
-	height: 88rpx;
-	border-radius: 12rpx;
+.suggest-index {
 	flex-shrink: 0;
-	background: #f5f2ee;
-}
-
-.suggest-content {
-	flex: 1;
-	min-width: 0;
-}
-
-.suggest-title {
-	display: block;
-	font-size: 28rpx;
+	font-size: 22rpx;
 	font-weight: 700;
-	color: #1d1d1f;
-	letter-spacing: 0.02em;
-	line-height: 1.35;
-	margin-bottom: 8rpx;
+	letter-spacing: 0.08em;
+	color: #8b7a6b;
+	padding-top: 2rpx;
 }
 
-.suggest-tags {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8rpx;
+.suggest-plain-text {
+	font-size: 25rpx;
+	line-height: 1.75;
+	color: #4b3f39;
 }
 
-.suggest-tag {
-	font-size: 20rpx;
-	padding: 4rpx 12rpx;
-	border-radius: 8rpx;
-	background: rgba(141, 110, 99, 0.12);
-	color: #6d4c41;
-	font-weight: 500;
+.suggest-empty {
+	padding: 12rpx 4rpx 6rpx;
 }
 
-.suggest-expand-btn {
-	width: 48rpx;
-	height: 48rpx;
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: rgba(184, 107, 31, 0.1);
-	flex-shrink: 0;
-	transition: background 0.2s ease;
-}
-.suggest-item:hover .suggest-expand-btn,
-.suggest-expand-btn:active {
-	background: rgba(184, 107, 31, 0.2);
-}
-
-.suggest-plus {
-	font-size: 28rpx;
-	font-weight: 600;
-	color: #8d6e63;
-	line-height: 1;
-}
-
-/* Accordion：height transition */
-.suggest-detail {
-	max-height: 0;
-	overflow: hidden;
-	transition: max-height 0.35s ease-out;
-}
-.suggest-item-expanded .suggest-detail {
-	max-height: 200rpx;
-}
-
-.suggest-text {
-	display: block;
-	font-size: 24rpx;
-	font-weight: 400;
-	color: #666;
-	line-height: 1.5;
-	padding: 0 18rpx 18rpx 18rpx;
-	margin-top: -8rpx;
-	padding-left: 126rpx;
+.suggest-empty-text {
+	font-size: 25rpx;
+	color: #8b7a6b;
 }
 
 /* Donut */

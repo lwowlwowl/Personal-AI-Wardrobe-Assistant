@@ -1,3 +1,5 @@
+import asyncio
+
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage
 from AIwardrobe.model.factory import chat_model
@@ -18,7 +20,7 @@ class ReactAgent:
             middleware=[monitor_tool, log_before_model, report_prompt_switch],
         )
 
-    def execute_stream(self, query: str):
+    async def execute_stream(self, query: str):
         input_dict = {
             "messages": [
                 {"role": "user", "content": query},
@@ -26,7 +28,11 @@ class ReactAgent:
         }
 
         # 第三个参数context就是上下文runtime中的信息，就是我们做提示词切换的标记 如果加上别的标记的话记得在这里先初始化一下
-        for chunk in self.agent.stream(input_dict, stream_mode="values", context={"report": False}):
+        async for chunk in self.agent.astream(
+            input_dict,
+            stream_mode="values",
+            context={"report": False},
+        ):
             latest_message = chunk["messages"][-1]
             if isinstance(latest_message, AIMessage):
                 tool_calls = getattr(latest_message, "tool_calls", None) or []
@@ -38,7 +44,9 @@ class ReactAgent:
                 yield latest_message.content.strip() + "\n"
 
 if __name__ == '__main__':
-    agent = ReactAgent()
+    async def _main():
+        agent = ReactAgent()
+        async for chunk in agent.execute_stream("得到深圳今天天气"):
+            print(chunk, end="", flush=True)
 
-    for chunk in agent.execute_stream("得到深圳今天天气"):
-        print(chunk, end="", flush=True)
+    asyncio.run(_main())

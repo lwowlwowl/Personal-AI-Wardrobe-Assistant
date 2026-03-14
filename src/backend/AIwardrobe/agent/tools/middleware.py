@@ -10,7 +10,7 @@ from AIwardrobe.utils.logger_handler import logger
 
 
 @wrap_tool_call
-def monitor_tool(
+async def monitor_tool(
         # 请求的数据封装
         request: ToolCallRequest,
         # 执行的函数本身
@@ -21,7 +21,7 @@ def monitor_tool(
     logger.info(f"[tool monitor]传入参数:{request.tool_call['args']}")
 
     try:
-        result = handler(request)
+        result = await handler(request)
         logger.info(f"[tool monitor]工具{request.tool_call['name']}调用成功")
 
         if request.tool_call['name'] == "fill_context_for_report":          # 只要这个工具被调用 就把report改为true
