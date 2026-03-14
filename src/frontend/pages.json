@@ -13,13 +13,6 @@
 				"navigationBarTitleText": "AI虚拟衣橱助手",
 				"navigationStyle": "custom"
 			}
-		},
-		{
-			"path": "pages/register/register",
-			"style": {
-				"navigationBarTitleText": "注册",
-				"navigationStyle": "custom"
-			}
 		}
 	],
 	"globalStyle": {
