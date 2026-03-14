@@ -10,7 +10,7 @@
 				v-for="conv in conversations"
 				:key="conv.id"
 				class="conversation-item"
-				:class="{ 'active': currentConversationId === conv.id }"
+				:class="{ 'active': currentConversationId === conv.id, 'has-menu-open': openConvMenuId === conv.id }"
 				@click="handleSwitchConversation(conv.id)"
 			>
 				<text class="conversation-item-text">{{ conv.title || 'New conversation' }}</text>
@@ -66,7 +66,7 @@ const renamingConvId = ref(null)
 const deletingConvId = ref(null)
 const loadingConversations = ref(false)
 
-// 是否為後端返回的 id（數字或數字字串）
+// 是否为后端返回的 id（数字或数字字符串）
 function isServerId(id) {
 	if (id == null) return false
 	if (typeof id === 'number') return true
@@ -93,7 +93,7 @@ function syncState() {
 	})
 }
 
-// 登入後從後端拉取對話列表
+// 登入后从后端拉取对话列表
 async function loadConversationsFromServer() {
 	if (!props.isLoggedIn) return
 	loadingConversations.value = true
@@ -104,11 +104,9 @@ async function loadConversationsFromServer() {
 			title: c.title || 'New conversation',
 			messages: Array.isArray(c.messages) ? c.messages : []
 		}))
-		// 若當前選中的對話不在列表中，改選第一條或清空
+		// 登入后拉取列表时不自动进入任一会话，保持主页面（问候语 + 输入框）；若当前选中的对话已不在列表中则清空选中
 		const stillExists = conversations.value.some(c => c.id === currentConversationId.value)
-		if (!stillExists && conversations.value.length > 0) {
-			currentConversationId.value = conversations.value[0].id
-		} else if (!stillExists) {
+		if (!stillExists) {
 			currentConversationId.value = null
 		}
 	} catch (e) {
@@ -357,6 +355,12 @@ defineExpose({
 	background-color: rgba(157, 139, 112, 0.2);
 }
 
+/* 展开菜单的项置于最前，避免下方项盖住菜单导致无法点击 Rename/Delete */
+.conversation-item.has-menu-open {
+	z-index: 200;
+	position: relative;
+}
+
 .conversation-item-text {
 	flex: 1;
 	font-size: 26rpx;
@@ -395,7 +399,7 @@ defineExpose({
 	border-radius: 16rpx;
 	box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
 	min-width: 160rpx;
-	z-index: 100;
+	z-index: 300;
 	overflow: hidden;
 }
 
