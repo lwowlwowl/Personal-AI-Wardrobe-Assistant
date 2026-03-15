@@ -1,8 +1,8 @@
 <template>
-	<view class="container">
+	<view class="container" @click="closeMenus">
 		<view class="sidebar" :class="{ 'collapsed': isCollapsed }">
 			<view class="sidebar-header" @click="toggleSidebar">
-				<view class="home-icon">
+				<view class="nav-icon">
 					<image src="/static/icons/icon-home.svg" mode="aspectFit" class="icon-img icon-24"></image>
 				</view>
 				<view class="app-title-group" v-show="!isCollapsed">
@@ -90,9 +90,9 @@
 				<!-- 状态卡片：点击后上方浮出小浮层，浮层宽度略小于触发块 -->
 				<view class="user-status-card">
 					<transition name="user-menu-fade">
-						<view v-if="showUserMenu" class="user-menu-popup" @click.stop>
+						<view v-if="showUserMenu" class="user-menu-popup" :class="{ 'user-menu-popup--collapsed': isCollapsed }" @click.stop>
 							<template v-if="isLoggedIn">
-								<view class="user-menu-header">
+								<view v-show="!isCollapsed" class="user-menu-header">
 									<view class="user-menu-avatar-wrap" @click="handleChooseAvatar">
 										<image v-if="userProfile?.avatar_url" :src="userAvatarUrl(userProfile.avatar_url)" mode="aspectFill" class="user-menu-avatar-img"></image>
 										<image v-else src="/static/icons/icon-user.svg" mode="aspectFit" class="user-menu-avatar-icon"></image>
@@ -100,26 +100,28 @@
 									</view>
 									<text class="user-menu-username">{{ userProfile?.username || displayUserName }}</text>
 								</view>
-								<view v-if="userProfile?.email" class="user-menu-email">{{ userProfile.email }}</view>
-								<view class="user-menu-divider"></view>
+								<view v-if="userProfile?.email && !isCollapsed" class="user-menu-email">{{ userProfile.email }}</view>
+								<view v-show="!isCollapsed" class="user-menu-divider"></view>
 								<view class="user-menu-item" @click="openSettings">
 									<image src="/static/icons/icon-setting.svg" mode="aspectFit" class="user-menu-item-icon"></image>
-									<text class="user-menu-item-text">Settings</text>
+									<text v-show="!isCollapsed" class="user-menu-item-text">Settings</text>
 								</view>
 								<view class="user-menu-item" @click="handleLogout">
 									<image src="/static/icons/icon-logout.svg" mode="aspectFit" class="user-menu-item-icon"></image>
-									<text class="user-menu-item-text">Log out</text>
+									<text v-show="!isCollapsed" class="user-menu-item-text">Log out</text>
 								</view>
 							</template>
 							<view v-else class="user-menu-item" @click="handleGoToLogin">
 								<image src="/static/icons/icon-logout.svg" mode="aspectFit" class="user-menu-item-icon"></image>
-								<text class="user-menu-item-text">Log in</text>
+								<text v-show="!isCollapsed" class="user-menu-item-text">Log in</text>
 							</view>
 						</view>
 					</transition>
 					<view class="footer-item user-status-trigger" @click.stop="toggleUserMenu">
-						<view class="nav-icon">
-							<image v-if="isLoggedIn && userProfile?.avatar_url" :src="userAvatarUrl(userProfile.avatar_url)" mode="aspectFill" class="icon-img icon-20 user-avatar-img"></image>
+						<view class="nav-icon footer-avatar-wrap">
+							<view v-if="isLoggedIn && userProfile?.avatar_url" class="avatar-circle">
+								<image :src="userAvatarUrl(userProfile.avatar_url)" mode="aspectFill" class="avatar-circle-img"></image>
+							</view>
 							<image v-else src="/static/icons/icon-user.svg" mode="aspectFit" class="icon-img icon-20"></image>
 						</view>
 						<text class="nav-text" v-show="!isCollapsed">{{ displayUserName }}</text>
@@ -128,7 +130,7 @@
 			</view>
 		</view>
 		
-		<view class="main-content" ref="mainContentRef" @click="closeMenus">
+		<view class="main-content" ref="mainContentRef">
 			<!-- 根据选中的菜单项切换显示不同的组件，带切换动画 -->
 			<view class="main-content-inner">
 				<transition name="view-fade" mode="out-in">
@@ -527,10 +529,21 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	width: 20px;
 	height: 20px;
 }
-.user-avatar-img {
-	width: 48rpx;
-	height: 48rpx;
+/* 底部左側頭像：圓圈大小只改這裡 .avatar-circle 的 width/height 即可 */
+.footer-avatar-wrap {
+	width: 80rpx;
+	height: 80rpx;
+}
+.avatar-circle {
+	width: 80rpx;
+	height: 80rpx;
 	border-radius: 50%;
+	overflow: hidden;
+	flex-shrink: 0;
+}
+.avatar-circle-img {
+	width: 100%;
+	height: 100%;
 	object-fit: cover;
 }
 
@@ -625,6 +638,15 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	box-shadow: 0 8rpx 28rpx rgba(0, 0, 0, 0.12);
 	overflow: hidden;
 	z-index: 100;
+}
+/* 摺疊時彈層只顯示圖示，保持足夠寬度不擠在一起 */
+.user-menu-popup--collapsed {
+	min-width: 125rpx;
+	left: 50%;
+	transform: translateX(-50%);
+}
+.user-menu-popup--collapsed .user-menu-item {
+	justify-content: center;
 }
 .user-menu-header {
 	display: flex;
