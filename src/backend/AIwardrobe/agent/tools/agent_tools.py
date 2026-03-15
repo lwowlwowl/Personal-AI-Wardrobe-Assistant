@@ -1,6 +1,5 @@
 import json
 import os.path
-import random
 from contextvars import ContextVar, Token
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -154,9 +153,19 @@ def get_weather(city: str, days: str = "") -> str:
     return "\n".join(parts)
 
 
-@tool(description="获取用户所在城市名称，以纯字符串形式返回")
+@tool(description="获取用户所在城市名称，以纯字符串形式返回。依赖用户曾在推荐 AI 页触发过定位/天气请求后的缓存；若无缓存则提示用户打开推荐页或允许定位。")
 def get_user_location() -> str:
-    return random.choice(["深圳","合肥","杭州"])
+    user_id = _REQUEST_USER_ID.get()
+    if user_id is None:
+        return "当前未登录，无法获取位置。请登录后再试。"
+    user_locations = get_user_location_cache(user_id)
+    if not user_locations:
+        return "尚未取得您的位置信息。请打开「推荐 AI」页面并允许定位，或先询问一次与天气相关的问题以触发定位后，再查询位置。"
+    latest = max(user_locations, key=lambda item: item.get("fetched_at", 0))
+    loc = latest.get("location") or {}
+    # 优先返回城市级：adm2（地级市），其次 name（区县），再 adm1（省）
+    city = (loc.get("adm2") or loc.get("name") or loc.get("adm1") or loc.get("text") or "").strip()
+    return city or "未知城市"
 
 # @tool(description="获取用户ID，以纯字符串形式返回")
 # def get_user_id() -> str:
