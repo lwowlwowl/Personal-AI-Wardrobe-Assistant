@@ -28,10 +28,12 @@ frontend/
 │       └── components/
 │           ├── RecommendationAI/       # 推荐 AI（多会话 + 侧栏对话列表）
 │           │   ├── RecommendationAI.vue   # 主聊天组件（问候、输入、消息、推荐卡片）
-│           │   ├── ConversationSidebar.vue # 侧栏「新建会话」+ 对话列表 + Rename/Delete 弹窗
-│           │   ├── RecommendationCard.vue # 单条推荐卡片展示
-│           │   ├── RenameModal.vue        # 会话重命名弹窗
-│           │   └── DeleteModal.vue        # 会话删除确认弹窗
+│           │   ├── RecommendationCard.vue  # 单条推荐卡片展示
+│           │   ├── chatContentAdapter.js   # 聊天内容适配层（解析 LLM 返回为结构化推荐）
+│           │   └── sidebar/                # 侧栏及相关弹窗
+│           │       ├── ConversationSidebar.vue # 「新建会话」+ 对话列表
+│           │       ├── RenameModal.vue        # 会话重命名弹窗
+│           │       └── DeleteModal.vue        # 会话删除确认弹窗
 │           ├── VirtualTryOn.vue       # 虚拟试穿
 │           ├── MyWardrobe/            # 我的衣橱
 │           │   ├── WardrobeView.vue   # 衣橱列表与筛选
@@ -98,8 +100,8 @@ frontend/
 
 - **主聊天区**（`RecommendationAI.vue`）：初始问候、多行输入、图片上传；用户/AI 消息展示；推荐结果以多套推荐卡片 + 左右滑动展示。
 - **多会话**：由父级 `index.vue` 同步 `conversationState`；支持 `currentConversationId` / `currentConversation` 与 `create-conversation` / `update-conversation` 事件。
-- **侧栏对话列表**（`ConversationSidebar.vue`）：选中推荐 AI 且侧栏未折叠时显示「新建会话」按钮与「你的对话」列表；支持切换会话、重命名（RenameModal）、删除（DeleteModal）；状态与逻辑集中在 ConversationSidebar，通过 `update:conversationState` 回传 index 再传给主聊天组件。
-- **API 联调**：默认使用 Mock 数据；将 `RecommendationAI/mockData.js` 中 `USE_RECOMMENDATION_MOCK = false` 可请求后端 `POST /api/ai/chat/stream`。详见 `pages/index/components/RecommendationAI/RECOMMENDATION_AI.md`。
+- **侧栏对话列表**（`RecommendationAI/sidebar/ConversationSidebar.vue`）：选中推荐 AI 且侧栏未折叠时显示「新建会话」按钮与「你的对话」列表；支持切换会话、重命名（RenameModal）、删除（DeleteModal）；状态与逻辑集中在 ConversationSidebar，通过 `update:conversationState` 回传 index 再传给主聊天组件。
+- **API 联调**：推荐 AI 直接请求后端 `POST /api/ai/chat/stream`，返回的流式 `content` 经 `RecommendationAI/chatContentAdapter.js` 解析为结构化推荐卡片。详见 `pages/index/components/RecommendationAI/RECOMMENDATION_AI.md`。
 
 ### 虚拟试穿 (`Virtual Try-On`)
 

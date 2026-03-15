@@ -1,4 +1,4 @@
-<!-- 推荐卡片：可复用、支持多套推荐与左右滑动 -->
+<!-- 推荐卡片：杂志感排版、单品 Title/Subtitle/Tags、Caution 浮窗 -->
 <template>
 	<view class="recommend-card">
 		<text v-if="recommendation.content" class="message-text ai-fade-block">{{ recommendation.content }}</text>
@@ -8,7 +8,15 @@
 			<text v-for="(tag, ti) in displayTags" :key="ti" class="tag" :class="{ 'tag-temp': tag === recommendation.temperature }">{{ tag }}</text>
 		</view>
 		
-		<!-- 穿搭清单：v-for 渲染 -->
+		<!-- 警示浮窗：强烈不推荐 / 请务必携带等 -->
+		<view v-if="recommendation.cautions && recommendation.cautions.length > 0" class="cautions-wrap ai-fade-block" style="animation-delay: 0.18s">
+			<view v-for="(caution, ci) in recommendation.cautions" :key="ci" class="caution-chip">
+				<text class="caution-icon">!</text>
+				<text class="caution-text">{{ caution }}</text>
+			</view>
+		</view>
+		
+		<!-- 穿搭清单：Title(英文) + Subtitle(中文/描述) + Tags，错位弹起 -->
 		<view v-if="recommendation.items && recommendation.items.length > 0" class="outfit-list">
 			<view 
 				v-for="(item, itemIndex) in recommendation.items" 
@@ -22,7 +30,11 @@
 					<text class="item-category">{{ item.type }}</text>
 					<view class="item-info">
 						<text class="item-name">{{ item.name }}</text>
-						<text class="item-desc">{{ item.reason }}</text>
+						<text v-if="item.subtitle" class="item-subtitle">{{ item.subtitle }}</text>
+						<text v-if="item.reason" class="item-desc">{{ item.reason }}</text>
+						<view v-if="item.tags && item.tags.length" class="item-tags">
+							<text v-for="(t, ti) in item.tags" :key="ti" class="item-tag">{{ t }}</text>
+						</view>
 					</view>
 					<text v-if="item.details" class="item-expand-icon">{{ expanded[itemIndex] ? '▲' : '▼' }}</text>
 				</view>
@@ -32,9 +44,9 @@
 			</view>
 		</view>
 		
-		<!-- Why this works -->
+		<!-- Why this works：3 条极简 bullet -->
 		<view v-if="recommendation.whyThisWorks && recommendation.whyThisWorks.length > 0" class="why-this-works ai-fade-block" style="animation-delay: 0.5s">
-			<text class="why-title">Why this works:</text>
+			<text class="why-title">Why this works</text>
 			<view v-for="(line, wi) in recommendation.whyThisWorks" :key="wi" class="why-item">
 				<text class="why-bullet">•</text>
 				<text class="why-text">{{ line }}</text>
@@ -64,8 +76,8 @@
 
 <script setup>
 /**
- * 推荐卡片：接收 recommendation 对象，v-for 渲染
- * 结构：{ title, temperature, styleTags, items: [{ type, name, reason, details? }], content, whyThisWorks, images }
+ * 推荐卡片：接收 recommendation 对象，杂志感排版
+ * 结构：{ title, temperature, styleTags, content, items: [{ type, name, subtitle?, reason?, details?, tags? }], whyThisWorks, cautions?, images }
  */
 import { reactive, computed, watch } from 'vue'
 
@@ -82,14 +94,14 @@ defineEmits(['regenerate', 'preview-images'])
 
 const expanded = reactive({})
 
-// 合并 title、styleTags、temperature 用于展示
+// 合并 title、styleTags、temperature 用于展示（去重）
 const displayTags = computed(() => {
 	const r = props.recommendation
-	const tags = []
-	if (r.title) tags.push(r.title)
-	if (r.styleTags?.length) tags.push(...r.styleTags)
-	if (r.temperature) tags.push(r.temperature)
-	return tags
+	const set = new Set()
+	if (r.title) set.add(r.title)
+	r.styleTags?.forEach(t => set.add(t))
+	if (r.temperature) set.add(r.temperature)
+	return [...set]
 })
 
 const toggleExpand = (itemIndex) => {
@@ -104,10 +116,14 @@ watch(() => props.recommendation, () => {
 
 <style scoped>
 .recommend-card {
-	background: #ffffff;
+	--card-bg: rgba(255, 255, 255, 0.85);
+	background: var(--card-bg);
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
 	border-radius: 40rpx;
 	padding: 56rpx;
-	box-shadow: 0 16rpx 60rpx rgba(0, 0, 0, 0.05);
+	box-shadow: 0 16rpx 60rpx rgba(0, 0, 0, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.9);
 	width: 100%;
 	box-sizing: border-box;
 }
@@ -117,7 +133,8 @@ watch(() => props.recommendation, () => {
 	color: #1D1D1F;
 	font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Microsoft YaHei", sans-serif;
 	font-weight: 400;
-	line-height: 1.6;
+	line-height: 1.65;
+	letter-spacing: 0.02em;
 	word-wrap: break-word;
 	user-select: text;
 	-webkit-user-select: text;
@@ -129,7 +146,7 @@ watch(() => props.recommendation, () => {
 }
 
 @keyframes aiBlockFade {
-	from { opacity: 0; transform: translateY(6rpx); }
+	from { opacity: 0; transform: translateY(10rpx); }
 	to { opacity: 1; transform: translateY(0); }
 }
 
@@ -155,13 +172,48 @@ watch(() => props.recommendation, () => {
 	color: #4a90a4;
 }
 
+/* 警示浮窗：红色 Caution */
+.cautions-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 16rpx;
+	margin-top: 24rpx;
+}
+.caution-chip {
+	display: flex;
+	align-items: flex-start;
+	gap: 12rpx;
+	background: rgba(200, 60, 50, 0.08);
+	border: 1px solid rgba(200, 60, 50, 0.25);
+	border-radius: 20rpx;
+	padding: 20rpx 24rpx;
+}
+.caution-icon {
+	flex-shrink: 0;
+	width: 36rpx;
+	height: 36rpx;
+	line-height: 36rpx;
+	text-align: center;
+	background: rgba(200, 60, 50, 0.2);
+	color: #c83c32;
+	font-size: 24rpx;
+	font-weight: 700;
+	border-radius: 50%;
+}
+.caution-text {
+	font-size: 26rpx;
+	color: #8b2e26;
+	line-height: 1.5;
+	flex: 1;
+}
+
 .outfit-list {
 	margin-top: 32rpx;
 }
 
 .item-block {
 	padding: 32rpx 0;
-	border-bottom: 1px solid #f1f1f1;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 	transition: background 0.2s;
 }
 
@@ -186,6 +238,8 @@ watch(() => props.recommendation, () => {
 	color: #9D8B70;
 	flex-shrink: 0;
 	width: 140rpx;
+	font-family: "Didot", "Times New Roman", serif;
+	letter-spacing: 0.04em;
 }
 
 .item-info {
@@ -199,12 +253,34 @@ watch(() => props.recommendation, () => {
 	font-size: 30rpx;
 	font-weight: 500;
 	color: #1D1D1F;
+	font-family: "Didot", "Times New Roman", serif;
+	letter-spacing: 0.02em;
+}
+
+.item-subtitle {
+	font-size: 26rpx;
+	color: #5c5c5c;
+	line-height: 1.5;
 }
 
 .item-desc {
 	font-size: 26rpx;
 	color: #6b6b6b;
 	line-height: 1.5;
+}
+
+.item-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10rpx;
+	margin-top: 6rpx;
+}
+.item-tag {
+	font-size: 22rpx;
+	color: #9D8B70;
+	background: rgba(157, 139, 112, 0.1);
+	padding: 6rpx 16rpx;
+	border-radius: 20rpx;
 }
 
 .item-expand-icon {
@@ -232,11 +308,13 @@ watch(() => props.recommendation, () => {
 }
 
 .why-title {
-	font-size: 26rpx;
+	font-size: 28rpx;
 	font-weight: 600;
 	color: #1D1D1F;
 	display: block;
 	margin-bottom: 16rpx;
+	font-family: "Didot", "Times New Roman", serif;
+	letter-spacing: 0.03em;
 }
 
 .why-item {

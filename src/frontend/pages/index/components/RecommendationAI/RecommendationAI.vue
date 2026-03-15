@@ -246,7 +246,7 @@
  */
 import { ref, watch, nextTick, onMounted, computed } from 'vue'
 import RecommendationCard from './RecommendationCard.vue'
-import { LOADING_STEPS, getMockAiResponse, MOCK_DELAY_MS, USE_RECOMMENDATION_MOCK, normalizeChatResponse } from './mockData.js'
+import { LOADING_STEPS, normalizeChatResponse } from './chatContentAdapter.js'
 import { chatRecommendation, getWeatherNow } from '@/api/recommendationApi.js'
 
 const props = defineProps({
@@ -458,7 +458,7 @@ const handleSearch = async () => {
 		loadingStep.value = (loadingStep.value + 1) % LOADING_STEPS.length
 	}, 500)
 
-	// 获取 AI 回复：USE_RECOMMENDATION_MOCK 为 true 用 mock，否则请求后端 /api/chat（见 backend/AIwardrobe/README.md）
+	// 获取 AI 回复：请求后端 /api/ai/chat/stream，经 chatContentAdapter 解析后 push（见 backend/AIwardrobe/README.md）
 	const finishLoading = (aiMessage) => {
 		clearInterval(stepInterval)
 		chatHistory.value = chatHistory.value.filter(msg => msg.role !== 'loading')
@@ -473,14 +473,7 @@ const handleSearch = async () => {
 		scrollToBottom()
 	}
 
-	if (USE_RECOMMENDATION_MOCK) {
-		setTimeout(() => {
-			finishLoading(getMockAiResponse())
-		}, MOCK_DELAY_MS)
-		return
-	}
-
-	// 联调：请求后端 /api/ai/chat/stream，传入历史对话以支持多轮上下文
+	// 请求后端 /api/ai/chat/stream，传入历史对话以支持多轮上下文
 	const history = chatHistory.value
 		.slice(0, -2) // 排除刚加入的 userMsg 与 loading
 		.filter(m => m.role === 'user' || m.role === 'ai')
@@ -603,11 +596,29 @@ const previewImages = (urls, index = 0) => {
 	background-color: #FDFBF7;
 	overflow: hidden;
 }
+.chat-container::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: 
+		radial-gradient(ellipse 80% 50% at 20% 20%, rgba(240, 235, 225, 0.6), transparent),
+		radial-gradient(ellipse 60% 40% at 80% 80%, rgba(230, 220, 210, 0.4), transparent),
+		radial-gradient(ellipse 50% 60% at 60% 30%, rgba(250, 245, 238, 0.5), transparent);
+	animation: meshFloat 18s ease-in-out infinite;
+}
+@keyframes meshFloat {
+	0%, 100% { opacity: 1; transform: scale(1) translate(0, 0); }
+	33% { opacity: 0.95; transform: scale(1.02) translate(2%, 1%); }
+	66% { opacity: 1; transform: scale(0.98) translate(-1%, 2%); }
+}
 
 /* 初始状态：整体滚动区（问候语与输入框同步上移） */
 .initial-scroll {
 	width: 100%;
 	height: 100vh;
+	position: relative;
+	z-index: 1;
 }
 
 /* 初始状态内容区：问候语 + 输入框 + 标签 */
@@ -728,20 +739,26 @@ const previewImages = (urls, index = 0) => {
 	position: relative;
 }
 
-/* 加载指示器：过程感文案 + 点点动画 */
+/* 加载指示器：杂志感文案 + 柔和缩放呼吸 */
 .loading-indicator {
 	display: flex;
 	flex-direction: column;
 	gap: 16rpx;
 	padding: 20rpx 0;
+	animation: loadingBreath 2.5s ease-in-out infinite;
+}
+
+@keyframes loadingBreath {
+	0%, 100% { transform: scale(1); opacity: 1; }
+	50% { transform: scale(1.02); opacity: 0.92; }
 }
 
 .loading-step-text {
 	font-size: 28rpx;
 	color: #9D8B70;
-	font-family: "PingFang SC", -apple-system, sans-serif;
+	font-family: "Didot", "Times New Roman", "PingFang SC", serif;
 	font-weight: 400;
-	letter-spacing: 0.3px;
+	letter-spacing: 0.04em;
 }
 
 .loading-dots {
@@ -783,6 +800,8 @@ const previewImages = (urls, index = 0) => {
 
 /* 聊天状态：scroll-view 区域 */
 .chat-scroll-area {
+	position: relative;
+	z-index: 1;
 	width: 100%;
 	height: 100vh;
 	flex: 1;
