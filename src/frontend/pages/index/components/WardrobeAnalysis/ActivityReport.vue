@@ -46,7 +46,7 @@
 
 		<view class="card card-secondary report-card section section-2">
 			<text class="card-label">Activity by category</text>
-			<view class="category-rows">
+			<view class="category-rows" v-if="effectiveCategoryActivity.length > 0">
 				<view v-for="(row, rowIdx) in categoryActivityWithPercent" :key="row.name" class="category-row" hover-class="category-row-hover">
 					<view class="category-row-main">
 						<text class="category-icon">{{ row.icon }}</text>
@@ -60,6 +60,7 @@
 					<text class="category-count">{{ row.count }} wears</text>
 				</view>
 			</view>
+			<view v-else class="empty-state">No activity recorded this week.</view>
 		</view>
 		</view>
 	</scroll-view>
@@ -82,14 +83,16 @@ const props = defineProps({
 
 const emit = defineEmits(['back'])
 
-/** 使用 API 数据或 mock：分类活动 */
+/** 💡 修復 1：只要有真實數據傳來（哪怕是空陣列），就不使用 Mock */
 const effectiveCategoryActivity = computed(() =>
-	(props.categoryActivity && props.categoryActivity.length) ? props.categoryActivity : MOCK_CATEGORY_ACTIVITY
+	props.categoryActivity != null ? props.categoryActivity : MOCK_CATEGORY_ACTIVITY
 )
+
 const totalWears = computed(() => {
 	if (props.totalWears != null && typeof props.totalWears === 'number') return props.totalWears
 	return effectiveCategoryActivity.value.reduce((sum, c) => sum + c.count, 0)
 })
+
 const categoryActivityWithPercent = computed(() =>
 	effectiveCategoryActivity.value.map((c) => ({
 		...c,
@@ -97,14 +100,24 @@ const categoryActivityWithPercent = computed(() =>
 	}))
 )
 
-/** 使用 API 数据或 mock：每日穿搭次数 */
-const weekData = computed(() =>
-	(props.weekData && props.weekData.length) ? props.weekData : MOCK_WEEK_DATA
-)
+/** 💡 修復 2：若周數據為空陣列，為柱狀圖手動補齊 7 天 0 數據 */
+const weekData = computed(() => {
+	if (props.weekData != null) {
+		if (props.weekData.length === 0) {
+			return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => ({ label: day, wears: 0 }))
+		}
+		return props.weekData
+	}
+	return MOCK_WEEK_DATA
+})
+
 const maxWears = computed(() => Math.max(...weekData.value.map((d) => d.wears), 1))
 const avgWears = computed(() => weekData.value.reduce((s, d) => s + d.wears, 0) / weekData.value.length)
 const avgLinePercent = computed(() => (avgWears.value / maxWears.value) * 100)
+
+/** 💡 修復 3：整周皆 0 時，Most active day 顯示 None */
 const mostActiveDay = computed(() => {
+	if (weekData.value.every(d => d.wears === 0)) return 'None'
 	const best = weekData.value.reduce((a, b) => (a.wears >= b.wears ? a : b))
 	return best.label
 })
@@ -372,6 +385,12 @@ onMounted(() => {
 	display: flex;
 	flex-direction: column;
 	gap: 4rpx;
+}
+.empty-state {
+	padding: 32rpx 24rpx;
+	text-align: center;
+	font-size: 28rpx;
+	color: #888;
 }
 .category-row {
 	display: flex;

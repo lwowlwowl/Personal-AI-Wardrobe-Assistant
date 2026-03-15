@@ -51,7 +51,7 @@ export const CATEGORY_LABEL_BY_CODE = TYPE_LABEL_BY_CODE
 export const COLOR_LABEL_BY_CODE = Object.fromEntries(COLOR_OPTIONS.map((o) => [o.value, o.label]))
 export const SEASON_LABEL_BY_CODE = Object.fromEntries(SEASON_OPTIONS.map((o) => [o.value, o.label]))
 
-/** code -> 展示用 hex 色值（与衣服颜色配套，后端联调时由 code 推导，不写死在前端列表里） */
+/** code -> 展示用 hex 色值（与衣服颜色配套）；未匹配时 UI 用灰色 */
 export const COLOR_HEX_BY_CODE = {
 	white: '#f5f5f5',
 	black: '#616161',
@@ -62,6 +62,27 @@ export const COLOR_HEX_BY_CODE = {
 	olive: '#6b7c3c',
 	burnt_orange: '#c45c32',
 	black_white: '#8a8a8a',
+	red: '#c62828',
+	light_green: '#81c784',
+	green: '#66bb6a',
+	orange: '#ff9800',
+	gray: '#9e9e9e',
+	grey: '#9e9e9e',
+	// 常见扩展颜色
+	purple: '#7e57c2',
+	violet: '#8e24aa',
+	pink: '#ec407a',
+	yellow: '#fdd835',
+	gold: '#ffb300',
+	silver: '#9e9e9e',
+	mint: '#80cbc4',
+	coral: '#ff7043',
+	burgundy: '#880e4f',
+	khaki: '#c3b091',
+	cream: '#fff8e1',
+	lavender: '#b39ddb',
+	teal: '#00897b',
+	maroon: '#ad1457',
 }
 
 /** 将多个 code 转为展示文案（逗号分隔） */

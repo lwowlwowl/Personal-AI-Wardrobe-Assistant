@@ -23,7 +23,6 @@ import uuid
 import calendar
 from fastapi import UploadFile, File, Form, Query, Path
 from typing import List, Optional, Dict, Any, Tuple
-from datetime import date
 from pathlib import Path as PathLib
 from dateutil.relativedelta import relativedelta
 
@@ -43,8 +42,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 # ============ 路径配置 ============
 # 项目根目录：.../Personal-AI-Wardrobe-Assistant
-BASE_DIR = PathLib(__file__).resolve().parents[2]\
-# todo
+BASE_DIR = PathLib(__file__).resolve().parents[2]
 BACKEND_DIR = PathLib(__file__).resolve().parent
 AIWARDROBE_DIR = BACKEND_DIR / "AIwardrobe"
 if str(AIWARDROBE_DIR) not in sys.path:
@@ -1604,10 +1602,13 @@ async def save_calendar_outfits(
         }
         new_id_set = set(clothing_ids)
 
-        # 1）删除不再包含的记录
-        for cid, history in list(existing_by_clothing.items()):
-            if cid not in new_id_set:
-                db.delete(history)
+        # 1）删除不再包含的记录，并重算被删衣物的「最后穿上」与穿着次数
+        removed_cids = [cid for cid in existing_by_clothing if cid not in new_id_set]
+        for cid in removed_cids:
+            db.delete(existing_by_clothing[cid])
+        if removed_cids:
+            db.flush()
+            crud.WearHistoryCRUD.recompute_clothing_after_removal(db, current_user.id, removed_cids)
 
         # 2）新增新的记录（使用 WearHistoryCRUD，保证 wear_count 等统计更新）
         for cid in new_id_set:
@@ -2664,49 +2665,64 @@ async def get_idle_items_detail(
         db: Session = Depends(get_db),
         page: int = Query(1, ge=1),
         page_size: int = Query(20, ge=1, le=100),
-        time_filter: Optional[str] = Query(None, regex="^(never|over_year|over_six_months|over_three_months)$"),
+        time_filter: Optional[str] = Query(None, regex="^(never|over_season|over_year|over_six_months|over_three_months)$"),
         season_filter: Optional[str] = Query(None)
 ):
     """
-    获取闲置物品详情列表（支持筛选）
+    获取闲置物品详情列表（支持筛选）。
+    season 为数组，筛选时用「包含」该季节。
     """
     try:
         current_user = get_current_user(token, db)
 
-        # 计算截止日期
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, date
         now = datetime.now()
+        today = date.today()
 
-        # 构建查询
         query = db.query(models.ClothingItem).filter(
             models.ClothingItem.user_id == current_user.id
         )
 
-        # 应用时间筛选
-        if time_filter == "never":
+        if time_filter is None:
+            cutoff_date = today - timedelta(days=30)
+            query = query.filter(
+                (models.ClothingItem.wear_count == 0) |
+                (models.ClothingItem.last_worn_date < cutoff_date) |
+                (models.ClothingItem.last_worn_date.is_(None))
+            )
+        elif time_filter == "never":
             query = query.filter(models.ClothingItem.wear_count == 0)
+        elif time_filter == "over_season":
+            cutoff = today - timedelta(days=90)
+            query = query.filter(
+                models.ClothingItem.last_worn_date < cutoff,
+                models.ClothingItem.wear_count > 0
+            )
         elif time_filter == "over_year":
-            cutoff = now - timedelta(days=365)
+            cutoff = today - timedelta(days=365)
             query = query.filter(
                 models.ClothingItem.last_worn_date < cutoff,
                 models.ClothingItem.wear_count > 0
             )
         elif time_filter == "over_six_months":
-            cutoff = now - timedelta(days=180)
+            cutoff = today - timedelta(days=180)
             query = query.filter(
                 models.ClothingItem.last_worn_date < cutoff,
                 models.ClothingItem.wear_count > 0
             )
         elif time_filter == "over_three_months":
-            cutoff = now - timedelta(days=90)
+            cutoff = today - timedelta(days=90)
             query = query.filter(
                 models.ClothingItem.last_worn_date < cutoff,
                 models.ClothingItem.wear_count > 0
             )
 
-        # 应用季节筛选
         if season_filter and season_filter != "all":
-            query = query.filter(models.ClothingItem.season == season_filter)
+            try:
+                season_enum = models.ClothingSeason(season_filter)
+                query = query.filter(models.ClothingItem.season.contains([season_enum]))
+            except ValueError:
+                pass
 
         # 分页
         total = query.count()

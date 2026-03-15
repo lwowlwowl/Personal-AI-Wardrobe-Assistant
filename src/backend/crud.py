@@ -338,7 +338,7 @@ class ClothingCRUD:
 
     @staticmethod
     def get_clothing_item(db: Session, clothing_id: int) -> Optional[ClothingItem]:
-        """获取单个衣物（不检查用户权限）"""
+        """获取单个衣物（不检查用户权限）。路由层请使用 get_clothing_item_by_user 做权限校验。"""
         return db.query(ClothingItem).filter(ClothingItem.id == clothing_id).first()
 
     @staticmethod
@@ -902,7 +902,12 @@ class WearHistoryCRUD:
             if not history:
                 return False, "记录不存在"
 
+            clothing_id = history.clothing_id
+            user_id = history.user_id
             db.delete(history)
+            db.flush()
+            if clothing_id is not None:
+                WearHistoryCRUD.recompute_clothing_after_removal(db, user_id, [clothing_id])
             db.commit()
             return True, None
 
@@ -910,6 +915,38 @@ class WearHistoryCRUD:
             db.rollback()
             print(f"删除穿着记录错误: {e}")
             return False, f"删除穿着记录失败: {str(e)}"
+
+    @staticmethod
+    def recompute_clothing_after_removal(
+            db: Session,
+            user_id: int,
+            clothing_ids: List[int],
+    ) -> None:
+        """
+        删除部分穿着记录后，重算这些衣物的 wear_count 与 last_worn_date。
+        假定调用前已对 wear_history 做了删除并 flush，本方法根据剩余记录更新衣物表。
+        """
+        for cid in clothing_ids:
+            if cid is None:
+                continue
+            clothing = db.query(ClothingItem).filter(
+                ClothingItem.id == cid,
+                ClothingItem.user_id == user_id,
+            ).first()
+            if not clothing:
+                continue
+            clothing.wear_count = max(0, (clothing.wear_count or 0) - 1)
+            latest = (
+                db.query(WearHistory)
+                .filter(
+                    WearHistory.user_id == user_id,
+                    WearHistory.clothing_id == cid,
+                )
+                .order_by(desc(WearHistory.wear_date))
+                .limit(1)
+                .first()
+            )
+            clothing.last_worn_date = latest.wear_date if latest else None
 
 
 # ============ 搭配CRUD操作 ============

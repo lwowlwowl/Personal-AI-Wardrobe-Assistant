@@ -56,7 +56,7 @@
 							<image v-if="item.image" :src="item.image" mode="aspectFill" class="thumb-img" />
 						</view>
 						<view class="idle-item-content">
-							<view class="idle-item-header">
+							<view v-if="item.status.label" class="idle-item-header">
 								<view class="idle-status-badge" :class="'status-' + item.status.level">
 									<view class="status-dot"></view>
 									<text class="status-label">{{ item.status.label }}</text>
@@ -94,8 +94,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { TransitionGroup } from 'vue'
-import { COLOR_HEX_BY_CODE } from '@/utils/wardrobeEnums.js'
-import { SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
+import { COLOR_HEX_BY_CODE, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
 import { getIdleRate, getIdleItemsDetail, API_BASE_URL } from '@/api/analysisApi.js'
 import { DEFAULT_TOTAL_ITEMS_DISPLAY } from './mockData.js'
 
@@ -104,8 +103,6 @@ const props = defineProps({
 })
 const emit = defineEmits(['back'])
 
-const loading = ref(true)
-const listLoading = ref(false)
 const listReady = ref(false)
 const stats = ref({
 	total_items: 0,
@@ -122,7 +119,7 @@ function getFullImageUrl(imageUrl) {
 	return `${API_BASE_URL}/${imageUrl}`
 }
 
-/** Idle status from API item (wear_count, last_worn_date) */
+/** Idle status: never / over_season(3+月) / over_year(12+月)；一年內但不足一季的不顯示狀態文案 */
 function getIdleStatus(item) {
 	if (item.wear_count === 0) return { level: 'never', label: 'Never worn' }
 	if (item.last_worn_date) {
@@ -130,13 +127,14 @@ function getIdleStatus(item) {
 		const now = new Date()
 		const monthsDiff = (now.getFullYear() - lastWorn.getFullYear()) * 12 + (now.getMonth() - lastWorn.getMonth())
 		if (monthsDiff >= 12) return { level: 'over_year', label: 'Over a year ago' }
+		if (monthsDiff >= 3) return { level: 'over_season', label: 'Over a season' }
 	}
-	return { level: 'within_year', label: 'Within a year' }
+	return { level: 'within_year', label: '' }
 }
 
 function getLastWornDisplay(item, status) {
 	if (status.level === 'never') return 'Never'
-	if (status.level === 'over_year' && item.last_worn_date) {
+	if (item.last_worn_date && (status.level === 'over_year' || status.level === 'over_season')) {
 		const lastWorn = new Date(item.last_worn_date)
 		const now = new Date()
 		const monthsDiff = (now.getFullYear() - lastWorn.getFullYear()) * 12 + (now.getMonth() - lastWorn.getMonth())
@@ -156,23 +154,17 @@ function getSortOrder(lastWornDate) {
 }
 
 async function fetchData() {
-	loading.value = true
 	try {
 		const res = await getIdleRate(30)
-		if (res && res.success && res.data) {
-			stats.value = res.data
-		}
+		if (res && res.success && res.data) stats.value = res.data
 	} catch (e) {
 		console.error('获取闲置率失败:', e)
-	} finally {
-		loading.value = false
 	}
 }
 
-async function fetchIdleItems(page = 1, append = false) {
-	listLoading.value = true
+async function fetchIdleItems(page = 1) {
 	try {
-		let timeFilter = activeTimeFilter.value === 'all' ? null : activeTimeFilter.value
+		const timeFilter = activeTimeFilter.value === 'all' ? null : activeTimeFilter.value
 		const res = await getIdleItemsDetail({
 			page,
 			pageSize: pageSize.value,
@@ -185,29 +177,16 @@ async function fetchIdleItems(page = 1, append = false) {
 				image: getFullImageUrl(item.image_url),
 				dotColor: COLOR_HEX_BY_CODE[item.color] || '#cccccc'
 			}))
-			if (append) {
-				idleItems.value = [...idleItems.value, ...items]
-			} else {
-				idleItems.value = items
-			}
-			const pagination = res.data.pagination || {}
-			currentPage.value = pagination.page || page
-			totalPages.value = pagination.total_pages || 1
-			hasMore.value = currentPage.value < totalPages.value
+			idleItems.value = items
 		}
 		return res
 	} catch (e) {
 		console.error('获取闲置明细失败:', e)
 		throw e
-	} finally {
-		listLoading.value = false
 	}
 }
 
-const currentPage = ref(1)
 const pageSize = ref(20)
-const hasMore = ref(false)
-const totalPages = ref(1)
 
 const idleRate = computed(() => {
 	if (stats.value.total_items === 0) return 0
@@ -231,6 +210,7 @@ const idleItemsWithStatus = computed(() =>
 const timeFilters = [
 	{ label: 'All', value: 'all' },
 	{ label: 'Never worn', value: 'never' },
+	{ label: 'Over a season', value: 'over_season' },
 	{ label: 'Over a year', value: 'over_year' }
 ]
 const activeTimeFilter = ref('all')
@@ -241,18 +221,29 @@ const seasonFilters = [
 const activeSeasonFilter = ref('all')
 
 watch([activeTimeFilter, activeSeasonFilter], () => {
-	fetchIdleItems(1, false)
+	fetchIdleItems(1)
 })
+
+/** 季节匹配：后端 season 为数组，需判断数组是否包含所选季节 */
+function itemMatchesSeason(item, seasonValue) {
+	if (!seasonValue || seasonValue === 'all') return true
+	const s = item.season
+	if (s == null) return seasonValue === 'all_season'
+	if (Array.isArray(s)) return s.includes(seasonValue)
+	return s === seasonValue
+}
 
 const filteredItems = computed(() => {
 	let list = [...idleItemsWithStatus.value]
 	if (activeTimeFilter.value === 'never') {
 		list = list.filter((item) => item.status.level === 'never')
+	} else if (activeTimeFilter.value === 'over_season') {
+		list = list.filter((item) => item.status.level === 'over_season')
 	} else if (activeTimeFilter.value === 'over_year') {
 		list = list.filter((item) => item.status.level === 'over_year')
 	}
 	if (activeSeasonFilter.value !== 'all') {
-		list = list.filter((item) => item.season === activeSeasonFilter.value)
+		list = list.filter((item) => itemMatchesSeason(item, activeSeasonFilter.value))
 	}
 	list = list.sort((a, b) => b.sortOrder - a.sortOrder)
 	return list
@@ -264,9 +255,15 @@ function wearToday(item) {
 
 onMounted(async () => {
 	await nextTick()
+
+	// 同時並發拉取統計數據與列表數據，縮短等待時間
+	await Promise.all([
+		fetchData(),
+		fetchIdleItems(1)
+	])
+
+	// 數據都返回後再允許展示列表或空狀態，避免空狀態閃爍（FOUC）
 	listReady.value = true
-	await fetchData()
-	await fetchIdleItems(1, false)
 })
 </script>
 
@@ -485,6 +482,9 @@ onMounted(async () => {
 .status-never .status-dot {
 	background: rgba(180, 120, 120, 0.8);
 }
+.status-over_season .status-dot {
+	background: rgba(180, 140, 80, 0.8);
+}
 .status-over_year .status-dot {
 	background: rgba(140, 120, 160, 0.8);
 }
@@ -492,6 +492,10 @@ onMounted(async () => {
 .status-never {
 	background: rgba(220, 180, 180, 0.2);
 	color: #a06767;
+}
+.status-over_season {
+	background: rgba(220, 200, 160, 0.2);
+	color: #8a7040;
 }
 .status-over_year {
 	background: rgba(200, 180, 220, 0.2);
@@ -525,6 +529,10 @@ onMounted(async () => {
 .meta-never {
 	color: #a06767;
 	background: rgba(220, 180, 180, 0.15);
+}
+.meta-over_season {
+	color: #8a7040;
+	background: rgba(220, 200, 160, 0.15);
 }
 .meta-over_year {
 	color: #7a6a8a;

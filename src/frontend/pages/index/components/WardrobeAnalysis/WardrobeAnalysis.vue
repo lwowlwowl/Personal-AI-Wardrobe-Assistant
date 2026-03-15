@@ -52,32 +52,50 @@
 						<text class="loading-text">加载趋势数据...</text>
 					</view>
 					<template v-else>
-					<svg viewBox="0 0 300 120" class="line-svg">
-						<defs>
-							<linearGradient id="greenGradient" x1="0" x2="0" y1="0" y2="1">
-								<stop offset="0%" stop-color="#7cb97c" stop-opacity="0.28" />
-								<stop offset="40%" stop-color="#7cb97c" stop-opacity="0.18" />
-								<stop offset="70%" stop-color="#7cb97c" stop-opacity="0.08" />
-								<stop offset="100%" stop-color="#7cb97c" stop-opacity="0" />
-							</linearGradient>
-							<filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
-								<feGaussianBlur stdDeviation="3" result="blur" />
-								<feComposite in="SourceGraphic" in2="blur" operator="over" />
-							</filter>
-						</defs>
-						<line x1="0" y1="35" x2="300" y2="35" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
-						<line x1="0" y1="60" x2="300" y2="60" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
-						<line x1="0" y1="85" x2="300" y2="85" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
-						<path :d="smoothPathArea" fill="url(#greenGradient)" class="line-area" />
-						<path :d="smoothPathStroke" fill="none" stroke="#7cb97c" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="line-stroke line-stroke-glow" pathLength="1" filter="url(#neonGlow)" />
-					</svg>
-					<view class="chart-labels">
-						<text v-for="year in lineYears" :key="year" class="chart-label">{{ year }}</text>
-					</view>
-					<view class="chart-stats" v-if="totalStats && (totalStats.growth_rate != null || totalStats.projection)">
-						<text class="stat-item" v-if="totalStats.growth_rate">增长率: {{ totalStats.growth_rate }}%</text>
-						<text class="stat-item" v-if="totalStats.projection">预测{{ totalStats.projection_year }}: {{ totalStats.projection }}</text>
-					</view>
+						<template v-if="isSinglePointTrend">
+							<view class="milestone-state">
+								<text class="milestone-num">{{ singlePointValue }}</text>
+								<text class="milestone-desc">Items logged. Your wardrobe journey begins.</text>
+							</view>
+						</template>
+						<template v-else>
+							<svg viewBox="0 0 300 120" class="line-svg">
+								<defs>
+									<linearGradient id="greenGradient" x1="0" x2="0" y1="0" y2="1">
+										<stop offset="0%" stop-color="#7cb97c" stop-opacity="0.28" />
+										<stop offset="40%" stop-color="#7cb97c" stop-opacity="0.18" />
+										<stop offset="70%" stop-color="#7cb97c" stop-opacity="0.08" />
+										<stop offset="100%" stop-color="#7cb97c" stop-opacity="0" />
+									</linearGradient>
+									<filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+										<feGaussianBlur stdDeviation="3" result="blur" />
+										<feComposite in="SourceGraphic" in2="blur" operator="over" />
+									</filter>
+								</defs>
+								<line x1="0" y1="35" x2="300" y2="35" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
+								<line x1="0" y1="60" x2="300" y2="60" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
+								<line x1="0" y1="85" x2="300" y2="85" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
+								<path :d="smoothPathArea" fill="url(#greenGradient)" class="line-area" />
+								<path
+									:d="smoothPathStroke"
+									fill="none"
+									stroke="#7cb97c"
+									stroke-width="3.5"
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									class="line-stroke line-stroke-glow"
+									pathLength="1"
+									filter="url(#neonGlow)"
+								/>
+							</svg>
+							<view class="chart-labels">
+								<text v-for="year in lineYears" :key="year" class="chart-label">{{ year }}</text>
+							</view>
+							<view class="chart-stats" v-if="totalStats && (totalStats.growth_rate != null || totalStats.projection)">
+								<text class="stat-item" v-if="totalStats.growth_rate">增长率: {{ totalStats.growth_rate }}%</text>
+								<text class="stat-item" v-if="totalStats.projection">预测{{ totalStats.projection_year }}: {{ totalStats.projection }}</text>
+							</view>
+						</template>
 					</template>
 				</view>
 			</view>
@@ -315,23 +333,47 @@ function viewByToLabel(v) {
 const smoothPathStroke = computed(() => getSvgPath(lineData.value, 300, 120, false))
 const smoothPathArea = computed(() => getSvgPath(lineData.value, 300, 120, true))
 
+/** 趋势图有效数据（过滤 null/NaN），用于单点判断与里程碑数值 */
+const validTrendData = computed(() => {
+	const data = lineData.value
+	if (!data || !Array.isArray(data)) return []
+	return data.filter(v => v !== null && v !== undefined && !isNaN(v) && isFinite(v))
+})
+
+/** 仅 1 个数据点时为 true，此时展示里程碑排版而非折线图 */
+const isSinglePointTrend = computed(() => validTrendData.value.length === 1)
+
+/** 仅 1 个数据点时展示的数值（里程碑大数字） */
+const singlePointValue = computed(() =>
+	validTrendData.value.length === 1 ? String(validTrendData.value[0]) : ''
+)
+
 function getSvgPath(data, width, height, isArea) {
-	if (!data || !Array.isArray(data) || data.length === 0) return ''
+	if (!data || !Array.isArray(data)) return ''
 	const validData = data.filter(val => val !== null && val !== undefined && !isNaN(val) && isFinite(val))
-	if (validData.length === 0) return ''
-	const max = Math.max(...validData, 1)
+
 	const padding = 10
 	const chartH = height - padding * 2
-	if (validData.length === 1) {
-		const y = height - padding - (validData[0] / max) * chartH
+
+	// 🛡️ 没数据时：只画一条贴底的占位线，不画绿色的面积
+	if (validData.length === 0) {
+		const y = height - padding
+		if (isArea) return ''
 		return `M 0,${y} L ${width},${y}`
 	}
+
+	// 🛡️ 只有 1 个数据点：不画 path，由 template 展示里程碑排版
+	if (validData.length === 1) return ''
+
+	const max = Math.max(...validData, 1)
+	// 2 个及以上数据点：贝塞尔曲线 + 面积
 	const stepX = width / (validData.length - 1)
 	const points = validData.map((val, i) => {
 		const x = i * stepX
 		const y = height - padding - (val / max) * chartH
 		return [x, y]
 	})
+
 	let d = `M ${points[0][0]},${points[0][1]}`
 	for (let i = 0; i < points.length - 1; i++) {
 		const p0 = points[i]
@@ -341,7 +383,12 @@ function getSvgPath(data, width, height, isArea) {
 		const cp2x = midX + (p1[0] - midX) * 0.4
 		d += ` C ${cp1x},${p0[1]} ${cp2x},${p1[1]} ${p1[0]},${p1[1]}`
 	}
-	if (isArea) d += ` L ${width},${height} L 0,${height} Z`
+
+	if (isArea) {
+		// 正常情况的填充闭合
+		d += ` L ${width},${height} L 0,${height} Z`
+	}
+
 	return d
 }
 
@@ -433,11 +480,22 @@ const mostWorn = ref([
 	{ name: 'Khaki Chino Pants', wears: 24, color: 'brown' },
 	{ name: 'Navy Striped Tee', wears: 22, color: 'navy' }
 ])
+/** 从「red, light green, white, orange」这类多色字符串中取第一个颜色 code，用于小圆点 */
+function firstColorCode(colorStr) {
+	if (!colorStr || typeof colorStr !== 'string') return 'gray'
+	const first = colorStr.split(',')[0].trim()
+	if (!first) return 'gray'
+	return first.replace(/\s+/g, '_').toLowerCase()
+}
+
 const mostWornWithDot = computed(() =>
-	mostWorn.value.map((item) => ({
-		...item,
-		dotColor: COLOR_HEX_BY_CODE[item.color] || '#cccccc'
-	}))
+	mostWorn.value.map((item) => {
+		const code = firstColorCode(item.color)
+		return {
+			...item,
+			dotColor: COLOR_HEX_BY_CODE[code] || '#9e9e9e'
+		}
+	})
 )
 
 const suggestedTexts = ref([])
@@ -448,6 +506,7 @@ function toggleViewBy(which) {
 function closeFilter() {
 	filterOpen.value = null
 }
+/** 預留：Category Breakdown 的 Type 篩選，尚未實作 */
 function toggleCategoryType() {}
 function goActivityReport() {
 	expandedView.value = 'activity-report'
@@ -991,6 +1050,33 @@ onMounted(() => {
 
 .chart-label {
 	font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* 单年数据：里程碑排版 (Editorial Empty State) */
+.milestone-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 200rpx;
+	padding: 32rpx 24rpx;
+}
+.milestone-num {
+	font-size: 120rpx;
+	font-weight: 200;
+	line-height: 1.1;
+	color: #1d1d1f;
+	font-family: Georgia, 'Times New Roman', serif;
+	letter-spacing: -0.04em;
+}
+.milestone-desc {
+	margin-top: 16rpx;
+	font-size: 26rpx;
+	font-weight: 400;
+	color: #8e8e93;
+	letter-spacing: 0.02em;
+	text-align: center;
+	max-width: 420rpx;
 }
 
 /* Most Worn Items - 优化排版 */
