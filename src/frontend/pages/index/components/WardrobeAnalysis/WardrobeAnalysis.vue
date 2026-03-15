@@ -122,9 +122,14 @@
 				</view>
 			</view>
 
-			<!-- Suggested Additions：电商推荐风格 + accordion 展开 -->
+			<!-- Suggested Additions：电商推荐风格 + accordion 展开，僅點擊刷新時更新 -->
 			<view class="card bento-suggested">
-				<text class="card-label">Suggested Additions</text>
+				<view class="card-row suggested-card-row">
+					<text class="card-label">Suggested Additions</text>
+					<view v-if="isLoggedIn" class="suggested-refresh" :class="{ 'refreshing': loadingSuggested }" @click="refreshSuggestedAdditions">
+						<text class="refresh-icon">↻</text>
+					</view>
+				</view>
 				<view class="suggest-list">
 					<view v-if="!isLoggedIn" class="loading-state">
 						<text class="loading-text">Please log in first</text>
@@ -210,6 +215,31 @@ import {
 	DEFAULT_TOP_STYLE_NAME,
 	MOCK_WEEKLY_TOTAL_WEARS
 } from './mockData.js'
+
+const SUGGESTED_CACHE_KEY = 'wardrobe_suggested_additions'
+
+function loadSuggestedCacheFromStorage() {
+	try {
+		const raw = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SUGGESTED_CACHE_KEY) : null
+		if (!raw) return null
+		const arr = JSON.parse(raw)
+		return Array.isArray(arr) ? arr : null
+	} catch (_) {
+		return null
+	}
+}
+
+function saveSuggestedCacheToStorage(list) {
+	try {
+		if (typeof sessionStorage !== 'undefined') {
+			if (list == null) sessionStorage.removeItem(SUGGESTED_CACHE_KEY)
+			else sessionStorage.setItem(SUGGESTED_CACHE_KEY, JSON.stringify(list))
+		}
+	} catch (_) {}
+}
+
+/** Suggested Additions 快取：記憶體 + sessionStorage，切頁後再回來仍可還原 */
+let suggestedAdditionsCache = loadSuggestedCacheFromStorage()
 
 const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false }
@@ -436,15 +466,26 @@ async function fetchSuggestedAdditions() {
 		const response = await analysisApi.getSuggestedAdditions(3)
 		const items = response?.data?.items
 		if (response && response.success && Array.isArray(items) && items.length > 0) {
-			suggestedTexts.value = items.slice(0, 3)
+			const list = items.slice(0, 3)
+			suggestedTexts.value = list
+			suggestedAdditionsCache = list
+			saveSuggestedCacheToStorage(list)
 		} else {
 			suggestedTexts.value = []
+			suggestedAdditionsCache = []
+			saveSuggestedCacheToStorage([])
 		}
 	} catch (e) {
 		suggestedTexts.value = []
 	} finally {
 		loadingSuggested.value = false
 	}
+}
+
+/** 僅在用戶點擊刷新時呼叫，用於更新 Suggested Additions（每次點擊都發請求，不因 loading 中而跳過） */
+function refreshSuggestedAdditions() {
+	if (!props.isLoggedIn) return
+	fetchSuggestedAdditions()
 }
 
 function setMockTrendData() {
@@ -600,7 +641,6 @@ watch(() => props.isLoggedIn, (loggedIn) => {
 	if (loggedIn) {
 		loadingTrend.value = true
 		loadingWorn.value = true
-		loadingSuggested.value = true
 		fetchTrendData()
 		fetchSummaryData()
 		fetchWeeklyActivity()
@@ -609,13 +649,24 @@ watch(() => props.isLoggedIn, (loggedIn) => {
 		fetchIdleRate()
 		fetchTopColor()
 		fetchTopStyle()
-		fetchSuggestedAdditions()
+		// Suggested Additions：先從 sessionStorage 還原（切頁後模組可能重載），有快取則不請求
+		const cached = suggestedAdditionsCache ?? loadSuggestedCacheFromStorage()
+		if (cached != null) {
+			suggestedAdditionsCache = cached
+			suggestedTexts.value = cached
+			loadingSuggested.value = false
+		} else {
+			loadingSuggested.value = true
+			fetchSuggestedAdditions()
+		}
 	} else {
 		weeklyActivityData.value = null
 		currentWears.value = MOCK_WEEKLY_TOTAL_WEARS
 		loadingActivity.value = false
 		loadingSuggested.value = false
 		suggestedTexts.value = []
+		suggestedAdditionsCache = null
+		saveSuggestedCacheToStorage(null)
 	}
 })
 
@@ -633,6 +684,16 @@ onMounted(() => {
 		loadingActivity.value = false
 		return
 	}
+	// Suggested Additions：先從 sessionStorage 還原（切頁後可能重載），有快取則不請求
+	const cached = suggestedAdditionsCache ?? loadSuggestedCacheFromStorage()
+	if (cached != null) {
+		suggestedAdditionsCache = cached
+		suggestedTexts.value = cached
+		loadingSuggested.value = false
+	} else {
+		loadingSuggested.value = true
+		fetchSuggestedAdditions()
+	}
 	Promise.all([
 		fetchTrendData(),
 		fetchSummaryData(),
@@ -641,8 +702,7 @@ onMounted(() => {
 		fetchCategoryDistribution(),
 		fetchIdleRate(),
 		fetchTopColor(),
-		fetchTopStyle(),
-		fetchSuggestedAdditions()
+		fetchTopStyle()
 	]).then(() => {
 		animateCountUp(activityPercent, activityPercentTarget, 400)
 		animateCountUp(idlePercent, () => totalItemsCount.value ? (idleCount.value / totalItemsCount.value * 100) : 0, 400)
@@ -1085,12 +1145,48 @@ onMounted(() => {
 	border: 1rpx solid rgba(141, 110, 99, 0.12);
 }
 
+.suggested-card-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 4rpx;
+}
+
 .bento-suggested .card-label {
-	margin-bottom: 16rpx;
+	margin-bottom: 0;
 	font-size: 32rpx;
 	font-weight: 800;
 	color: #1d1d1f;
 	letter-spacing: 0.02em;
+}
+
+.suggested-refresh {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 56rpx;
+	height: 56rpx;
+	border-radius: 50%;
+	background: rgba(141, 110, 99, 0.08);
+	touch-action: manipulation;
+}
+.suggested-refresh:active {
+	background: rgba(141, 110, 99, 0.16);
+}
+.suggested-refresh.refreshing .refresh-icon {
+	animation: suggest-refresh-spin 0.8s linear infinite;
+}
+
+.refresh-icon {
+	font-size: 36rpx;
+	font-weight: 600;
+	color: #8b7a6b;
+	line-height: 1;
+}
+
+@keyframes suggest-refresh-spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
 }
 
 .suggest-list {
