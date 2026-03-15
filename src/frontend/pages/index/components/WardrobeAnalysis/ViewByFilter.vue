@@ -21,7 +21,7 @@
 </template>
 
 <script setup>
-const props = defineProps({
+defineProps({
 	modelValue: { type: String, default: 'yearly' },
 	visible: { type: Boolean, default: false }
 })

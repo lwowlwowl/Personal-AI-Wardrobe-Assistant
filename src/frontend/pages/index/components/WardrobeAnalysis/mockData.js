@@ -101,11 +101,13 @@ export const MOCK_WEEK_DATA = [
 /** 本周总穿戴次数（主面板 Wardrobe Activity 与展开页 KPI 共用，= MOCK_WEEK_DATA 之和 = MOCK_CATEGORY_ACTIVITY 之和） */
 export const MOCK_WEEKLY_TOTAL_WEARS = MOCK_WEEK_DATA.reduce((s, d) => s + d.wears, 0)
 
-/** ActivityReport：按类别活动（总 wears 与周柱状图一致） */
+/** ActivityReport：按类别活动（与后端 / 衣橱主分类一致，含 Bag、Dress；API 无数据时 fallback） */
 export const MOCK_CATEGORY_ACTIVITY = [
 	{ name: 'Tops', count: 42, icon: '👕' },
 	{ name: 'Bottoms', count: 28, icon: '👖' },
 	{ name: 'Outerwear', count: 15, icon: '🧥' },
 	{ name: 'Footwear', count: 12, icon: '👟' },
-	{ name: 'Accessories', count: 9, icon: '⌚' }
+	{ name: 'Accessories', count: 9, icon: '⌚' },
+	{ name: 'Bag', count: 0, icon: '👜' },
+	{ name: 'Dress', count: 0, icon: '👗' }
 ]

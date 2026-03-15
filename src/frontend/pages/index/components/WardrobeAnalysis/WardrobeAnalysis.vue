@@ -1,5 +1,10 @@
 <template>
 	<view class="page">
+		<!-- 光流背景：淡米色 + 藕粉色光斑，高模糊缓慢旋转 -->
+		<view class="bg-blob bg-blob-1" aria-hidden="true"></view>
+		<view class="bg-blob bg-blob-2" aria-hidden="true"></view>
+		<!-- 微纹理噪点图层，消除塑料感 -->
+		<view class="grain-overlay" aria-hidden="true"></view>
 		<!-- 展开视图：Activity report / Idle items（页面切换过渡） -->
 		<transition name="page" mode="out-in">
 			<ActivityReport v-if="expandedView === 'activity-report'" key="activity-report" :total-wears="currentWears" :trend-value="activityPercentTarget" :is-increase="activityTrend === 'increase'" :week-data="weeklyActivityData?.week_data" :category-activity="weeklyActivityData?.category_activity" @back="expandedView = null" />
@@ -35,69 +40,73 @@
 				<text class="card-link" @click="goIdleItems">See all idle items →</text>
 			</view>
 
-			<!-- Total Items（主卡） -->
+			<!-- Total Items（主卡）：数字美学 + 光流扫光 -->
 			<view class="card card-elevation-main bento-total">
-				<view class="card-row">
-					<text class="card-label">Total Items</text>
-					<view class="filter-trigger" @click.stop="toggleViewBy('total')">
-						<text>{{ viewByTotalLabel }}</text>
-						<ViewByFilter v-model="viewByTotal" :visible="filterOpen === 'total'" @apply="closeFilter" />
+				<text class="bg-number" aria-hidden="true">{{ totalItemsCount }}</text>
+				<view class="total-content-overlay">
+					<view class="card-row">
+						<text class="card-label">Total Items</text>
+						<view class="filter-trigger" @click.stop="toggleViewBy('total')">
+							<text>{{ viewByTotalLabel }}</text>
+							<ViewByFilter v-model="viewByTotal" :visible="filterOpen === 'total'" @apply="closeFilter" />
+						</view>
 					</view>
-				</view>
-				<view class="chart-container">
-					<view v-if="!isLoggedIn" class="loading-state">
-						<text class="loading-text">Please log in first</text>
-					</view>
-					<view v-else-if="loadingTrend" class="loading-state">
-						<text class="loading-text">加载趋势数据...</text>
-					</view>
-					<template v-else>
-						<template v-if="isSinglePointTrend">
-							<view class="milestone-state">
-								<text class="milestone-num">{{ singlePointValue }}</text>
-								<text class="milestone-desc">Items logged. Your wardrobe journey begins.</text>
-							</view>
-						</template>
+					<view class="chart-container">
+						<view v-if="!isLoggedIn" class="loading-state">
+							<text class="loading-text">Please log in first</text>
+						</view>
+						<view v-else-if="loadingTrend" class="loading-state">
+							<text class="loading-text">加载趋势数据...</text>
+						</view>
 						<template v-else>
-							<svg viewBox="0 0 300 120" class="line-svg">
-								<defs>
-									<linearGradient id="greenGradient" x1="0" x2="0" y1="0" y2="1">
-										<stop offset="0%" stop-color="#7cb97c" stop-opacity="0.28" />
-										<stop offset="40%" stop-color="#7cb97c" stop-opacity="0.18" />
-										<stop offset="70%" stop-color="#7cb97c" stop-opacity="0.08" />
-										<stop offset="100%" stop-color="#7cb97c" stop-opacity="0" />
-									</linearGradient>
-									<filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
-										<feGaussianBlur stdDeviation="3" result="blur" />
-										<feComposite in="SourceGraphic" in2="blur" operator="over" />
-									</filter>
-								</defs>
-								<line x1="0" y1="35" x2="300" y2="35" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
-								<line x1="0" y1="60" x2="300" y2="60" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
-								<line x1="0" y1="85" x2="300" y2="85" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
-								<path :d="smoothPathArea" fill="url(#greenGradient)" class="line-area" />
-								<path
-									:d="smoothPathStroke"
-									fill="none"
-									stroke="#7cb97c"
-									stroke-width="3.5"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									class="line-stroke line-stroke-glow"
-									pathLength="1"
-									filter="url(#neonGlow)"
-								/>
-							</svg>
-							<view class="chart-labels">
-								<text v-for="year in lineYears" :key="year" class="chart-label">{{ year }}</text>
-							</view>
-							<view class="chart-stats" v-if="totalStats && (totalStats.growth_rate != null || totalStats.projection)">
-								<text class="stat-item" v-if="totalStats.growth_rate">增长率: {{ totalStats.growth_rate }}%</text>
-								<text class="stat-item" v-if="totalStats.projection">预测{{ totalStats.projection_year }}: {{ totalStats.projection }}</text>
-							</view>
+							<template v-if="isSinglePointTrend">
+								<view class="milestone-state">
+									<text class="milestone-num">{{ displaySinglePointValue }}</text>
+									<text class="milestone-desc">Items logged. Your wardrobe journey begins.</text>
+								</view>
+							</template>
+							<template v-else>
+								<svg viewBox="0 0 300 120" class="line-svg">
+									<defs>
+										<linearGradient id="greenGradient" x1="0" x2="0" y1="0" y2="1">
+											<stop offset="0%" stop-color="#7cb97c" stop-opacity="0.28" />
+											<stop offset="40%" stop-color="#7cb97c" stop-opacity="0.18" />
+											<stop offset="70%" stop-color="#7cb97c" stop-opacity="0.08" />
+											<stop offset="100%" stop-color="#7cb97c" stop-opacity="0" />
+										</linearGradient>
+										<filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+											<feGaussianBlur stdDeviation="3" result="blur" />
+											<feComposite in="SourceGraphic" in2="blur" operator="over" />
+										</filter>
+									</defs>
+									<line x1="0" y1="35" x2="300" y2="35" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
+									<line x1="0" y1="60" x2="300" y2="60" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
+									<line x1="0" y1="85" x2="300" y2="85" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
+									<path :d="smoothPathArea" fill="url(#greenGradient)" class="line-area line-area-breathe" />
+									<path
+										:d="smoothPathStroke"
+										fill="none"
+										stroke="#7cb97c"
+										stroke-width="3.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="line-stroke line-stroke-glow"
+										pathLength="1"
+										filter="url(#neonGlow)"
+									/>
+								</svg>
+								<view class="chart-labels">
+									<text v-for="year in lineYears" :key="year" class="chart-label">{{ year }}</text>
+								</view>
+								<view class="chart-stats" v-if="totalStats && (totalStats.growth_rate != null || totalStats.projection)">
+									<text class="stat-item" v-if="totalStats.growth_rate">增长率: {{ totalStats.growth_rate }}%</text>
+									<text class="stat-item" v-if="totalStats.projection">预测{{ totalStats.projection_year }}: {{ totalStats.projection }}</text>
+								</view>
+							</template>
 						</template>
-					</template>
+					</view>
 				</view>
+				<view class="shimmer-sweep" aria-hidden="true"></view>
 			</view>
 
 			<!-- Most Worn -->
@@ -158,9 +167,32 @@
 					<view v-else-if="suggestedTexts.length === 0" class="suggest-empty">
 						<text class="suggest-empty-text">No data</text>
 					</view>
-					<view v-else v-for="(sug, index) in suggestedTexts" :key="`${index}-${sug}`" class="suggest-text-item">
-						<text class="suggest-index">0{{ index + 1 }}</text>
-						<text class="suggest-plain-text">{{ sug }}</text>
+					<view
+						v-else
+						v-for="(sug, index) in suggestedTexts"
+						:key="`${index}-${sug}`"
+						class="suggest-card-v2"
+						:class="{ 'suggest-card-v2-expanded': expandedSuggestIndices.includes(index), 'suggest-card-v2-hover': hoveredSuggestIndex === index }"
+						@click="toggleSuggestExpanded(index)"
+						@mouseenter="hoveredSuggestIndex = index"
+						@mouseleave="hoveredSuggestIndex = null"
+					>
+						<view class="suggest-side">
+							<text class="luxury-index">{{ String(index + 1).padStart(2, '0') }}</text>
+							<view class="vertical-line"></view>
+						</view>
+						<view class="suggest-body">
+							<text class="suggest-title">{{ parseSuggestLine(sug).title }}</text>
+							<view class="suggest-accordion-grid" :class="{ expanded: expandedSuggestIndices.includes(index) }">
+								<view class="suggest-accordion-inner">
+									<text v-if="parseSuggestLine(sug).detail" class="suggest-detail">{{ parseSuggestLine(sug).detail }}</text>
+									<view class="capability-tags">
+										<text v-for="tag in getCapabilityTags(sug)" :key="tag" class="tag">{{ tag }}</text>
+									</view>
+								</view>
+							</view>
+						</view>
+						<view class="item-ghost-icon" :class="{ visible: hoveredSuggestIndex === index }">✦</view>
 					</view>
 				</view>
 			</view>
@@ -209,7 +241,9 @@
 						:class="['floating-label', { 'floating-label-hover': hoveredSegmentIndex === i }]"
 						:style="{ transform: `translate(${seg.labelY}px, ${-seg.labelX}px)`, textAlign: seg.align }"
 					>
-						<text class="label-text" :class="[seg.labelSize === 'xl' ? 'label-xl' : seg.labelSize === 'lg' ? 'label-lg' : 'label-sm']">{{ seg.label }}</text>
+						<view class="floating-label-inner">
+							<text class="label-text" :class="[seg.labelSize === 'xl' ? 'label-xl' : seg.labelSize === 'lg' ? 'label-lg' : 'label-sm']">{{ seg.label }}</text>
+						</view>
 					</view>
 				</view>
 			</view>
@@ -266,7 +300,7 @@ const props = defineProps({
 /** 点击卡片内链接后展示的展开页 */
 const expandedView = ref(null)
 const filterOpen = ref(null)
-const viewByTotal = ref('yearly')
+const viewByTotal = ref('weekly')
 const viewByWorn = ref('yearly')
 const hoveredSegmentIndex = ref(null)
 const donutEntranceDone = ref(false)
@@ -292,7 +326,7 @@ const loadingWorn = ref(true)
 const loadingSuggested = ref(true)
 const loadingActivity = ref(true)
 
-const initialTrend = getMockTrendData('yearly')
+const initialTrend = getMockTrendData('weekly')
 const lineYears = ref(initialTrend.labels)
 const lineData = ref(initialTrend.values)
 const totalItemsCount = ref(initialTrend.total_count)
@@ -324,6 +358,15 @@ function animateCountUp(refVal, targetRef, duration = 800, delay = 0) {
 	else start()
 }
 
+/** Total Items 仅一个数据点（yearly 单点）时，从 0 上涨到该数字的动画，与其他 KPI 一致 */
+function runSinglePointCountUp(delay = 0) {
+	if (validTrendData.value.length !== 1) return
+	displaySinglePointValue.value = 0
+	requestAnimationFrame(() => {
+		animateCountUp(displaySinglePointValue, () => singlePointValue.value ?? 0, 800, delay)
+	})
+}
+
 const viewByTotalLabel = computed(() => viewByToLabel(viewByTotal.value))
 const viewByWornLabel = computed(() => viewByToLabel(viewByWorn.value))
 function viewByToLabel(v) {
@@ -343,9 +386,12 @@ const validTrendData = computed(() => {
 /** 仅 1 个数据点时为 true，此时展示里程碑排版而非折线图 */
 const isSinglePointTrend = computed(() => validTrendData.value.length === 1)
 
-/** 仅 1 个数据点时展示的数值（里程碑大数字） */
+/** 仅 1 个数据点时展示的数值（里程碑大数字）；用于动画的显示值，进入/回到页面时从 0 涨到目标 */
+const displaySinglePointValue = ref(0)
+
+/** 仅 1 个数据点时展示的数值（里程碑大数字）— 目标值，供动画与 fallback 使用 */
 const singlePointValue = computed(() =>
-	validTrendData.value.length === 1 ? String(validTrendData.value[0]) : ''
+	validTrendData.value.length === 1 ? validTrendData.value[0] : 0
 )
 
 function getSvgPath(data, width, height, isArea) {
@@ -416,7 +462,7 @@ const donutSegments = computed(() => {
 	// r2 = 圆环「外半径」：该扇形外弧的半径（可选：item.outerRadius 或按数值计算）
 
 	// ---------- 文字标签半径 ----------
-	const defaultLabelGap = 95 // 从「扇形外缘」到「文字锚点」的距离，越大文字越靠外
+	const defaultLabelGap = 110 // 从「扇形外缘」到「文字锚点」的距离，越大文字越靠外（略外推避免遮挡）
 
 	return categoryData.value.map((item) => {
 		const r2 = item.outerRadius ?? (baseRadius + (item.value / maxValue) * radiusRange)
@@ -499,6 +545,42 @@ const mostWornWithDot = computed(() =>
 )
 
 const suggestedTexts = ref([])
+/** 手风琴：当前展开的建议项索引（null 表示全收拢） */
+/** 已展开的建议项索引集合，允许多条同时展开 */
+const expandedSuggestIndices = ref([])
+function toggleSuggestExpanded(index) {
+	const arr = expandedSuggestIndices.value
+	if (arr.includes(index)) {
+		expandedSuggestIndices.value = arr.filter((i) => i !== index)
+	} else {
+		expandedSuggestIndices.value = [...arr, index]
+	}
+}
+/** 悬停的建议项，用于幽灵图标显现 */
+const hoveredSuggestIndex = ref(null)
+
+/** 解析单条建议：首句为标题，其余为详情 */
+function parseSuggestLine(sug) {
+	if (!sug || typeof sug !== 'string') return { title: '', detail: '' }
+	const parts = sug.split('，')
+	const title = parts[0]?.trim() || ''
+	const detail = parts.slice(1).join('，').trim()
+	return { title, detail }
+}
+
+/** 从文案中推断能力标签（平衡/百搭/正式等） */
+function getCapabilityTags(sug) {
+	if (!sug || typeof sug !== 'string') return ['#Essential']
+	const t = sug
+	const tags = []
+	if (/平衡|balance|搭配|協調/i.test(t)) tags.push('#Balance')
+	if (/百搭|versatility|多樣|多用/i.test(t)) tags.push('#Versatility')
+	if (/正式|formal|場合|office/i.test(t)) tags.push('#Formal')
+	if (/基礎|essential|必備|基本/i.test(t)) tags.push('#Essential')
+	if (/下装|下裝|褲|裙|bottom/i.test(t)) tags.push('#WardrobeBalance')
+	if (tags.length === 0) tags.push('#Essential')
+	return tags.slice(0, 3)
+}
 
 function toggleViewBy(which) {
 	filterOpen.value = filterOpen.value === which ? null : which
@@ -506,7 +588,7 @@ function toggleViewBy(which) {
 function closeFilter() {
 	filterOpen.value = null
 }
-/** 预留：Category Breakdown 的 Type 筛选，尚未实现 */
+/** 预留：Category 维度切换（如 Type/Season），目前仅作为按钮占位 */
 function toggleCategoryType() {}
 function goActivityReport() {
 	expandedView.value = 'activity-report'
@@ -696,6 +778,13 @@ watch(viewByTotal, () => {
 watch(viewByWorn, () => {
 	if (props.isLoggedIn) fetchMostWornItems()
 })
+watch(expandedView, (cur, prev) => {
+	if (prev != null && cur === null) runSinglePointCountUp(320)
+})
+/** 监听单点目标值：资料到位后自动触发滚动动画，避免登入/切筛选/慢 API 时中间数字卡在 0 */
+watch(singlePointValue, (newVal, oldVal) => {
+	if (isSinglePointTrend.value && newVal !== oldVal) runSinglePointCountUp()
+})
 watch(() => props.isLoggedIn, (loggedIn) => {
 	if (loggedIn) {
 		loadingTrend.value = true
@@ -730,10 +819,11 @@ watch(() => props.isLoggedIn, (loggedIn) => {
 })
 
 onMounted(() => {
-	setTimeout(() => { donutEntranceDone.value = true }, 800)
+	// 等所有扇形入场动画结束后再移除 donut-path-enter（最末段 delay 约 0.56s + 动画 0.8s ≈ 1.4s）
+	setTimeout(() => { donutEntranceDone.value = true }, 1600)
 	const countUpDelay = 320
 	animateCountUp(activityPercent, activityPercentTarget, 800, countUpDelay)
-	animateCountUp(idlePercent, () => totalItemsCount.value ? (idleCount.value / totalItemsCount.value * 100) : 0, 800, countUpDelay + 60)
+	animateCountUp(idlePercent, () => idlePercentTarget.value, 800, countUpDelay + 60)
 	animateCountUp(topColorPercent, 38, 800, countUpDelay + 120)
 	animateCountUp(topStylePercent, 45, 800, countUpDelay + 180)
 	if (!props.isLoggedIn) {
@@ -764,22 +854,68 @@ onMounted(() => {
 		fetchTopStyle()
 	]).then(() => {
 		animateCountUp(activityPercent, activityPercentTarget, 400)
-		animateCountUp(idlePercent, () => totalItemsCount.value ? (idleCount.value / totalItemsCount.value * 100) : 0, 400)
+		animateCountUp(idlePercent, () => idlePercentTarget.value, 400)
+		// 单点里程碑动画改由 watch(singlePointValue) 在资料到位时触发，此处不再重复调用
 	}).catch(() => {})
 })
 </script>
 
 <style scoped>
 .page {
-	background: #F6F5F1;
+	background: linear-gradient(165deg, #f2efe8 0%, #f5f0eb 40%, #f0ebe6 100%);
 	padding: 30rpx;
 	position: relative;
+	overflow: hidden;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	min-height: 100%;
 	box-sizing: border-box;
 }
+
+/* 光流背景：两枚高模糊光斑缓慢旋转，营造流动丝绸感 */
+.bg-blob {
+	position: absolute;
+	width: 120%;
+	height: 120%;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	border-radius: 50%;
+	pointer-events: none;
+	filter: blur(80px);
+	opacity: 0.85;
+}
+.bg-blob-1 {
+	background: radial-gradient(circle at 30% 40%, rgba(248, 242, 232, 0.95) 0%, rgba(242, 232, 218, 0.5) 40%, transparent 65%);
+	animation: blob-rotate 28s linear infinite;
+}
+.bg-blob-2 {
+	background: radial-gradient(circle at 70% 60%, rgba(232, 218, 212, 0.7) 0%, rgba(228, 208, 200, 0.4) 45%, transparent 70%);
+	animation: blob-rotate 32s linear infinite reverse;
+}
+@keyframes blob-rotate {
+	from { transform: translate(-50%, -50%) rotate(0deg); }
+	to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* 微纹理噪点图层：极低透明度，纸张/哑光质感 */
+.grain-overlay {
+	position: fixed;
+	inset: 0;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	pointer-events: none;
+	z-index: 1;
+	opacity: 0.035;
+	background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+	background-repeat: repeat;
+}
+
 .page-bento-wrap {
 	display: block;
+	position: relative;
+	z-index: 2;
 }
 
 .filter-backdrop {
@@ -843,25 +979,46 @@ onMounted(() => {
 	}
 }
 
-/* 卡片通用样式 + 三档 Elevation（主次层级）
- * - 主卡 .card-elevation-main：Total Items、Category Breakdown，阴影最强
- * - 普通卡 .card：中等阴影
- * - 小卡 .mini-card：无阴影，仅边框
- * 圆角：大卡 20rpx，小卡 16rpx（Apple 感）；背景页 #F6F5F1，卡片 #FFFEFB（纸张感）
+/* 卡片通用样式：玻璃拟态 + 弥散阴影（::after 有色模糊层），无 box-shadow
+ * - 主卡 .card-elevation-main：弥散层更明显
+ * - 普通卡 .card：中等弥散
+ * - 小卡 .mini-card：弱弥散 + 边框
  */
-/* 普通卡：中等阴影；overflow: visible 避免裁切下拉等浮层 */
+/* 普通卡：玻璃拟态 + 弥散阴影；overflow: visible 避免裁切下拉等浮层 */
 .card {
-	background: #FFFEFB;
+	position: relative;
+	background: rgba(255, 254, 251, 0.88);
+	backdrop-filter: blur(20rpx);
+	-webkit-backdrop-filter: blur(20rpx);
 	border-radius: 20rpx;
 	padding: 28rpx 32rpx;
-	box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05), 0 1rpx 4rpx rgba(0, 0, 0, 0.04);
 	display: flex;
 	flex-direction: column;
 	overflow: visible;
+	border: 1rpx solid rgba(255, 255, 255, 0.6);
 }
-/* 主卡（Total Items / Category Breakdown）：更强阴影 */
-.card-elevation-main {
-	box-shadow: 0 12rpx 40rpx rgba(0, 0, 0, 0.08), 0 4rpx 12rpx rgba(0, 0, 0, 0.04);
+.card::after {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	left: 8rpx;
+	top: 8rpx;
+	right: -4rpx;
+	bottom: -4rpx;
+	border-radius: 22rpx;
+	background: linear-gradient(145deg, rgba(168, 212, 168, 0.14) 0%, rgba(200, 188, 180, 0.08) 50%, rgba(180, 200, 200, 0.06) 100%);
+	filter: blur(24rpx);
+	opacity: 0.95;
+}
+/* 主卡：弥散层略大、略浓 */
+.card-elevation-main::after {
+	left: 12rpx;
+	top: 12rpx;
+	right: -6rpx;
+	bottom: -6rpx;
+	border-radius: 24rpx;
+	background: linear-gradient(150deg, rgba(168, 212, 168, 0.18) 0%, rgba(210, 195, 185, 0.1) 45%, rgba(190, 205, 200, 0.08) 100%);
+	filter: blur(32rpx);
 }
 
 .card-label {
@@ -936,11 +1093,9 @@ onMounted(() => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	box-shadow: 0 2rpx 8rpx rgba(124, 185, 124, 0.2);
 }
 .trend-badge-decrease {
 	background: rgba(200, 100, 80, 0.18);
-	box-shadow: 0 2rpx 8rpx rgba(180, 85, 65, 0.22);
 }
 
 .metric-arrow {
@@ -1022,6 +1177,15 @@ onMounted(() => {
 	height: 100%;
 	min-height: 180rpx;
 	display: block;
+}
+
+/* 曲线下绿色填充：呼吸感（用 CSS 动画，兼容性更好） */
+.line-area-breathe {
+	animation: line-area-breathe 4s ease-in-out infinite;
+}
+@keyframes line-area-breathe {
+	0%, 100% { opacity: 0.55; }
+	50% { opacity: 1; }
 }
 
 /* 折线：发光 + 进入动画 */
@@ -1177,23 +1341,43 @@ onMounted(() => {
 	gap: 20rpx;
 }
 
-/* 小卡：几乎无阴影，仅边框，弱化层级 */
+/* 小卡：玻璃拟态 + 光影逻辑 hover，与全局风格一致 */
 .mini-card {
-	background: #FFFEFB;
-	border-radius: 16rpx;
-	padding: 18rpx 20rpx;
-	box-shadow: none;
-	border: 1rpx solid rgba(0, 0, 0, 0.06);
+	position: relative;
+	background: rgba(255, 255, 255, 0.65);
+	backdrop-filter: blur(20rpx);
+	-webkit-backdrop-filter: blur(20rpx);
+	border-radius: 20rpx;
+	padding: 24rpx;
+	border: 1rpx solid rgba(255, 255, 255, 0.4);
 	display: flex;
 	flex-direction: column;
-	position: relative;
-	transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+	transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
 }
-.mini-card:hover,
-.mini-card:active {
-	background: #f5f4f1;
-	box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.04);
-	transform: translateY(-2rpx);
+.mini-card::after {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	left: 4rpx;
+	top: 4rpx;
+	right: -2rpx;
+	bottom: -2rpx;
+	border-radius: 22rpx;
+	background: linear-gradient(145deg, rgba(168, 212, 168, 0.08) 0%, rgba(200, 188, 180, 0.05) 100%);
+	filter: blur(16rpx);
+	opacity: 0.9;
+	transition: filter 0.5s cubic-bezier(0.23, 1, 0.32, 1), background 0.5s ease, opacity 0.5s ease;
+}
+.mini-card:hover {
+	background: rgba(255, 254, 251, 0.92);
+	border-color: rgba(141, 110, 99, 0.25);
+	transform: translateY(-6rpx) translateZ(10px);
+	box-shadow: 0 10rpx 30rpx rgba(141, 110, 99, 0.05);
+}
+.mini-card:hover::after {
+	filter: blur(24rpx);
+	background: linear-gradient(145deg, rgba(168, 212, 168, 0.12) 0%, rgba(200, 188, 180, 0.1) 100%);
+	opacity: 1;
 }
 
 .card-label-small {
@@ -1202,6 +1386,7 @@ onMounted(() => {
 	color: #888;
 	display: block;
 	letter-spacing: 0.02em;
+	transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .mini-value {
@@ -1211,6 +1396,11 @@ onMounted(() => {
 	color: #7a4e18;
 	display: block;
 	letter-spacing: 0.01em;
+	transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s ease;
+}
+.mini-card:hover .mini-value {
+	transform: translateY(-2rpx);
+	color: #5d4037;
 }
 
 .mini-sub {
@@ -1221,14 +1411,30 @@ onMounted(() => {
 	display: block;
 }
 
-/* Suggested Additions - 与其他卡片背景一致 */
+/* Suggested Additions - 玻璃拟态 + 弥散阴影 */
 .bento-suggested {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	padding: 20rpx 24rpx 24rpx;
-	background: #FFFEFB;
+	background: rgba(255, 254, 251, 0.88);
+	backdrop-filter: blur(20rpx);
+	-webkit-backdrop-filter: blur(20rpx);
 	border-radius: 20rpx;
 	border: 1rpx solid rgba(141, 110, 99, 0.12);
+}
+.bento-suggested::after {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	left: 8rpx;
+	top: 8rpx;
+	right: -4rpx;
+	bottom: -4rpx;
+	border-radius: 22rpx;
+	background: linear-gradient(145deg, rgba(141, 110, 99, 0.08) 0%, rgba(200, 188, 180, 0.06) 100%);
+	filter: blur(24rpx);
+	opacity: 0.9;
 }
 
 .suggested-card-row {
@@ -1278,35 +1484,154 @@ onMounted(() => {
 .suggest-list {
 	display: flex;
 	flex-direction: column;
-	gap: 16rpx;
-	margin-top: 15rpx;
+	gap: 0;
+	margin-top: 26rpx;
+	perspective: 1200rpx;
 }
 
-.suggest-text-item {
+/* 互动式购物卡片 v2：杂志化手风琴 + 幽灵图标 + 3D 倾斜 + 极光扫光 */
+.suggest-card-v2 {
+	position: relative;
+	padding: 30rpx 0;
+	padding-right: 56rpx;
+	border-bottom: 1rpx solid rgba(0, 0, 0, 0.04);
 	display: flex;
-	gap: 16rpx;
-	padding: 18rpx 4rpx;
-	border-top: 1rpx solid rgba(0, 0, 0, 0.06);
+	align-items: flex-start;
+	gap: 36rpx;
+	transform-style: preserve-3d;
+	transition: background 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+		padding-left 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+		transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+		box-shadow 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+	cursor: pointer;
+	overflow: visible;
+}
+/* 左侧极光扫光：悬停时像扫描仪亮起 */
+.suggest-card-v2::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 4rpx;
+	height: 100%;
+	background: #8b7a6b;
+	transform: scaleY(0);
+	transform-origin: center top;
+	transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+	box-shadow: 0 0 15rpx #8b7a6b;
+	pointer-events: none;
+	z-index: 0;
+}
+.suggest-card-v2:first-child {
+	padding-top: 20rpx;
+}
+.suggest-card-v2:last-child {
+	border-bottom: none;
+}
+.suggest-card-v2:hover,
+.suggest-card-v2.suggest-card-v2-hover {
+	background: rgba(141, 110, 99, 0.04);
+	padding-left: 20rpx;
+	transform: translateX(12rpx) translateY(-2rpx) rotateX(2deg) rotateY(-2deg);
+	box-shadow: -10rpx 0 30rpx rgba(141, 110, 99, 0.08);
+}
+.suggest-card-v2:hover::before,
+.suggest-card-v2.suggest-card-v2-hover::before {
+	transform: scaleY(1);
+}
+.suggest-card-v2-expanded {
+	background: rgba(141, 110, 99, 0.03);
 }
 
-.suggest-text-item:first-child {
-	border-top: none;
-	padding-top: 6rpx;
-}
-
-.suggest-index {
+.suggest-side {
 	flex-shrink: 0;
-	font-size: 22rpx;
-	font-weight: 700;
-	letter-spacing: 0.08em;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12rpx;
+	margin-left: 20rpx;
+}
+.luxury-index {
+	font-family: "Didot", "Playfair Display", Georgia, serif;
+	font-style: italic;
+	font-size: 36rpx;
 	color: #8b7a6b;
-	padding-top: 2rpx;
+	opacity: 0.6;
+	line-height: 1;
+}
+.vertical-line {
+	width: 1rpx;
+	flex: 1;
+	min-height: 24rpx;
+	background: linear-gradient(to bottom, rgba(139, 122, 107, 0.25), transparent);
+	border-radius: 1rpx;
 }
 
-.suggest-plain-text {
-	font-size: 25rpx;
-	line-height: 1.75;
-	color: #4b3f39;
+.suggest-body {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 8rpx;
+}
+.suggest-title {
+	display: block;
+	font-size: 30rpx;
+	font-weight: 700;
+	color: #2c2c2c;
+	margin-bottom: 4rpx;
+	line-height: 1.35;
+}
+.suggest-accordion-grid {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.suggest-accordion-grid.expanded {
+	grid-template-rows: 1fr;
+}
+.suggest-accordion-inner {
+	overflow: hidden;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 16rpx;
+}
+.suggest-detail {
+	font-size: 26rpx;
+	color: #888;
+	line-height: 1.6;
+	display: block;
+}
+.capability-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12rpx;
+}
+.suggest-card-v2 .tag {
+	font-size: 18rpx;
+	color: #8b7a6b;
+	padding: 4rpx 12rpx;
+	background: rgba(141, 110, 99, 0.06);
+	border-radius: 4rpx;
+	text-transform: uppercase;
+	letter-spacing: 1rpx;
+}
+
+.item-ghost-icon {
+	position: absolute;
+	right: 48rpx;
+	top: 50%;
+	transform: translateY(-50%);
+	font-size: 40rpx;
+	color: rgba(212, 175, 55, 0.35);
+	opacity: 0.4;
+	transition: opacity 0.3s ease, transform 0.3s ease, color 0.3s ease;
+}
+.item-ghost-icon.visible {
+	opacity: 1;
+	color: #c9a227;
+	transform: translateY(-50%) translateX(-6rpx);
 }
 
 .suggest-empty {
@@ -1337,27 +1662,45 @@ onMounted(() => {
 	transform: rotate(-90deg);
 }
 
+/* 1. 初始状态：完全平面 */
 .donut-path {
 	transform-origin: 50% 50%;
-	transition: opacity 0.25s ease, transform 0.25s ease;
+	transition: opacity 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67),
+		transform 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67),
+		filter 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67);
 	cursor: pointer;
+	transform: translateZ(0);
+	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
 }
 .donut-path.donut-path-enter {
-	animation: donut-segment-enter 0.5s ease-out backwards;
+	animation: donut-segment-enter 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
-.donut-path:hover,
-.donut-path.donut-path-hover {
-	opacity: 0.9;
-	transform: scale(1.02);
+/* 容器 hover 时，所有扇形先变暗 */
+.donut-svg:hover .donut-path {
+	opacity: 0.6;
+	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) grayscale(0.2);
 }
+/* 2. 当前 hover 的扇形：保持明亮并长出厚度（多层 drop-shadow 模拟侧边） */
+.donut-svg .donut-path:hover,
+.donut-svg .donut-path.donut-path-hover {
+	opacity: 1;
+	transform: translateY(-10rpx) translateZ(20rpx);
+	filter: grayscale(0)
+		drop-shadow(0 2rpx 0 rgba(0, 0, 0, 0.1))
+		drop-shadow(0 4rpx 0 rgba(0, 0, 0, 0.1))
+		drop-shadow(0 6rpx 0 rgba(0, 0, 0, 0.1))
+		drop-shadow(0 8rpx 0 rgba(0, 0, 0, 0.15))
+		drop-shadow(0 20rpx 30rpx rgba(0, 0, 0, 0.1));
+}
+/* 统一上升入场：自下而上 + 淡入，每个扇形仅 delay 递增 */
 @keyframes donut-segment-enter {
 	from {
 		opacity: 0;
-		transform: scale(0.4);
+		transform: translateY(24px);
 	}
 	to {
 		opacity: 1;
-		transform: scale(1);
+		transform: translateY(0);
 	}
 }
 
@@ -1424,11 +1767,19 @@ onMounted(() => {
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	transition: transform 0.2s ease;
+	z-index: 10;
+}
+.floating-label-inner {
+	transition: transform 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+.floating-label.floating-label-hover .floating-label-inner {
+	transform: scale(1.1) translateY(-16rpx);
 }
 .floating-label.floating-label-hover .label-text {
 	color: #5d4037;
-	transform: scale(1.08);
 }
 
 .label-text {
@@ -1489,7 +1840,56 @@ onMounted(() => {
  */
 .bento-activity { grid-column: 1; grid-row: 1; }
 .bento-idle     { grid-column: 2; grid-row: 1; }
-.bento-total    { grid-column: 3 / 5; grid-row: 1 / 3; }
+.bento-total {
+	grid-column: 3 / 5;
+	grid-row: 1 / 3;
+	overflow: hidden;
+}
+
+/* Total Items 數字美學：右下角背景數字 + 掃光 */
+.bento-total .bg-number {
+	position: absolute;
+	right: -20rpx;
+	bottom: -40rpx;
+	font-size: 200rpx;
+	font-weight: 900;
+	color: #000;
+	opacity: 0.05;
+	font-style: italic;
+	line-height: 1;
+	pointer-events: none;
+	user-select: none;
+}
+.bento-total .total-content-overlay {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+}
+.bento-total .shimmer-sweep {
+	position: absolute;
+	top: 0;
+	left: -100%;
+	width: 50%;
+	height: 100%;
+	background: linear-gradient(
+		to right,
+		transparent,
+		rgba(255, 255, 255, 0.5),
+		transparent
+	);
+	transform: skewX(-25deg);
+	animation: shimmer-sweep 6s ease-in-out infinite;
+	pointer-events: none;
+	z-index: 2;
+}
+@keyframes shimmer-sweep {
+	0% { left: -100%; }
+	30% { left: 150%; }
+	100% { left: 150%; }
+}
 
 .bento-worn     { grid-column: 1; grid-row: 2 / 4; }
 .bento-stats    { grid-column: 2; grid-row: 2; }

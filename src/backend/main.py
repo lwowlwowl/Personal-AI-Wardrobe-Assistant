@@ -2450,17 +2450,17 @@ async def get_category_distribution(
             "other": "#999999"      # 其他 - 深灰色
         }
 
-        # 分类名称映射（用于显示）
+        # 分类名称映射（用于显示，英文）
         category_names = {
-            "top": "上衣",
-            "bottom": "下装",
-            "dress": "连衣裙",
-            "outerwear": "外套",
-            "footwear": "鞋履",
-            "accessory": "配饰",
-            "bag": "包袋",
-            "underwear": "内衣",
-            "other": "其他"
+            "top": "Tops",
+            "bottom": "Bottoms",
+            "dress": "Dress",
+            "outerwear": "Outerwear",
+            "footwear": "Footwear",
+            "accessory": "Accessories",
+            "bag": "Bag",
+            "underwear": "Underwear",
+            "other": "Other"
         }
 
         # 构建返回数据
@@ -2731,7 +2731,7 @@ async def get_idle_items_detail(
             models.ClothingItem.last_worn_date.asc().nullsfirst()
         ).offset(skip).limit(page_size).all()
 
-        # 序列化為明確 dict，確保前端能拿到 id 等欄位（供 Try today / 日曆等使用）
+        # 序列化为明确 dict，确保前端能拿到 id 等栏位（供 Try today / 日历等使用）
         items = []
         for row in rows:
             season_val = None
@@ -2808,22 +2808,23 @@ async def get_top_color(
             models.ClothingItem.color.isnot(None)
         ).scalar() or 0
 
-        # 颜色名称映射（中英文映射）
+        # 颜色名称映射（API 返回英文，供前端展示）
         color_name_map = {
-            "white": "白色",
-            "black": "黑色",
-            "gray": "灰色",
-            "brown": "棕色",
-            "beige": "米色",
-            "navy": "藏青色",
-            "blue": "蓝色",
-            "red": "红色",
-            "green": "绿色",
-            "yellow": "黄色",
-            "pink": "粉色",
-            "purple": "紫色",
-            "orange": "橙色",
-            "multicolor": "多色"
+            "white": "White",
+            "black": "Black",
+            "gray": "Gray",
+            "grey": "Gray",
+            "brown": "Brown",
+            "beige": "Beige",
+            "navy": "Navy",
+            "blue": "Blue",
+            "red": "Red",
+            "green": "Green",
+            "yellow": "Yellow",
+            "pink": "Pink",
+            "purple": "Purple",
+            "orange": "Orange",
+            "multicolor": "Multicolor"
         }
 
         # 构建返回数据
@@ -2840,7 +2841,7 @@ async def get_top_color(
         # 获取最常用颜色
         top_color = top_color_data[0] if top_color_data else {
             "color_code": "brown",
-            "color_name": "棕色",
+            "color_name": "Brown",
             "count": 0,
             "percentage": 0
         }
@@ -2898,24 +2899,24 @@ async def get_top_style(
             func.count(models.ClothingTag.id).desc()
         ).all()
 
-        # 风格名称映射
+        # 风格名称映射（API 返回英文）
         style_name_map = {
-            "sporty": "运动风",
-            "casual": "休闲风",
-            "formal": "正式风",
-            "business": "商务风",
-            "minimal": "简约风",
-            "bohemian": "波西米亚",
-            "vintage": "复古风",
-            "streetwear": "街头风",
-            "运动": "运动风",
-            "休闲": "休闲风",
-            "正式": "正式风",
-            "商务": "商务风",
-            "简约": "简约风",
-            "波西米亚": "波西米亚",
-            "复古": "复古风",
-            "街头": "街头风"
+            "sporty": "Sporty",
+            "casual": "Casual",
+            "formal": "Formal",
+            "business": "Business",
+            "minimal": "Minimal",
+            "bohemian": "Bohemian",
+            "vintage": "Vintage",
+            "streetwear": "Streetwear",
+            "运动": "Sporty",
+            "休闲": "Casual",
+            "正式": "Formal",
+            "商务": "Business",
+            "简约": "Minimal",
+            "波西米亚": "Bohemian",
+            "复古": "Vintage",
+            "街头": "Streetwear"
         }
 
         # 计算总数
@@ -2934,7 +2935,7 @@ async def get_top_style(
         # 获取最常用风格
         top_style = style_data[0] if style_data else {
             "style_code": "casual",
-            "style_name": "休闲风",
+            "style_name": "Casual",
             "count": 0,
             "percentage": 0
         }
@@ -3111,7 +3112,7 @@ async def get_most_worn_items(
         }
 
 
-# 前端 Weekly Activity 分类显示名与图标（与 WardrobeAnalysis mockData 一致）
+# 前端 Weekly Activity 分类显示名与图标（与衣橱主分类一致，含 Bag 独立展示）
 _WEEKLY_ACTIVITY_CATEGORY_MAP = {
     "top": {"name": "Tops", "icon": "👕"},
     "bottom": {"name": "Bottoms", "icon": "👖"},
@@ -3119,7 +3120,7 @@ _WEEKLY_ACTIVITY_CATEGORY_MAP = {
     "outerwear": {"name": "Outerwear", "icon": "🧥"},
     "footwear": {"name": "Footwear", "icon": "👟"},
     "accessory": {"name": "Accessories", "icon": "⌚"},
-    "bag": {"name": "Accessories", "icon": "⌚"},
+    "bag": {"name": "Bag", "icon": "👜"},
     "underwear": {"name": "Other", "icon": "📦"},
     "other": {"name": "Other", "icon": "📦"},
 }

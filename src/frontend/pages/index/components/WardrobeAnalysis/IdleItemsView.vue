@@ -1,5 +1,8 @@
 <template>
 	<scroll-view class="expanded-page" scroll-y>
+		<view class="bg-blob bg-blob-1" aria-hidden="true"></view>
+		<view class="bg-blob bg-blob-2" aria-hidden="true"></view>
+		<view class="grain-overlay" aria-hidden="true"></view>
 		<view class="expanded-content">
 			<view class="expanded-header">
 				<view class="back-btn" @click="emit('back')">
@@ -325,12 +328,50 @@ onMounted(async () => {
 
 <style scoped>
 .expanded-page {
-	background: #F6F5F1;
+	position: relative;
+	background: linear-gradient(165deg, #f2efe8 0%, #f5f0eb 40%, #f0ebe6 100%);
 	height: 100vh;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	box-sizing: border-box;
+	overflow: hidden;
+}
+.bg-blob {
+	position: fixed;
+	width: 120%;
+	height: 120%;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	border-radius: 50%;
+	pointer-events: none;
+	filter: blur(80px);
+	opacity: 0.85;
+	z-index: 0;
+}
+.bg-blob-1 {
+	background: radial-gradient(circle at 30% 40%, rgba(248, 242, 232, 0.95) 0%, rgba(242, 232, 218, 0.5) 40%, transparent 65%);
+	animation: blob-rotate 28s linear infinite;
+}
+.bg-blob-2 {
+	background: radial-gradient(circle at 70% 60%, rgba(232, 218, 212, 0.7) 0%, rgba(228, 208, 200, 0.4) 45%, transparent 70%);
+	animation: blob-rotate 32s linear infinite reverse;
+}
+@keyframes blob-rotate {
+	from { transform: translate(-50%, -50%) rotate(0deg); }
+	to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+.grain-overlay {
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	z-index: 1;
+	opacity: 0.035;
+	background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+	background-repeat: repeat;
 }
 .expanded-content {
+	position: relative;
+	z-index: 2;
 	padding: 24rpx 30rpx 40rpx;
 }
 
@@ -363,12 +404,28 @@ onMounted(async () => {
 }
 
 .card {
-	background: #FFFEFB;
+	position: relative;
+	background: rgba(255, 254, 251, 0.88);
+	backdrop-filter: blur(20rpx);
+	-webkit-backdrop-filter: blur(20rpx);
 	border-radius: 32rpx;
 	padding: 28rpx 32rpx;
-	box-shadow: 0 6rpx 24rpx rgba(0, 0, 0, 0.06), 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
 	margin-bottom: 24rpx;
-	transition: transform 0.2s ease, box-shadow 0.2s ease;
+	border: 1rpx solid rgba(255, 255, 255, 0.6);
+	transition: transform 0.2s ease;
+}
+.card::after {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	left: 8rpx;
+	top: 8rpx;
+	right: -4rpx;
+	bottom: -4rpx;
+	border-radius: 34rpx;
+	background: linear-gradient(145deg, rgba(168, 212, 168, 0.12) 0%, rgba(184, 107, 31, 0.06) 50%, rgba(200, 188, 180, 0.06) 100%);
+	filter: blur(24rpx);
+	opacity: 0.95;
 }
 
 .summary-card {
@@ -479,20 +536,34 @@ onMounted(async () => {
 	position: relative;
 }
 .idle-item-card {
+	position: relative;
 	display: flex;
 	align-items: center;
 	gap: 20rpx;
 	padding: 24rpx;
-	background: #FFFEFB;
+	background: rgba(255, 254, 251, 0.88);
+	backdrop-filter: blur(20rpx);
+	-webkit-backdrop-filter: blur(20rpx);
 	border-radius: 24rpx;
-	border: 1rpx solid rgba(0, 0, 0, 0.06);
-	box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.06), 0 2rpx 6rpx rgba(0, 0, 0, 0.03);
-	transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+	border: 1rpx solid rgba(255, 255, 255, 0.6);
+	transition: background 0.2s ease, transform 0.2s ease;
+}
+.idle-item-card::after {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	left: 6rpx;
+	top: 6rpx;
+	right: -3rpx;
+	bottom: -3rpx;
+	border-radius: 26rpx;
+	background: linear-gradient(145deg, rgba(184, 107, 31, 0.08) 0%, rgba(200, 188, 180, 0.06) 100%);
+	filter: blur(20rpx);
+	opacity: 0.9;
 }
 .idle-item-card:hover {
-	background: #FFFEFB;
+	background: rgba(255, 254, 251, 0.92);
 	transform: translateY(-6rpx);
-	box-shadow: 0 12rpx 36rpx rgba(0, 0, 0, 0.08), 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
 }
 
 .idle-item-thumb {
