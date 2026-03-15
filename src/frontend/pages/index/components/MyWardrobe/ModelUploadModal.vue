@@ -21,7 +21,7 @@
 					/>
 				</view>
 
-				<view class="form-group form-group-optional">
+				<view class="form-group">
 					<text class="form-label">Description (optional)</text>
 					<textarea
 						class="form-textarea"
@@ -32,7 +32,7 @@
 					/>
 				</view>
 
-				<view class="form-group switch-group">
+				<view class="form-group">
 					<view class="switch-row">
 						<text class="switch-label">Set as default model</text>
 						<switch

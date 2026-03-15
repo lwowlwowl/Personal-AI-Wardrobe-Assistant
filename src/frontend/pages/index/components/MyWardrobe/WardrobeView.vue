@@ -32,6 +32,7 @@
 						<image src="/static/icons/icon-search.svg" mode="aspectFit" class="icon-search"></image>
 						<input 
 							v-if="viewMode === 'Cloth'"
+							:key="'cloth-search-' + clearKey"
 							class="search-input" 
 							type="text" 
 							placeholder="Search your wardrobe..." 
@@ -40,6 +41,7 @@
 						/>
 						<input 
 							v-else
+							:key="'model-search-' + clearKey"
 							class="search-input" 
 							type="text" 
 							placeholder="Search model gallery..." 
@@ -236,34 +238,50 @@
 				<view :key="viewMode" class="view-switch-inner">
 					<!-- Cloth Grid -->
 					<template v-if="viewMode === 'Cloth'">
-						<view v-if="displayList.length === 0" class="empty-state-wrap" :class="{ 'empty-state-has-filters': hasActiveFilters }">
-							<template v-if="hasActiveFilters">
-								<text class="empty-state-title">No items match the filters</text>
-								<text class="empty-state-hint">Try adjusting or clearing filters</text>
-								<view class="empty-state-btn" @click="clearAllFilters">Clear filters</view>
-							</template>
-							<template v-else>
-								<view class="empty-state-panel">
-									<view class="empty-state-bg-pattern" aria-hidden="true">👗 🧥 👕 👖</view>
-									<view class="empty-state-illustration">
-										<view class="empty-state-icon-texture" aria-hidden="true">👕 👗 👖</view>
-										<image src="/static/icons/icon-wardrobe.svg" mode="aspectFit" class="empty-state-icon" />
-									</view>
-									<text class="empty-state-headline">Your wardrobe is waiting</text>
-									<text class="empty-state-subtitle">Add your first clothing item to begin your styling journey.</text>
-									<view class="empty-state-cta" @click="testSimpleUpload">Upload first item</view>
+						<view v-if="isInitialLoadingCloth" class="clothes-grid">
+							<view v-for="n in 8" :key="'cloth-skel-' + n" class="cloth-card">
+								<view class="img-wrapper is-loading"></view>
+								<view class="card-caption">
+									<view class="skeleton-text"></view>
 								</view>
-							</template>
+							</view>
 						</view>
-						<template v-else>
-						<transition name="page-fade" mode="out-in">
-							<view class="clothes-grid" :key="currentPage">
-								<view 
-									v-for="(item, index) in paginatedList" 
-									:key="item.id" 
-									class="cloth-card"
-									@click="openDetail(item)"
-								>
+						<view v-else-if="clothes.length === 0" class="empty-state-wrap">
+							<view class="empty-state-panel">
+								<view class="empty-state-bg-pattern" aria-hidden="true">👗 🧥 👕 👖</view>
+								<view class="empty-state-illustration">
+									<view class="empty-state-icon-texture" aria-hidden="true">👕 👗 👖</view>
+									<image src="/static/icons/icon-wardrobe.svg" mode="aspectFit" class="empty-state-icon" />
+								</view>
+								<text class="empty-state-headline">Your wardrobe is waiting</text>
+								<text class="empty-state-subtitle">Add your first clothing item to begin your styling journey.</text>
+								<view class="empty-state-cta" @click="testSimpleUpload">Upload first item</view>
+							</view>
+						</view>
+						<transition v-else name="state-fade" mode="out-in">
+							<view v-if="displayList.length === 0" key="noresults" class="no-results-wrap">
+								<view class="no-results-content">
+									<view class="no-results-visual">
+										<text class="no-results-mark">✨</text>
+									</view>
+									<text class="no-results-title">Hmm, not in this collection.</text>
+									<text class="no-results-desc">Let's step back and see what else we have.</text>
+									<view class="no-results-action" @click="clearAllFilters">
+										<text class="action-text">Show all my items</text>
+										<view class="action-underline"></view>
+									</view>
+								</view>
+							</view>
+							<view v-else key="datalist" class="list-container">
+								<transition name="page-fade" mode="out-in">
+									<view class="clothes-grid" :key="`grid-${currentPage}-${displayList.length}`">
+										<view 
+											v-for="(item, index) in paginatedList" 
+											:key="item.id" 
+											class="cloth-card stagger-enter"
+											:style="{ 'animation-delay': `${index * 0.05}s` }"
+											@click="openDetail(item)"
+										>
 									<view class="img-wrapper" :class="{ 'is-loaded': item.imageLoaded }">
 										<!-- 方式1: 使用原生image -->
 										  <image 
@@ -304,91 +322,132 @@
 									</view>
 								</view>
 							</view>
-						</transition>
-						<view class="pagination" v-if="totalPages > 1">
-							<view 
-								class="page-btn prev" 
-								:class="{ disabled: currentPage <= 1 }"
-								@click="currentPage > 1 && (currentPage = currentPage - 1)"
-							>Prev</view>
-							<view class="pagination-dots">
+							</transition>
+							<view class="pagination" v-if="totalPages > 1">
 								<view 
-									v-for="i in totalPages" 
-									:key="i" 
-									class="dot" 
-									:class="{ active: currentPage === i }"
-									@click="currentPage = i"
-								></view>
+									class="page-btn prev" 
+									:class="{ disabled: currentPage <= 1 }"
+									@click="currentPage > 1 && (currentPage = currentPage - 1)"
+								>Prev</view>
+								<view class="pagination-dots">
+									<view 
+										v-for="i in totalPages" 
+										:key="i" 
+										class="dot" 
+										:class="{ active: currentPage === i }"
+										@click="currentPage = i"
+									></view>
+								</view>
+								<view 
+									class="page-btn next" 
+									:class="{ disabled: currentPage >= totalPages }"
+									@click="currentPage < totalPages && (currentPage = currentPage + 1)"
+								>Next</view>
 							</view>
-							<view 
-								class="page-btn next" 
-								:class="{ disabled: currentPage >= totalPages }"
-								@click="currentPage < totalPages && (currentPage = currentPage + 1)"
-							>Next</view>
-						</view>
-						</template>
+							</view>
+						</transition>
 					</template>
 
 					<!-- Model Grid -->
 					<template v-else>
-						<transition name="page-fade" mode="out-in">
-							<view class="clothes-grid model-grid" :key="modelCurrentPage">
-								<view 
-									v-for="(item, index) in modelPaginatedList" 
-									:key="item.id" 
-									class="model-card"
-									:class="{ 'is-default': item.id === defaultModelId }"
-									@click="openModelDetail(item)"
-								>
-									<view class="model-img-wrap">
-										<image :src="item.image" mode="aspectFill" class="model-img" />
-										<view v-if="item.id === defaultModelId" class="model-default-badge">Default</view>
-										<!-- 与 cloth 一致的 hover 浮层：右下角 Set default + Delete，样式与衣服一致 -->
-										<view class="card-overlay">
-											<view class="card-overlay-top">
-												<text class="card-tag">Model</text>
-											</view>
-											<view class="card-overlay-bottom">
-												<view class="quick-actions">
-													<view class="quick-btn primary" @click.stop="handleSetDefaultModel(item.id)">
-														<text>{{ item.id === defaultModelId ? 'Default' : 'Set default' }}</text>
-													</view>
-													<view class="quick-btn danger" @click.stop="handleModelDelete(item.id)">
-														<text>Delete</text>
-													</view>
-												</view>
-											</view>
-										</view>
-									</view>
+						<transition name="state-fade" mode="out-in">
+							<view v-if="isInitialLoadingModel" key="loading-model" class="clothes-grid model-grid">
+								<view v-for="n in 8" :key="'model-skel-' + n" class="model-card">
+									<view class="model-img-wrap is-loading"></view>
 									<view class="card-caption">
-										<text class="card-caption-name" :title="item.photo_name || item.posture">
-											{{ item.photo_name || item.posture || 'Unnamed' }}
-										</text>
+										<view class="skeleton-text"></view>
 									</view>
 								</view>
 							</view>
-						</transition>
-						<view class="pagination" v-if="modelTotalPages > 1">
-							<view 
-								class="page-btn prev" 
-								:class="{ disabled: modelCurrentPage <= 1 }"
-								@click="modelPrevPage"
-							>Prev</view>
-							<view class="pagination-dots">
-								<view 
-									v-for="i in modelTotalPages" 
-									:key="i" 
-									class="dot" 
-									:class="{ active: modelCurrentPage === i }"
-									@click="modelCurrentPage = i"
-								></view>
+
+							<view v-else-if="models.length === 0" key="empty-model" class="empty-state-wrap">
+								<view class="empty-state-panel">
+									<view class="empty-state-bg-pattern" aria-hidden="true">📷 ✨ 📸 🖼️</view>
+									<view class="empty-state-illustration">
+										<view class="empty-state-icon-texture" aria-hidden="true">📷 🖼️</view>
+										<image src="/static/icons/icon-image-upload.svg" mode="aspectFit" class="empty-state-icon" style="filter: grayscale(100%) opacity(0.8);" />
+									</view>
+									<text class="empty-state-headline">No models yet</text>
+									<text class="empty-state-subtitle">Upload your first model photo to begin your styling journey.</text>
+									<view class="empty-state-cta" @click="openModelUpload">Add model photo</view>
+								</view>
 							</view>
-							<view 
-								class="page-btn next" 
-								:class="{ disabled: modelCurrentPage >= modelTotalPages }"
-								@click="modelNextPage"
-							>Next</view>
-						</view>
+
+							<view v-else-if="modelDisplayList.length === 0" key="noresults-model" class="no-results-wrap">
+								<view class="no-results-content">
+									<view class="no-results-visual">
+										<text class="no-results-mark">✨</text>
+									</view>
+									<text class="no-results-title">Whoops, no match.</text>
+									<text class="no-results-desc">I couldn't find any model photos matching that name. Let's go back to the full gallery.</text>
+									<view class="no-results-action" @click="clearAllFilters">
+										<text class="action-text">Show all models</text>
+										<view class="action-underline"></view>
+									</view>
+								</view>
+							</view>
+
+							<view v-else key="datalist-model" class="list-container">
+								<transition name="page-fade" mode="out-in">
+									<view class="clothes-grid model-grid" :key="`grid-model-${modelCurrentPage}-${modelDisplayList.length}`">
+										<view 
+											v-for="(item, index) in modelPaginatedList" 
+											:key="item.id" 
+											class="model-card stagger-enter"
+											:class="{ 'is-default': item.id === defaultModelId }"
+											:style="{ 'animation-delay': `${index * 0.05}s` }"
+											@click="openModelDetail(item)"
+										>
+											<view class="model-img-wrap">
+												<image :src="item.image" mode="aspectFill" class="model-img" />
+												<view v-if="item.id === defaultModelId" class="model-default-badge">Default</view>
+												<view class="card-overlay">
+													<view class="card-overlay-top">
+														<text class="card-tag">Model</text>
+													</view>
+													<view class="card-overlay-bottom">
+														<view class="quick-actions">
+															<view class="quick-btn primary" @click.stop="handleSetDefaultModel(item.id)">
+																<text>{{ item.id === defaultModelId ? 'Default' : 'Set default' }}</text>
+															</view>
+															<view class="quick-btn danger" @click.stop="handleModelDelete(item.id)">
+																<text>Delete</text>
+															</view>
+														</view>
+													</view>
+												</view>
+											</view>
+											<view class="card-caption">
+												<text class="card-caption-name" :title="item.photo_name || item.posture">
+													{{ item.photo_name || item.posture || 'Unnamed' }}
+												</text>
+											</view>
+										</view>
+									</view>
+								</transition>
+								<view class="pagination" v-if="modelTotalPages > 1">
+									<view 
+										class="page-btn prev" 
+										:class="{ disabled: modelCurrentPage <= 1 }"
+										@click="modelPrevPage"
+									>Prev</view>
+									<view class="pagination-dots">
+										<view 
+											v-for="i in modelTotalPages" 
+											:key="i" 
+											class="dot" 
+											:class="{ active: modelCurrentPage === i }"
+											@click="modelCurrentPage = i"
+										></view>
+									</view>
+									<view 
+										class="page-btn next" 
+										:class="{ disabled: modelCurrentPage >= modelTotalPages }"
+										@click="modelNextPage"
+									>Next</view>
+								</view>
+							</view>
+						</transition>
 					</template>
 				</view>
 			</transition>
@@ -469,16 +528,9 @@ const userToken = ref(uni.getStorageSync('auth_token') || '')
 const userInfo = ref(uni.getStorageSync('user_info') || null)
 const isLoggedIn = ref(!!userToken.value)
 const isCheckingAuth = ref(false) // 用于token验证
-
-onMounted(async () => {
-  // 页面加载时检查认证状态
-  await checkAuthStatus()
-  
-  // 如果已登录，加载用户数据
-  if (isLoggedIn.value) {
-    await loadClothingData()
-  }
-})
+// 首次加載狀態：數據回來前顯示骨架屏，避免閃現空狀態
+const isInitialLoadingCloth = ref(true)
+const isInitialLoadingModel = ref(true)
 
 // ============ 上传相关状态 ============
 const uploadLoading = ref(false)
@@ -509,6 +561,8 @@ const uploadFormData = ref({
 async function checkAuthStatus() {
   if (!userToken.value) {
     isLoggedIn.value = false
+    isInitialLoadingCloth.value = false
+    isInitialLoadingModel.value = false
     updateAuthState?.(false)
     return false
   }
@@ -553,15 +607,10 @@ function clearAuthData() {
   userToken.value = ''
   userInfo.value = null
   isLoggedIn.value = false
+  isInitialLoadingCloth.value = false
+  isInitialLoadingModel.value = false
   updateAuthState?.(false)
 }
-
-onMounted(async () => {
-  await checkAuthStatus()
-  if (isLoggedIn.value) {
-    await loadClothingData()
-  }
-})
 
 const testSimpleUpload = async () => {
   try {
@@ -685,7 +734,7 @@ async function handleClothUploadConfirm({ itemId, payload }) {
     if (result.statusCode === 200 && result.data?.success !== false) {
       uni.showToast({ title: 'Saved', icon: 'success' })
       createdItemIdForEdit.value = null
-      loadClothingData()
+      loadClothingData({ showSkeleton: false })
     } else {
       uni.showToast({ title: result.data?.message || 'Save failed', icon: 'none' })
     }
@@ -721,10 +770,15 @@ const closeCategoryModal = () => {
 
 
 // 加载衣物数据的方法
-// 修改 loadClothingData，在加载时自动应用修复
-const loadClothingData = async () => {
+// showSkeleton: 是否顯示骨架屏（初次進入為 true，上傳/刪除後刷新為 false）
+const loadClothingData = async (options = {}) => {
+  const { showSkeleton = true } = options
   try {
-    if (!isLoggedIn.value) return
+    if (!isLoggedIn.value) {
+      isInitialLoadingCloth.value = false
+      return
+    }
+    if (showSkeleton) isInitialLoadingCloth.value = true
     const queryParams = {
       token: userToken.value,
       // 后端分页只用于限制最大返回数量，这里一次拉取尽量多的数据，前端再做分页
@@ -812,6 +866,8 @@ const loadClothingData = async () => {
     
   } catch (error) {
     console.error('加载衣物数据失败:', error)
+  } finally {
+    isInitialLoadingCloth.value = false
   }
 }
 
@@ -998,113 +1054,6 @@ const testImageUrl = (url) => {
   })
 }
 
-// 修复所有图片URL
-const fixAllImageUrls = async () => {
-  console.log('开始修复所有图片URL...')
-  
-  const total = clothes.value.length
-  console.log(`需要修复 ${total} 张图片`)
-  
-  // 用于跟踪修复结果
-  const results = {
-    total: total,
-    fixed: 0,
-    failed: 0,
-    unchanged: 0
-  }
-  
-  // 依次修复每张图片
-  for (let i = 0; i < clothes.value.length; i++) {
-    const item = clothes.value[i]
-    console.log(`\n修复进度: ${i + 1}/${total} (ID: ${item.id})`)
-    
-    // 保存原始URL
-    const originalUrl = item.image
-    
-    // 尝试修复
-    const fixedUrl = await fixImageUrlForItemAsync(item)
-    
-    // 如果URL有变化，更新数据
-    if (fixedUrl !== originalUrl) {
-      clothes.value[i].image = fixedUrl
-      clothes.value[i]._originalUrl = originalUrl // 保存原始URL用于调试
-      clothes.value[i]._fixed = true
-      clothes.value[i]._fixedAt = new Date().toISOString()
-      results.fixed++
-      console.log(`✅ 已修复`)
-    } else {
-      results.unchanged++
-      console.log(`⏭️ 无需修复`)
-    }
-    
-    // 小延迟避免请求过于密集
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-  
-  // 强制更新视图
-  clothes.value = [...clothes.value]
-  
-  console.log('\n📊 修复结果:')
-  console.log(`总数: ${results.total}`)
-  console.log(`修复成功: ${results.fixed}`)
-  console.log(`无需修复: ${results.unchanged}`)
-  console.log(`修复失败: ${results.failed}`)
-  
-  // 显示通知
-  uni.showToast({
-    title: `Fixed: ${results.fixed} image(s) updated`,
-    icon: 'success',
-    duration: 3000
-  })
-  
-  return results
-}
-
-// 异步版本的修复函数
-const fixImageUrlForItemAsync = async (item) => {
-  const original = item._rawImageUrl || item.image
-  let currentBestUrl = item.image
-  
-  // 方案1：添加API基础URL（针对相对路径）
-  if (original && original.startsWith('/') && !original.startsWith('http')) {
-    const candidateUrl = `${API_BASE_URL}${original}`
-    console.log(`测试方案1: ${candidateUrl}`)
-    
-    const isAccessible = await testImageUrlAsync(candidateUrl)
-    if (isAccessible) {
-      console.log(`✅ 方案1可用`)
-      return candidateUrl
-    }
-  }
-  
-  // 方案2：当前URL添加缓存破坏
-  if (currentBestUrl) {
-    const cacheBusterUrl = currentBestUrl.includes('?') 
-      ? `${currentBestUrl}&t=${Date.now()}`
-      : `${currentBestUrl}?t=${Date.now()}`
-    
-    console.log(`测试方案2: ${cacheBusterUrl}`)
-    const isAccessible = await testImageUrlAsync(cacheBusterUrl)
-    if (isAccessible) {
-      console.log(`✅ 方案2可用`)
-      return cacheBusterUrl
-    }
-  }
-  
-  // 方案3：尝试直接使用原始路径（如果当前是完整URL但原始是相对路径）
-  if (currentBestUrl.startsWith('http') && original && original.startsWith('/')) {
-    console.log(`测试方案4: ${original}`)
-    const isAccessible = await testImageUrlAsync(original)
-    if (isAccessible) {
-      console.log(`✅ 方案4可用`)
-      return original
-    }
-  }
-  
-  // 所有方案都失败，返回原URL
-  return currentBestUrl
-}
-
 // 异步测试URL
 const testImageUrlAsync = (url) => {
   return new Promise((resolve) => {
@@ -1157,7 +1106,7 @@ const doDeleteClothing = async (id) => {
         selectedItem.value = {}
       }
       if (paginatedList.value.some(item => item.id === id)) {
-        await loadClothingData()
+        await loadClothingData({ showSkeleton: false })
       }
     } else if (notFound) {
       clothes.value = clothes.value.filter((c) => c.id !== id)
@@ -1220,10 +1169,16 @@ const showModelModal = ref(false)
 
 /**
  * 加载模特照片数据
+ * showSkeleton: 是否顯示骨架屏（初次/切換 Tab 為 true，上傳/刪除後刷新為 false）
  */
-const loadModelPhotos = async () => {
+const loadModelPhotos = async (options = {}) => {
+  const { showSkeleton = true } = options
   try {
-    if (!isLoggedIn.value) return
+    if (!isLoggedIn.value) {
+      isInitialLoadingModel.value = false
+      return
+    }
+    if (showSkeleton) isInitialLoadingModel.value = true
     const queryParams = {
       token: userToken.value,
       page: modelCurrentPage.value,
@@ -1297,6 +1252,8 @@ const loadModelPhotos = async () => {
     
   } catch (error) {
     console.error('加载模特照片数据失败:', error)
+  } finally {
+    isInitialLoadingModel.value = false
   }
 }
 
@@ -1378,7 +1335,7 @@ const handleModelUploadConfirm = async (formData) => {
     await performModelUpload(selectedModelImageFile.value, formData)
     uni.showToast({ title: 'Model photo uploaded', icon: 'success' })
     closeModelUploadModal()
-    loadModelPhotos()
+    loadModelPhotos({ showSkeleton: false })
   } catch (error) {
     console.error('上传模特照片失败:', error)
     uni.showToast({ title: 'Upload failed', icon: 'none' })
@@ -1433,7 +1390,7 @@ const doDeleteModel = async (id) => {
         showModelModal.value = false
         selectedModel.value = {}
       }
-      loadModelPhotos()
+      loadModelPhotos({ showSkeleton: false })
     } else {
       uni.showToast({
         title: response.data?.message || 'Delete failed',
@@ -1570,24 +1527,14 @@ const openModelDetail = (item) => {
 
 // ============ 页面加载时初始化 ============
 onMounted(async () => {
-  // 页面加载时检查认证状态
   await checkAuthStatus()
-  
-  // 如果已登录，加载数据
   if (isLoggedIn.value) {
     await loadClothingData()
-    await loadModelPhotos() // 加载模特照片数据
+    await loadModelPhotos()
+  } else {
+    isInitialLoadingCloth.value = false
+    isInitialLoadingModel.value = false
   }
-  
-  watch(viewMode, (newMode) => {
-      console.log(`viewMode切换为: ${newMode}`)
-      activeFilter.value = null
-      if (newMode === 'Model' && isLoggedIn.value) {
-        loadModelPhotos()
-      } else if (newMode === 'Cloth' && isLoggedIn.value) {
-        loadClothingData()
-      }
-    })
 })
 
 
@@ -1774,8 +1721,10 @@ watch(totalPages, (val) => {
 	}
 }, { immediate: true })
 
-watch(viewMode, () => {
+watch(viewMode, (newMode) => {
 	activeFilter.value = null
+	if (newMode === 'Model' && isLoggedIn.value) loadModelPhotos()
+	else if (newMode === 'Cloth' && isLoggedIn.value) loadClothingData()
 })
 
 const toggleFilter = (name) => {
@@ -1877,7 +1826,10 @@ const resetSeason = () => {
 	activeFilter.value = null
 }
 
-/** 一键清除所有筛选条件 */
+/** 強制搜尋框重掛載用（uni-app 下程式清空後 input 可能不更新） */
+const clearKey = ref(0)
+
+/** 一鍵清除所有篩選條件（含搜尋框），用於「無搜尋結果」時一鍵還原 */
 const clearAllFilters = () => {
 	activeFilter.value = null
 	appliedFavouriteLevels.value = []
@@ -1890,16 +1842,12 @@ const clearAllFilters = () => {
 	selectedColors.value = []
 	appliedSeasons.value = []
 	selectedSeasons.value = []
+	searchQuery.value = ''
+	modelSearchQuery.value = ''
 	currentPage.value = 1
+	modelCurrentPage.value = 1
+	clearKey.value++
 }
-
-const hasActiveFilters = computed(() =>
-	appliedFavouriteLevels.value.length > 0 ||
-	appliedDate.value != null ||
-	appliedTypes.value.length > 0 ||
-	appliedColors.value.length > 0 ||
-	appliedSeasons.value.length > 0
-)
 
 const openDetail = (item) => {
 	selectedItem.value = { ...item }
@@ -2647,6 +2595,39 @@ const handleUpload = () => {
 		background-position: -200% 0;
 	}
 }
+
+/* 首次加載骨架屏：統一占位色 + 呼吸動畫 */
+.is-loading {
+	background: #F5F0E6 !important;
+	box-shadow: none !important;
+}
+.is-loading::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.4) 20%, transparent 40%);
+	background-size: 200% 100%;
+	animation: cloth-skeleton-shimmer 1.5s infinite linear;
+}
+.skeleton-text {
+	height: 28rpx;
+	width: 60%;
+	background: #E8E4DC;
+	border-radius: 6rpx;
+	margin-top: 12rpx;
+	margin-left: 4rpx;
+	position: relative;
+	overflow: hidden;
+}
+.skeleton-text::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.5) 20%, transparent 40%);
+	background-size: 200% 100%;
+	animation: cloth-skeleton-shimmer 1.5s infinite linear;
+}
+
 /* 卡片 Hover 浮层：快捷操作 + 名称 */
 .card-overlay {
 	position: absolute;
@@ -2934,34 +2915,142 @@ const handleUpload = () => {
 	transform: translateY(0);
 }
 
-/* 有筛选时的简洁空状态 */
-.empty-state-wrap.empty-state-has-filters .empty-state-title {
-	font-size: 32rpx;
+/* --- 搜尋/篩選無結果的高級感樣式 --- */
+.no-results-wrap {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-height: 50vh;
+	width: 100%;
+}
+.no-results-content {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	max-width: 600rpx;
+	animation: fade-in-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes fade-in-up {
+	from { opacity: 0; transform: translateY(20rpx); }
+	to { opacity: 1; transform: translateY(0); }
+}
+.no-results-visual {
+	position: relative;
+	margin-bottom: 32rpx;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	width: 120rpx;
+	height: 120rpx;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #FDFBF7, #F3F1EC);
+	box-shadow:
+		inset 0 4rpx 10rpx rgba(255, 255, 255, 0.8),
+		0 10rpx 30rpx rgba(140, 115, 85, 0.08);
+}
+.no-results-mark {
+	font-size: 56rpx;
+	color: #9D8B70;
+	transform: rotate(-45deg);
+	opacity: 0.8;
+}
+.no-results-title {
+	font-family: "Didot", "Bodoni MT", "Noto Serif", "Songti SC", serif;
+	font-size: 48rpx;
 	font-weight: 600;
 	color: #1D1D1F;
 	margin-bottom: 16rpx;
+	letter-spacing: 0.02em;
 }
-.empty-state-wrap.empty-state-has-filters .empty-state-hint {
-	font-size: 26rpx;
-	color: #8a8376;
-	margin-bottom: 32rpx;
+.no-results-desc {
+	font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+	font-size: 28rpx;
+	line-height: 1.6;
+	color: #8A847C;
+	margin-bottom: 48rpx;
 }
-.empty-state-btn {
-	padding: 18rpx 40rpx;
-	border-radius: 24rpx;
-	background: #8C7355;
-	color: #FFF;
+.no-results-action {
+	position: relative;
+	cursor: pointer;
+	padding: 8rpx 0;
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+}
+.no-results-action .action-text {
+	font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
 	font-size: 28rpx;
 	font-weight: 600;
-	cursor: pointer;
-	transition: transform 0.2s ease, opacity 0.2s ease;
+	color: #8C7355;
+	letter-spacing: 0.02em;
+	transition: color 0.3s ease;
 }
-.empty-state-btn:hover {
-	transform: translateY(-2rpx);
+.no-results-action:hover .action-text {
+	color: #1D1D1F;
 }
-.empty-state-btn:active {
-	opacity: 0.9;
-	transform: translateY(0);
+.no-results-action .action-underline {
+	width: 100%;
+	height: 2rpx;
+	background-color: #8C7355;
+	margin-top: 4rpx;
+	transform-origin: center;
+	transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.3s ease;
+}
+.no-results-action:hover .action-underline {
+	transform: scaleX(0.4);
+	background-color: #1D1D1F;
+}
+
+/* 無結果 ⇄ 列表 狀態切換：先完整淡出再淡入，避免衣服突然閃現 */
+.state-fade-enter-active,
+.state-fade-leave-active {
+	transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.state-fade-leave-to {
+	opacity: 0;
+	transform: scale(0.98);
+	pointer-events: none;
+}
+.state-fade-enter-from {
+	opacity: 0;
+	transform: translateY(24rpx);
+}
+.state-fade-enter-to,
+.state-fade-leave-from {
+	opacity: 1;
+	transform: translateY(0) scale(1);
+}
+/* 列表容器進場時稍延遲，讓「無結果」先離開再顯示列表 */
+.list-container {
+	animation: list-container-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.08s forwards;
+	opacity: 0;
+}
+@keyframes list-container-enter {
+	from {
+		opacity: 0;
+		transform: translateY(12rpx);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* 列表進場：卡片錯落淡入 */
+.stagger-enter {
+	animation: stagger-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+	opacity: 0;
+}
+@keyframes stagger-enter {
+	from {
+		opacity: 0;
+		transform: translateY(20rpx);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
 
 .view-switch-enter-active,
