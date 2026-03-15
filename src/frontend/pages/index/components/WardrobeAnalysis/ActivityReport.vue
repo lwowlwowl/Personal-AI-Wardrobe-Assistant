@@ -12,11 +12,11 @@
 			<view class="card card-main report-card section section-1">
 			<text class="card-label">Weekly Trend</text>
 			<view class="kpi-row">
-				<text class="trend-icon" :class="isIncrease ? 'trend-up' : 'trend-down'">{{ isIncrease ? '↑' : '↓' }}</text>
-				<text class="kpi-value">{{ displayedTrendValue }}%</text>
-				<text class="kpi-vs">vs last week</text>
+				<text class="kpi-value">{{ totalWears }}</text>
+				<text class="kpi-vs">wears</text>
 			</view>
-			<text class="kpi-message">{{ isIncrease ? 'You changed outfits more often this week ✨' : 'Your wardrobe picks are more intentional this week 💫' }}</text>
+			<text class="kpi-message" :class="isIncrease ? 'trend-up' : 'trend-down'">{{ isIncrease ? '↑' : '↓' }} {{ displayedTrendValue }}% compared to last week</text>
+			<text class="kpi-message kpi-message-sub">{{ isIncrease ? 'You changed outfits more often this week ✨' : 'Your wardrobe picks are more intentional this week 💫' }}</text>
 			<view class="week-chart-desc">Outfit changes per day</view>
 			<view class="week-chart-area">
 				<view class="chart-grid" aria-hidden="true">
@@ -67,48 +67,51 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { MOCK_WEEK_DATA, MOCK_CATEGORY_ACTIVITY } from './mockData.js'
 
 const props = defineProps({
+	/** 本周总穿戴次数（来自 API 或父组件） */
+	totalWears: { type: Number, default: null },
 	trendValue: { type: Number, default: 8 },
-	isIncrease: { type: Boolean, default: false }
+	isIncrease: { type: Boolean, default: false },
+	/** 本周每日穿戴分布（API 返回）；无则用 mock */
+	weekData: { type: Array, default: null },
+	/** 按分类的穿戴次数（API 返回）；无则用 mock */
+	categoryActivity: { type: Array, default: null }
 })
 
 const emit = defineEmits(['back'])
 
-/** 下方 Activity by category 总 wears，与柱状图一周总 wears 保持一致；带图标与占比 */
-const categoryActivity = [
-	{ name: 'Tops', count: 42, icon: '👕' },
-	{ name: 'Bottoms', count: 28, icon: '👖' },
-	{ name: 'Outerwear', count: 15, icon: '🧥' },
-	{ name: 'Footwear', count: 12, icon: '👟' },
-	{ name: 'Accessories', count: 9, icon: '⌚' }
-]
-const totalWears = categoryActivity.reduce((sum, c) => sum + c.count, 0)
+/** 使用 API 数据或 mock：分类活动 */
+const effectiveCategoryActivity = computed(() =>
+	(props.categoryActivity && props.categoryActivity.length) ? props.categoryActivity : MOCK_CATEGORY_ACTIVITY
+)
+const totalWears = computed(() => {
+	if (props.totalWears != null && typeof props.totalWears === 'number') return props.totalWears
+	return effectiveCategoryActivity.value.reduce((sum, c) => sum + c.count, 0)
+})
 const categoryActivityWithPercent = computed(() =>
-	categoryActivity.map((c) => ({ ...c, percent: totalWears ? (c.count / totalWears) * 100 : 0 }))
+	effectiveCategoryActivity.value.map((c) => ({
+		...c,
+		percent: totalWears.value ? (c.count / totalWears.value) * 100 : 0
+	}))
 )
 
-/** 每日穿搭次数：一周总和 = totalWears（与下方分类总 wears 一致），hover 显示具体 wear 数 */
-const weekData = [
-	{ label: 'Mon', wears: 10 },
-	{ label: 'Tue', wears: 16 },
-	{ label: 'Wed', wears: 8 },
-	{ label: 'Thu', wears: 18 },
-	{ label: 'Fri', wears: 12 },
-	{ label: 'Sat', wears: 24 },
-	{ label: 'Sun', wears: 18 }
-]
-const maxWears = Math.max(...weekData.map((d) => d.wears), 1)
-const avgWears = weekData.reduce((s, d) => s + d.wears, 0) / weekData.length
-const avgLinePercent = (avgWears / maxWears) * 100
+/** 使用 API 数据或 mock：每日穿搭次数 */
+const weekData = computed(() =>
+	(props.weekData && props.weekData.length) ? props.weekData : MOCK_WEEK_DATA
+)
+const maxWears = computed(() => Math.max(...weekData.value.map((d) => d.wears), 1))
+const avgWears = computed(() => weekData.value.reduce((s, d) => s + d.wears, 0) / weekData.value.length)
+const avgLinePercent = computed(() => (avgWears.value / maxWears.value) * 100)
 const mostActiveDay = computed(() => {
-	const best = weekData.reduce((a, b) => (a.wears >= b.wears ? a : b))
+	const best = weekData.value.reduce((a, b) => (a.wears >= b.wears ? a : b))
 	return best.label
 })
 const weekDataWithHeight = computed(() =>
-	weekData.map((d) => ({
+	weekData.value.map((d) => ({
 		...d,
-		heightPercent: (d.wears / maxWears) * 100
+		heightPercent: (d.wears / maxWears.value) * 100
 	}))
 )
 const hoveredBarIndex = ref(null)
@@ -223,11 +226,6 @@ onMounted(() => {
 	gap: 8rpx;
 	margin-bottom: 12rpx;
 }
-.trend-icon {
-	font-size: 36rpx;
-	font-weight: 700;
-	line-height: 1;
-}
 .trend-up {
 	color: #34c759;
 }
@@ -253,6 +251,11 @@ onMounted(() => {
 	line-height: 1.3;
 	margin-bottom: 20rpx;
 	display: block;
+}
+.kpi-message-sub {
+	color: #888;
+	margin-top: 8rpx;
+	margin-bottom: 20rpx;
 }
 
 .week-chart-desc {

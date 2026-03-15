@@ -3,13 +3,12 @@
 包含所有业务逻辑和路由定义
 """
 import json
-import statistics
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract, and_, case, Date
+from sqlalchemy import func, extract, Date
 from datetime import datetime, date, timedelta
 import traceback
 
@@ -783,16 +782,6 @@ def _normalize_category(category: Optional[str]) -> str:
     key = category.strip().lower()
     allowed = {c.value for c in models.ClothingCategory}
     return key if key in allowed else "other"
-
-
-def _normalize_season(season: Optional[str]) -> Optional[str]:
-    """将前端传来的 season 规范为后端 ClothingSeason 枚举值（小写）。"""
-    if not season or not season.strip():
-        return None
-    s = season.strip().lower()
-    if s in ("spring", "summer", "autumn", "winter", "all_season"):
-        return s
-    return None
 
 
 @app.post("/api/clothing/upload")
@@ -1970,6 +1959,10 @@ class TrendDataService:
             start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = now
 
+        elif view_by == "weekly":
+            start_date = (now - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = now
+
         else:
             raise ValueError(f"不支持的视图类型: {view_by}")
 
@@ -1998,6 +1991,12 @@ class TrendDataService:
                 labels.append(current.strftime("%m/%d"))
                 current += timedelta(days=1)
 
+        elif view_by == "weekly":
+            day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            for _ in range(7):
+                labels.append(day_names[current.weekday()])
+                current += timedelta(days=1)
+
         return labels
 
     @staticmethod
@@ -2012,7 +2011,7 @@ class TrendDataService:
         elif view_by == "monthly":
             # 格式化为 YYYY-MM
             return func.to_char(models.ClothingItem.created_at, 'YYYY-MM')
-        elif view_by == "daily":
+        elif view_by == "daily" or view_by == "weekly":
             # 转换为日期
             return func.cast(models.ClothingItem.created_at, Date)
         else:
@@ -2114,7 +2113,7 @@ async def _generate_suggested_additions(prompt_context: dict[str, Any]) -> list[
 async def get_total_items_trend(
         token: str = Query(...),
         db: Session = Depends(get_db),
-        view_by: str = Query("yearly", regex="^(yearly|monthly|daily)$"),
+        view_by: str = Query("yearly", regex="^(yearly|monthly|daily|weekly)$"),
         start_year: Optional[int] = Query(None, ge=2000, le=2100),
         end_year: Optional[int] = Query(None, ge=2000, le=2100),
         include_projection: bool = Query(True, description="是否包含预测数据")
@@ -2187,7 +2186,7 @@ async def get_total_items_trend(
             elif view_by == "monthly":
                 # to_char 返回的是字符串
                 key = r.time_period
-            else:  # daily
+            else:  # daily / weekly
                 # cast to Date 返回的是 date 对象
                 key = r.time_period.strftime("%Y-%m-%d") if hasattr(r.time_period, 'strftime') else str(r.time_period)
             increment_map[key] = r.increment
@@ -2204,11 +2203,13 @@ async def get_total_items_trend(
         ).scalar() or 0
         total = base_count
 
-        for label in labels:
+        for i, label in enumerate(labels):
             if view_by == "yearly":
                 key = label
             elif view_by == "monthly":
                 key = label
+            elif view_by == "weekly":
+                key = (start_date + timedelta(days=i)).strftime("%Y-%m-%d")
             else:  # daily
                 # 将 "MM/DD" 格式转换为日期键
                 try:
@@ -2218,7 +2219,7 @@ async def get_total_items_trend(
                         year = end_date.year
                     date_key = datetime(year, month, day).strftime("%Y-%m-%d")
                     key = date_key
-                except:
+                except Exception:
                     key = label
 
             increment = increment_map.get(key, 0)
@@ -2489,7 +2490,7 @@ async def export_trend_data(
         token: str = Query(...),
         db: Session = Depends(get_db),
         format: str = Query("json", regex="^(json|csv)$"),
-        view_by: str = Query("yearly", regex="^(yearly|monthly|daily)$"),
+        view_by: str = Query("yearly", regex="^(yearly|monthly|daily|weekly)$"),
         start_year: Optional[int] = Query(None),
         end_year: Optional[int] = Query(None)
 ):
@@ -3071,6 +3072,126 @@ async def get_most_worn_items(
                 "note": "返回了示例数据（后端出错）"
             }
         }
+
+
+# 前端 Weekly Activity 分类显示名与图标（与 WardrobeAnalysis mockData 一致）
+_WEEKLY_ACTIVITY_CATEGORY_MAP = {
+    "top": {"name": "Tops", "icon": "👕"},
+    "bottom": {"name": "Bottoms", "icon": "👖"},
+    "dress": {"name": "Dress", "icon": "👗"},
+    "outerwear": {"name": "Outerwear", "icon": "🧥"},
+    "footwear": {"name": "Footwear", "icon": "👟"},
+    "accessory": {"name": "Accessories", "icon": "⌚"},
+    "bag": {"name": "Accessories", "icon": "⌚"},
+    "underwear": {"name": "Other", "icon": "📦"},
+    "other": {"name": "Other", "icon": "📦"},
+}
+_WEEK_DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+
+@app.get("/api/analysis/weekly-activity")
+async def get_weekly_activity(
+        token: str = Query(...),
+        db: Session = Depends(get_db),
+):
+    """
+    本周衣橱活跃度：总穿戴次数、环比上周趋势、每日穿戴分布、按分类统计。
+    用于主面板 Wardrobe Activity 卡片与展开页 Activity Report。
+    """
+    try:
+        current_user = get_current_user(token, db)
+        today = date.today()
+        # 本周一与本周日（周一为 week 起点）
+        this_week_monday = today - timedelta(days=today.weekday())
+        this_week_sunday = this_week_monday + timedelta(days=6)
+        last_week_monday = this_week_monday - timedelta(days=7)
+        last_week_sunday = this_week_sunday - timedelta(days=7)
+
+        # 本周总穿戴次数：WearHistory 中 wear_date 在本周且 clothing_id 非空（单件穿着记录）
+        q_this_week = db.query(func.count(models.WearHistory.id)).filter(
+            models.WearHistory.user_id == current_user.id,
+            models.WearHistory.wear_date >= this_week_monday,
+            models.WearHistory.wear_date <= this_week_sunday,
+            models.WearHistory.clothing_id.isnot(None),
+        )
+        total_wears_this_week = q_this_week.scalar() or 0
+
+        q_last_week = db.query(func.count(models.WearHistory.id)).filter(
+            models.WearHistory.user_id == current_user.id,
+            models.WearHistory.wear_date >= last_week_monday,
+            models.WearHistory.wear_date <= last_week_sunday,
+            models.WearHistory.clothing_id.isnot(None),
+        )
+        total_wears_last_week = q_last_week.scalar() or 0
+
+        # 趋势百分比：(本期 - 上期) / 上期 * 100，上期为 0 时按 0 处理
+        if total_wears_last_week > 0:
+            trend_percent = round(
+                (total_wears_this_week - total_wears_last_week) / total_wears_last_week * 100
+            )
+        else:
+            trend_percent = 0 if total_wears_this_week == 0 else 100
+
+        # 每日穿戴次数：按 wear_date 分组统计本周
+        daily_counts = (
+            db.query(models.WearHistory.wear_date, func.count(models.WearHistory.id).label("cnt"))
+            .filter(
+                models.WearHistory.user_id == current_user.id,
+                models.WearHistory.wear_date >= this_week_monday,
+                models.WearHistory.wear_date <= this_week_sunday,
+                models.WearHistory.clothing_id.isnot(None),
+            )
+            .group_by(models.WearHistory.wear_date)
+            .all()
+        )
+        day_to_count = {d: c for d, c in daily_counts}
+        week_data = [
+            {"label": _WEEK_DAY_LABELS[i], "wears": day_to_count.get(this_week_monday + timedelta(days=i), 0)}
+            for i in range(7)
+        ]
+
+        # 按分类统计本周穿戴次数：WearHistory join ClothingItem，按 category 聚合
+        category_rows = (
+            db.query(models.ClothingItem.category, func.count(models.WearHistory.id).label("cnt"))
+            .join(models.WearHistory, models.WearHistory.clothing_id == models.ClothingItem.id)
+            .filter(
+                models.WearHistory.user_id == current_user.id,
+                models.WearHistory.wear_date >= this_week_monday,
+                models.WearHistory.wear_date <= this_week_sunday,
+            )
+            .group_by(models.ClothingItem.category)
+            .all()
+        )
+        category_map_agg = {}
+        for cat_enum, cnt in category_rows:
+            cat_key = (cat_enum.value if hasattr(cat_enum, "value") else str(cat_enum)).lower()
+            info = _WEEKLY_ACTIVITY_CATEGORY_MAP.get(cat_key, {"name": "Other", "icon": "📦"})
+            name = info["name"]
+            if name not in category_map_agg:
+                category_map_agg[name] = {"name": name, "icon": info["icon"], "count": 0}
+            category_map_agg[name]["count"] += cnt
+        category_activity = list(category_map_agg.values())
+        category_activity.sort(key=lambda x: -x["count"])
+
+        return {
+            "success": True,
+            "data": {
+                "total_wears_this_week": total_wears_this_week,
+                "total_wears_last_week": total_wears_last_week,
+                "trend_percent": trend_percent,
+                "week_data": week_data,
+                "category_activity": category_activity,
+            },
+            "status_code": 200,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"获取本周活跃度错误: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取本周活跃度时发生错误: {str(e)}"
+        )
 
 
 @app.get("/api/analysis/suggested-additions")

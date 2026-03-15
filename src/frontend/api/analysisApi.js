@@ -83,6 +83,11 @@ export function getMostWorn(timeRange = 'yearly', limit = 5) {
   return apiRequest('/api/analysis/most-worn', { time_range: timeRange, limit })
 }
 
+/** GET /api/analysis/weekly-activity — 本周总穿戴次数、环比趋势、每日分布、分类统计（主面板与 Activity Report 共用） */
+export function getWeeklyActivity() {
+  return apiRequest('/api/analysis/weekly-activity')
+}
+
 /** GET /api/analysis/idle-items/detail?page=1&page_size=20&time_filter=&season_filter= */
 export function getIdleItemsDetail(params = {}) {
   const { page = 1, pageSize = 20, timeFilter = null, seasonFilter = null } = params

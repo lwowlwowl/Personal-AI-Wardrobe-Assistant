@@ -31,7 +31,7 @@ const emit = defineEmits(['update:modelValue', 'apply'])
 const options = [
 	{ label: 'Yearly', value: 'yearly' },
 	{ label: 'Monthly', value: 'monthly' },
-	{ label: 'Daily', value: 'daily' }
+	{ label: 'Weekly', value: 'weekly' }
 ]
 
 const selectOption = (val) => {
@@ -41,7 +41,7 @@ const selectOption = (val) => {
 </script>
 
 <style scoped>
-/* smooth popover：淡入 + 輕微上移 + 輕微縮放，easing 讓出現不硬切 */
+/* smooth popover：淡入 + 轻微上移 + 轻微缩放，easing 让出现不硬切 */
 .filter-popover {
 	position: absolute;
 	top: 100%;

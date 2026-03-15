@@ -2,7 +2,7 @@
 	<view class="page">
 		<!-- 展开视图：Activity report / Idle items（页面切换过渡） -->
 		<transition name="page" mode="out-in">
-			<ActivityReport v-if="expandedView === 'activity-report'" key="activity-report" :trend-value="activityPercentTarget" :is-increase="activityTrend === 'increase'" @back="expandedView = null" />
+			<ActivityReport v-if="expandedView === 'activity-report'" key="activity-report" :total-wears="currentWears" :trend-value="activityPercentTarget" :is-increase="activityTrend === 'increase'" :week-data="weeklyActivityData?.week_data" :category-activity="weeklyActivityData?.category_activity" @back="expandedView = null" />
 			<IdleItemsView v-else-if="expandedView === 'idle-items'" key="idle-items" :unworn-count="idleCount" @back="expandedView = null" />
 			<view v-else key="bento" class="page-bento-wrap">
 		<view v-if="filterOpen" class="filter-backdrop" @click="closeFilter"></view>
@@ -12,13 +12,18 @@
 			<!-- Activity：increase / decrease 随机展示其一，模板一致仅样式与文案不同 -->
 			<view class="card bento-activity">
 				<text class="card-label">Wardrobe Activity</text>
+				<view v-if="loadingActivity" class="loading-state">
+					<text class="loading-text">加载中...</text>
+				</view>
+				<template v-else>
 				<view class="big-metric">
-					<text class="metric-num">{{ activityPercent }}%</text>
+					<text class="metric-num">{{ currentWears }}</text>
 					<view class="trend-badge" :class="{ 'trend-badge-decrease': activityTrend === 'decrease' }">
-						<text class="metric-arrow" :class="{ 'metric-arrow-decrease': activityTrend === 'decrease' }">{{ activityTrend === 'increase' ? '↗' : '↘' }}</text>
+						<text class="metric-arrow" :class="{ 'metric-arrow-decrease': activityTrend === 'decrease' }">{{ activityTrend === 'increase' ? '↗' : '↘' }} {{ activityPercent }}%</text>
 					</view>
 				</view>
-				<text class="card-sub">{{ activityTrend === 'increase' ? 'Increase compared to last week' : 'Decrease compared to last week' }}</text>
+				<text class="card-sub">Total wears this week</text>
+				</template>
 				<text class="card-link" @click="goActivityReport">Activity report →</text>
 			</view>
 
@@ -36,7 +41,7 @@
 					<text class="card-label">Total Items</text>
 					<view class="filter-trigger" @click.stop="toggleViewBy('total')">
 						<text>{{ viewByTotalLabel }}</text>
-						<ViewByFilter v-model="viewByTotal" :visible="filterOpen === 'total'" @apply="closeFilter" @reset="closeFilter" />
+						<ViewByFilter v-model="viewByTotal" :visible="filterOpen === 'total'" @apply="closeFilter" />
 					</view>
 				</view>
 				<view class="chart-container">
@@ -44,7 +49,7 @@
 						<text class="loading-text">Please log in first</text>
 					</view>
 					<view v-else-if="loadingTrend" class="loading-state">
-						<text class="loading-text">加載趨勢數據...</text>
+						<text class="loading-text">加载趋势数据...</text>
 					</view>
 					<template v-else>
 					<svg viewBox="0 0 300 120" class="line-svg">
@@ -55,21 +60,23 @@
 								<stop offset="70%" stop-color="#7cb97c" stop-opacity="0.08" />
 								<stop offset="100%" stop-color="#7cb97c" stop-opacity="0" />
 							</linearGradient>
+							<filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+								<feGaussianBlur stdDeviation="3" result="blur" />
+								<feComposite in="SourceGraphic" in2="blur" operator="over" />
+							</filter>
 						</defs>
-						<!-- 3 条水平虚线网格，提升参考感 -->
 						<line x1="0" y1="35" x2="300" y2="35" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
 						<line x1="0" y1="60" x2="300" y2="60" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
 						<line x1="0" y1="85" x2="300" y2="85" stroke="#000" stroke-width="1" stroke-dasharray="6 6" opacity="0.06" />
 						<path :d="smoothPathArea" fill="url(#greenGradient)" class="line-area" />
-						<path :d="smoothPathStroke" fill="none" stroke="#7cb97c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="line-stroke" pathLength="1" />
+						<path :d="smoothPathStroke" fill="none" stroke="#7cb97c" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="line-stroke line-stroke-glow" pathLength="1" filter="url(#neonGlow)" />
 					</svg>
 					<view class="chart-labels">
 						<text v-for="year in lineYears" :key="year" class="chart-label">{{ year }}</text>
 					</view>
-					<view class="chart-stats" v-if="totalStats">
-						<text class="stat-item">總數: {{ totalItemsCount }}</text>
-						<text class="stat-item" v-if="totalStats.growth_rate">增長率: {{ totalStats.growth_rate }}%</text>
-						<text class="stat-item" v-if="totalStats.projection">預測{{ totalStats.projection_year }}: {{ totalStats.projection }}</text>
+					<view class="chart-stats" v-if="totalStats && (totalStats.growth_rate != null || totalStats.projection)">
+						<text class="stat-item" v-if="totalStats.growth_rate">增长率: {{ totalStats.growth_rate }}%</text>
+						<text class="stat-item" v-if="totalStats.projection">预测{{ totalStats.projection_year }}: {{ totalStats.projection }}</text>
 					</view>
 					</template>
 				</view>
@@ -81,7 +88,7 @@
 					<text class="card-label">Most Worn Items</text>
 					<view class="filter-trigger" @click.stop="toggleViewBy('worn')">
 						<text>{{ viewByWornLabel }}</text>
-						<ViewByFilter v-model="viewByWorn" :visible="filterOpen === 'worn'" @apply="closeFilter" @reset="closeFilter" />
+						<ViewByFilter v-model="viewByWorn" :visible="filterOpen === 'worn'" @apply="closeFilter" />
 					</view>
 				</view>
 				<view class="worn-list">
@@ -89,7 +96,7 @@
 						<text class="loading-text">Please log in first</text>
 					</view>
 					<view v-else-if="loadingWorn" class="loading-state">
-						<text class="loading-text">加載中...</text>
+						<text class="loading-text">加载中...</text>
 					</view>
 					<template v-else>
 					<view v-for="item in mostWornWithDot" :key="item.name" class="list-item">
@@ -115,7 +122,7 @@
 				</view>
 			</view>
 
-			<!-- Suggested Additions：電商推薦風格 + accordion 展開 -->
+			<!-- Suggested Additions：电商推荐风格 + accordion 展开 -->
 			<view class="card bento-suggested">
 				<text class="card-label">Suggested Additions</text>
 				<view class="suggest-list">
@@ -196,6 +203,13 @@ import ActivityReport from './ActivityReport.vue'
 import IdleItemsView from './IdleItemsView.vue'
 import { COLOR_HEX_BY_CODE } from '@/utils/wardrobeEnums.js'
 import * as analysisApi from '@/api/analysisApi.js'
+import {
+	getMockTrendData,
+	getMockWornData,
+	DEFAULT_TOP_COLOR_NAME,
+	DEFAULT_TOP_STYLE_NAME,
+	MOCK_WEEKLY_TOTAL_WEARS
+} from './mockData.js'
 
 const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false }
@@ -210,8 +224,17 @@ const hoveredSegmentIndex = ref(null)
 const donutEntranceDone = ref(false)
 
 const activityTrend = ref(Math.random() >= 0.5 ? 'increase' : 'decrease')
-const activityPercentTarget = computed(() => (activityTrend.value === 'increase' ? 15 : 8))
+const activityPercentTarget = computed(() => {
+	if (weeklyActivityData.value != null && weeklyActivityData.value.trend_percent != null) {
+		return Math.abs(weeklyActivityData.value.trend_percent)
+	}
+	return activityTrend.value === 'increase' ? 15 : 8
+})
 
+/** 本周活跃度 API 返回（null 表示未拉取或失败，用 mock） */
+const weeklyActivityData = ref(null)
+/** 本周总穿戴次数（来自 API 或 mock） */
+const currentWears = ref(MOCK_WEEKLY_TOTAL_WEARS)
 const activityPercent = ref(0)
 const idlePercent = ref(0)
 const topColorPercent = ref(0)
@@ -219,14 +242,16 @@ const topStylePercent = ref(0)
 const loadingTrend = ref(true)
 const loadingWorn = ref(true)
 const loadingSuggested = ref(true)
+const loadingActivity = ref(true)
 
-const lineYears = ref(['2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023'])
-const lineData = ref([5, 12, 20, 18, 30, 60, 90, 106])
-const totalItemsCount = ref(106)
+const initialTrend = getMockTrendData('yearly')
+const lineYears = ref(initialTrend.labels)
+const lineData = ref(initialTrend.values)
+const totalItemsCount = ref(initialTrend.total_count)
 const totalStats = ref(null)
 const idleCount = ref(0)
-const topColorName = ref('Brown')
-const topStyleName = ref('Sporty')
+const topColorName = ref(DEFAULT_TOP_COLOR_NAME)
+const topStyleName = ref(DEFAULT_TOP_STYLE_NAME)
 
 function animateCountUp(refVal, targetRef, duration = 800, delay = 0) {
 	const startVal = 0
@@ -254,7 +279,7 @@ function animateCountUp(refVal, targetRef, duration = 800, delay = 0) {
 const viewByTotalLabel = computed(() => viewByToLabel(viewByTotal.value))
 const viewByWornLabel = computed(() => viewByToLabel(viewByWorn.value))
 function viewByToLabel(v) {
-	return v === 'yearly' ? 'Yearly' : v === 'monthly' ? 'Monthly' : 'Daily'
+	return v === 'yearly' ? 'Yearly' : v === 'monthly' ? 'Monthly' : 'Weekly'
 }
 
 const smoothPathStroke = computed(() => getSvgPath(lineData.value, 300, 120, false))
@@ -263,10 +288,14 @@ const smoothPathArea = computed(() => getSvgPath(lineData.value, 300, 120, true)
 function getSvgPath(data, width, height, isArea) {
 	if (!data || !Array.isArray(data) || data.length === 0) return ''
 	const validData = data.filter(val => val !== null && val !== undefined && !isNaN(val) && isFinite(val))
-	if (validData.length < 2) return ''
+	if (validData.length === 0) return ''
 	const max = Math.max(...validData, 1)
 	const padding = 10
 	const chartH = height - padding * 2
+	if (validData.length === 1) {
+		const y = height - padding - (validData[0] / max) * chartH
+		return `M 0,${y} L ${width},${y}`
+	}
 	const stepX = width / (validData.length - 1)
 	const points = validData.map((val, i) => {
 		const x = i * stepX
@@ -419,33 +448,10 @@ async function fetchSuggestedAdditions() {
 }
 
 function setMockTrendData() {
-	if (viewByTotal.value === 'yearly') {
-		lineYears.value = ['2016', '2017', '2018', '2019', '2020', '2021', '2022', '2023']
-		lineData.value = [5, 12, 20, 18, 30, 60, 90, 106]
-	} else if (viewByTotal.value === 'monthly') {
-		const months = []
-		const data = []
-		const now = new Date()
-		for (let i = 11; i >= 0; i--) {
-			const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-			months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-			data.push(Math.floor(Math.random() * 20) + 5)
-		}
-		lineYears.value = months
-		lineData.value = data
-	} else {
-		const days = []
-		const data = []
-		const now = new Date()
-		for (let i = 29; i >= 0; i--) {
-			const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
-			days.push(`${d.getMonth() + 1}/${d.getDate()}`)
-			data.push(Math.floor(Math.random() * 5) + 1)
-		}
-		lineYears.value = days
-		lineData.value = data
-	}
-	totalItemsCount.value = lineData.value[lineData.value.length - 1] || 0
+	const mock = getMockTrendData(viewByTotal.value)
+	lineYears.value = mock.labels
+	lineData.value = mock.values
+	totalItemsCount.value = mock.total_count
 }
 
 async function fetchTrendData() {
@@ -469,6 +475,34 @@ async function fetchTrendData() {
 		setMockTrendData()
 	} finally {
 		loadingTrend.value = false
+	}
+}
+
+async function fetchWeeklyActivity() {
+	loadingActivity.value = true
+	try {
+		const response = await analysisApi.getWeeklyActivity()
+		if (response && response.success && response.data) {
+			const d = response.data
+			weeklyActivityData.value = d
+			currentWears.value = d.total_wears_this_week ?? 0
+			activityTrend.value = (d.trend_percent ?? 0) >= 0 ? 'increase' : 'decrease'
+			animateCountUp(activityPercent, () => Math.abs(d.trend_percent ?? 0), 600)
+		} else {
+			weeklyActivityData.value = null
+			if (analysisApi.isLoggedIn()) {
+				console.warn('[Wardrobe Activity] API 未返回有效数据，请确认后端 /api/analysis/weekly-activity 已启动且返回 success+data。response:', response)
+				currentWears.value = 0
+			}
+		}
+	} catch (e) {
+		weeklyActivityData.value = null
+		if (analysisApi.isLoggedIn()) {
+			console.error('[Wardrobe Activity] 请求失败:', e)
+			currentWears.value = 0
+		}
+	} finally {
+		loadingActivity.value = false
 	}
 }
 
@@ -529,31 +563,7 @@ async function fetchTopStyle() {
 }
 
 function setMockWornData(timeRange) {
-	if (timeRange === 'yearly') {
-		mostWorn.value = [
-			{ name: 'White Cotton T-shirt', wears: 35, color: 'white' },
-			{ name: 'Classic Denim Jacket', wears: 28, color: 'blue' },
-			{ name: 'Black Knit Top', wears: 27, color: 'black' },
-			{ name: 'Khaki Chino Pants', wears: 24, color: 'brown' },
-			{ name: 'Navy Striped Tee', wears: 22, color: 'navy' }
-		]
-	} else if (timeRange === 'monthly') {
-		mostWorn.value = [
-			{ name: 'White Cotton T-shirt', wears: 8, color: 'white' },
-			{ name: 'Black Knit Top', wears: 6, color: 'black' },
-			{ name: 'Classic Denim Jacket', wears: 5, color: 'blue' },
-			{ name: 'Navy Striped Tee', wears: 4, color: 'navy' },
-			{ name: 'Khaki Chino Pants', wears: 3, color: 'brown' }
-		]
-	} else {
-		mostWorn.value = [
-			{ name: 'White Cotton T-shirt', wears: 1, color: 'white' },
-			{ name: 'Black Knit Top', wears: 0, color: 'black' },
-			{ name: 'Classic Denim Jacket', wears: 0, color: 'blue' },
-			{ name: 'Khaki Chino Pants', wears: 0, color: 'brown' },
-			{ name: 'Navy Striped Tee', wears: 0, color: 'navy' }
-		]
-	}
+	mostWorn.value = getMockWornData(timeRange)
 }
 
 async function fetchMostWornItems() {
@@ -593,6 +603,7 @@ watch(() => props.isLoggedIn, (loggedIn) => {
 		loadingSuggested.value = true
 		fetchTrendData()
 		fetchSummaryData()
+		fetchWeeklyActivity()
 		fetchMostWornItems()
 		fetchCategoryDistribution()
 		fetchIdleRate()
@@ -600,6 +611,9 @@ watch(() => props.isLoggedIn, (loggedIn) => {
 		fetchTopStyle()
 		fetchSuggestedAdditions()
 	} else {
+		weeklyActivityData.value = null
+		currentWears.value = MOCK_WEEKLY_TOTAL_WEARS
+		loadingActivity.value = false
 		loadingSuggested.value = false
 		suggestedTexts.value = []
 	}
@@ -616,11 +630,13 @@ onMounted(() => {
 		loadingTrend.value = false
 		loadingWorn.value = false
 		loadingSuggested.value = false
+		loadingActivity.value = false
 		return
 	}
 	Promise.all([
 		fetchTrendData(),
 		fetchSummaryData(),
+		fetchWeeklyActivity(),
 		fetchMostWornItems(),
 		fetchCategoryDistribution(),
 		fetchIdleRate(),
@@ -723,18 +739,10 @@ onMounted(() => {
 	display: flex;
 	flex-direction: column;
 	overflow: visible;
-	transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.card:hover {
-	transform: translateY(-4rpx);
-	box-shadow: 0 12rpx 32rpx rgba(0, 0, 0, 0.08), 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
-}
-/* 主卡（Total Items / Category Breakdown）：更强阴影，视觉重点 */
+/* 主卡（Total Items / Category Breakdown）：更强阴影 */
 .card-elevation-main {
 	box-shadow: 0 12rpx 40rpx rgba(0, 0, 0, 0.08), 0 4rpx 12rpx rgba(0, 0, 0, 0.04);
-}
-.card-elevation-main:hover {
-	box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.1), 0 6rpx 16rpx rgba(0, 0, 0, 0.06);
 }
 
 .card-label {
@@ -803,10 +811,9 @@ onMounted(() => {
 
 .trend-badge {
 	background: rgba(124, 185, 124, 0.15);
-	padding: 6rpx 14rpx;
-	border-radius: 50%;
-	width: 44rpx;
-	height: 44rpx;
+	padding: 6rpx 16rpx;
+	width: auto;
+	border-radius: 999rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -898,13 +905,15 @@ onMounted(() => {
 	display: block;
 }
 
-/* 折線進入動畫：畫線效果 stroke-dasharray */
+/* 折线：发光 + 进入动画 */
 .line-stroke {
 	stroke-dasharray: 1;
 	stroke-dashoffset: 1;
 	animation: drawLine 600ms ease-out forwards;
 }
-
+.line-stroke-glow {
+	filter: url(#neonGlow);
+}
 @keyframes drawLine {
 	to {
 		stroke-dashoffset: 0;
@@ -1066,7 +1075,7 @@ onMounted(() => {
 	display: block;
 }
 
-/* Suggested Additions - 與其他卡片背景一致 */
+/* Suggested Additions - 与其他卡片背景一致 */
 .bento-suggested {
 	display: flex;
 	flex-direction: column;

@@ -11,7 +11,7 @@
 
 			<view class="card summary-card">
 				<text class="summary-stat">{{ stats.idle_items ?? unwornCount }}</text>
-				<text class="summary-desc">unworn items out of {{ stats.total_items || 106 }} total ({{ idleRate }}% idle rate)</text>
+				<text class="summary-desc">unworn items out of {{ stats.total_items || DEFAULT_TOTAL_ITEMS_DISPLAY }} total ({{ idleRate }}% idle rate)</text>
 			</view>
 
 			<view class="card list-card">
@@ -97,6 +97,7 @@ import { TransitionGroup } from 'vue'
 import { COLOR_HEX_BY_CODE } from '@/utils/wardrobeEnums.js'
 import { SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
 import { getIdleRate, getIdleItemsDetail, API_BASE_URL } from '@/api/analysisApi.js'
+import { DEFAULT_TOTAL_ITEMS_DISPLAY } from './mockData.js'
 
 const props = defineProps({
 	unwornCount: { type: Number, default: 3 }
@@ -144,13 +145,14 @@ function getLastWornDisplay(item, status) {
 	return ''
 }
 
-function getSortOrder(lastWorn) {
-	if (!lastWorn) return 0
-	const months = String(lastWorn).match(/(\d+)\s*month/i)?.[1]
-	const weeks = String(lastWorn).match(/(\d+)\s*week/i)?.[1]
-	if (months) return parseInt(months) * 4
-	if (weeks) return parseInt(weeks)
-	return 999
+/** 用于排序：数值越大越靠前（从未穿 999，或按距今天数） */
+function getSortOrder(lastWornDate) {
+	if (!lastWornDate) return 999
+	const d = new Date(lastWornDate)
+	if (isNaN(d.getTime())) return 0
+	const now = new Date()
+	const daysDiff = Math.floor((now - d) / (24 * 60 * 60 * 1000))
+	return Math.min(daysDiff, 999)
 }
 
 async function fetchData() {
@@ -161,7 +163,7 @@ async function fetchData() {
 			stats.value = res.data
 		}
 	} catch (e) {
-		console.error('獲取閒置率失敗:', e)
+		console.error('获取闲置率失败:', e)
 	} finally {
 		loading.value = false
 	}
@@ -195,7 +197,7 @@ async function fetchIdleItems(page = 1, append = false) {
 		}
 		return res
 	} catch (e) {
-		console.error('獲取閒置明細失敗:', e)
+		console.error('获取闲置明细失败:', e)
 		throw e
 	} finally {
 		listLoading.value = false
