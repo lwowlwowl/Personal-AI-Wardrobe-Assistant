@@ -140,7 +140,7 @@
 				</view>
 			</view>
 
-			<!-- Suggested Additions：电商推荐风格 + accordion 展开，僅點擊刷新時更新 -->
+			<!-- Suggested Additions：电商推荐风格 + accordion 展开，仅点击刷新时更新 -->
 			<view class="card bento-suggested">
 				<view class="card-row suggested-card-row">
 					<text class="card-label">Suggested Additions</text>
@@ -256,7 +256,7 @@ function saveSuggestedCacheToStorage(list) {
 	} catch (_) {}
 }
 
-/** Suggested Additions 快取：記憶體 + sessionStorage，切頁後再回來仍可還原 */
+/** Suggested Additions 缓存：内存 + sessionStorage，切页后再回来仍可还原 */
 let suggestedAdditionsCache = loadSuggestedCacheFromStorage()
 
 const props = defineProps({
@@ -506,7 +506,7 @@ function toggleViewBy(which) {
 function closeFilter() {
 	filterOpen.value = null
 }
-/** 預留：Category Breakdown 的 Type 篩選，尚未實作 */
+/** 预留：Category Breakdown 的 Type 筛选，尚未实现 */
 function toggleCategoryType() {}
 function goActivityReport() {
 	expandedView.value = 'activity-report'
@@ -541,7 +541,7 @@ async function fetchSuggestedAdditions() {
 	}
 }
 
-/** 僅在用戶點擊刷新時呼叫，用於更新 Suggested Additions（每次點擊都發請求，不因 loading 中而跳過） */
+/** 仅在用户点击刷新时调用，用于更新 Suggested Additions（每次点击都发请求，不因 loading 中而跳过） */
 function refreshSuggestedAdditions() {
 	if (!props.isLoggedIn) return
 	fetchSuggestedAdditions()
@@ -708,7 +708,7 @@ watch(() => props.isLoggedIn, (loggedIn) => {
 		fetchIdleRate()
 		fetchTopColor()
 		fetchTopStyle()
-		// Suggested Additions：先從 sessionStorage 還原（切頁後模組可能重載），有快取則不請求
+		// Suggested Additions：先从 sessionStorage 还原（切页后模块可能重载），有缓存则不请求
 		const cached = suggestedAdditionsCache ?? loadSuggestedCacheFromStorage()
 		if (cached != null) {
 			suggestedAdditionsCache = cached
@@ -743,7 +743,7 @@ onMounted(() => {
 		loadingActivity.value = false
 		return
 	}
-	// Suggested Additions：先從 sessionStorage 還原（切頁後可能重載），有快取則不請求
+	// Suggested Additions：先从 sessionStorage 还原（切页后可能重载），有缓存则不请求
 	const cached = suggestedAdditionsCache ?? loadSuggestedCacheFromStorage()
 	if (cached != null) {
 		suggestedAdditionsCache = cached

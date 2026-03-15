@@ -46,6 +46,9 @@ export function isLoggedIn() {
   return !!getToken()
 }
 
+/** 供其他模組（如日曆、記錄穿著）取得 token */
+export { getToken }
+
 // ---------- 分析接口 ----------
 
 /** GET /api/analysis/total-items/trend?view_by=yearly|monthly|daily */

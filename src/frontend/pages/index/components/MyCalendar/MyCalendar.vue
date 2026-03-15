@@ -678,6 +678,8 @@ function nextMonth() {
 onMounted(() => fetchMonthOutfits())
 watch([displayYear, displayMonth], () => fetchMonthOutfits())
 
+defineExpose({ refetch: fetchMonthOutfits })
+
 /** 日格入场动画：按行列斜向波浪延迟（Spring） */
 function getDayCellStyle(idx) {
 	const row = Math.floor(idx / 7)

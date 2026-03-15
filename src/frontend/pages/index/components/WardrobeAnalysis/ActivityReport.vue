@@ -83,7 +83,7 @@ const props = defineProps({
 
 const emit = defineEmits(['back'])
 
-/** 💡 修復 1：只要有真實數據傳來（哪怕是空陣列），就不使用 Mock */
+/** 💡 修复 1：只要有真实数据传来（哪怕是空数组），就不使用 Mock */
 const effectiveCategoryActivity = computed(() =>
 	props.categoryActivity != null ? props.categoryActivity : MOCK_CATEGORY_ACTIVITY
 )
@@ -100,7 +100,7 @@ const categoryActivityWithPercent = computed(() =>
 	}))
 )
 
-/** 💡 修復 2：若周數據為空陣列，為柱狀圖手動補齊 7 天 0 數據 */
+/** 💡 修复 2：若周数据为空数组，为柱状图手动补齐 7 天 0 数据 */
 const weekData = computed(() => {
 	if (props.weekData != null) {
 		if (props.weekData.length === 0) {
@@ -115,7 +115,7 @@ const maxWears = computed(() => Math.max(...weekData.value.map((d) => d.wears), 
 const avgWears = computed(() => weekData.value.reduce((s, d) => s + d.wears, 0) / weekData.value.length)
 const avgLinePercent = computed(() => (avgWears.value / maxWears.value) * 100)
 
-/** 💡 修復 3：整周皆 0 時，Most active day 顯示 None */
+/** 💡 修复 3：整周皆 0 时，Most active day 显示 None */
 const mostActiveDay = computed(() => {
 	if (weekData.value.every(d => d.wears === 0)) return 'None'
 	const best = weekData.value.reduce((a, b) => (a.wears >= b.wears ? a : b))

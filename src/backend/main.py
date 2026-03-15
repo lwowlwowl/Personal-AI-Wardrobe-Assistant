@@ -2727,9 +2727,30 @@ async def get_idle_items_detail(
         # 分页
         total = query.count()
         skip = (page - 1) * page_size
-        items = query.order_by(
+        rows = query.order_by(
             models.ClothingItem.last_worn_date.asc().nullsfirst()
         ).offset(skip).limit(page_size).all()
+
+        # 序列化為明確 dict，確保前端能拿到 id 等欄位（供 Try today / 日曆等使用）
+        items = []
+        for row in rows:
+            season_val = None
+            if getattr(row, "season", None) is not None:
+                try:
+                    season_val = [s.value if hasattr(s, "value") else str(s) for s in row.season]
+                except Exception:
+                    season_val = []
+            items.append({
+                "id": row.id,
+                "name": row.name,
+                "image_url": getattr(row, "image_url", None) or "",
+                "wear_count": getattr(row, "wear_count", 0) or 0,
+                "last_worn_date": row.last_worn_date.isoformat() if getattr(row, "last_worn_date", None) else None,
+                "season": season_val,
+                "category": getattr(row, "category", None).value if getattr(row, "category", None) is not None and hasattr(row.category, "value") else None,
+                "color": getattr(row, "color", None),
+                "color_code": getattr(row, "color_code", None),
+            })
 
         return {
             "success": True,

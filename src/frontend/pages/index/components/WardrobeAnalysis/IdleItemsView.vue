@@ -44,11 +44,11 @@
 						</view>
 					</view>
 				</view>
-				<view v-if="listReady && filteredItems.length > 0">
+				<view v-if="listReady && displayList.length > 0">
 				<TransitionGroup name="list" tag="view" class="idle-list" appear>
 					<view
-						v-for="(item, index) in filteredItems"
-						:key="item.name + '-' + item.season + '-' + item.type"
+						v-for="(item, index) in displayList"
+						:key="getItemId(item) ?? item.name + '-' + (item.season || '') + '-' + (item.type || '')"
 						class="idle-item-card"
 						:style="{ '--stagger-delay': index * 100 + 'ms' }"
 					>
@@ -75,12 +75,12 @@
 					</view>
 				</TransitionGroup>
 				</view>
-				<view v-else-if="listReady && filteredItems.length === 0 && (stats.idle_items ?? unwornCount) === 0" class="empty-state">
+				<view v-else-if="listReady && displayList.length === 0 && (stats.idle_items ?? unwornCount) === 0" class="empty-state">
 					<view class="empty-state-illus">🎉</view>
 					<text class="empty-state-title">Your wardrobe is well utilized!</text>
 					<text class="empty-state-desc">No idle items today.</text>
 				</view>
-				<view v-else-if="listReady && filteredItems.length === 0 && (stats.idle_items ?? unwornCount) > 0" class="empty-state empty-state-filter">
+				<view v-else-if="listReady && displayList.length === 0 && (stats.idle_items ?? unwornCount) > 0" class="empty-state empty-state-filter">
 					<view class="empty-state-illus">🔍</view>
 					<text class="empty-state-title">No items match your filters</text>
 					<text class="empty-state-desc">Try changing Time or Season to see idle items.</text>
@@ -95,13 +95,14 @@
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { TransitionGroup } from 'vue'
 import { COLOR_HEX_BY_CODE, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
-import { getIdleRate, getIdleItemsDetail, API_BASE_URL } from '@/api/analysisApi.js'
+import { getIdleRate, getIdleItemsDetail, getToken, API_BASE_URL } from '@/api/analysisApi.js'
+import { getCalendarOutfits, saveCalendarOutfits } from '@/api/calendarApi.js'
 import { DEFAULT_TOTAL_ITEMS_DISPLAY } from './mockData.js'
 
 const props = defineProps({
 	unwornCount: { type: Number, default: 3 }
 })
-const emit = defineEmits(['back'])
+const emit = defineEmits(['back', 'outfit-recorded'])
 
 const listReady = ref(false)
 const stats = ref({
@@ -119,7 +120,7 @@ function getFullImageUrl(imageUrl) {
 	return `${API_BASE_URL}/${imageUrl}`
 }
 
-/** Idle status: never / over_season(3+月) / over_year(12+月)；一年內但不足一季的不顯示狀態文案 */
+/** Idle status: never / over_season(3+月) / over_year(12+月)；一年内但不足一季的不显示状态文案 */
 function getIdleStatus(item) {
 	if (item.wear_count === 0) return { level: 'never', label: 'Never worn' }
 	if (item.last_worn_date) {
@@ -249,20 +250,75 @@ const filteredItems = computed(() => {
 	return list
 })
 
-function wearToday(item) {
-	uni.showToast({ title: `Marked "${item.name}" as worn today`, icon: 'none' })
+/** 点击 Try today 后从列表移除并播放离开动画（用数组保证 Vue 响应式） */
+const justWornIds = ref([])
+const displayList = computed(() =>
+	filteredItems.value.filter((item) => !justWornIds.value.includes(getItemId(item)))
+)
+function getItemId(item) {
+	return item.id ?? item.clothing_id ?? null
+}
+
+async function wearToday(item) {
+	const itemId = getItemId(item)
+	if (itemId == null) {
+		uni.showToast({ title: '无法记录：缺少衣物 ID', icon: 'none' })
+		return
+	}
+	const token = getToken()
+	if (!token) {
+		uni.showToast({ title: '请先登录', icon: 'none' })
+		return
+	}
+	uni.showLoading({ title: '记录中...', mask: true })
+	try {
+		const now = new Date()
+		const year = now.getFullYear()
+		const month = now.getMonth() + 1
+		const todayKey = `${year}-${String(month).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+		const res = await getCalendarOutfits({ token, year, month })
+		const body = res && res.data
+		const outfits = (body && body.data && body.data.outfits) ? body.data.outfits : {}
+		const todayItems = (outfits[todayKey] || []).map((x) => ({ id: x.id })).filter((x) => x.id != null)
+		if (todayItems.some((x) => x.id === itemId)) {
+			justWornIds.value = [...justWornIds.value, itemId]
+			stats.value.idle_items = Math.max(0, (stats.value.idle_items ?? 0) - 1)
+			uni.hideLoading()
+			uni.showToast({ title: `"${item.name}" 已在今日穿搭中`, icon: 'none' })
+			return
+		}
+		todayItems.push({ id: itemId })
+		const saveRes = await saveCalendarOutfits({ token, date: todayKey, items: todayItems })
+		const ok = saveRes && saveRes.statusCode === 200 && saveRes.data && saveRes.data.success !== false
+		if (!ok) {
+			const msg = (saveRes && saveRes.data && saveRes.data.detail) ? saveRes.data.detail : '请稍后再试'
+			uni.hideLoading()
+			uni.showToast({ title: `记录失败：${typeof msg === 'string' ? msg : '请稍后再试'}`, icon: 'none', duration: 2500 })
+			return
+		}
+		justWornIds.value = [...justWornIds.value, itemId]
+		stats.value.idle_items = Math.max(0, (stats.value.idle_items ?? 0) - 1)
+		uni.hideLoading()
+		uni.showToast({ title: 'Success', icon: 'success' })
+		emit('outfit-recorded')
+	} catch (e) {
+		console.error('wearToday error:', e)
+		uni.hideLoading()
+		uni.showToast({ title: '记录失败（网络或服务器错误），请稍后再试', icon: 'none', duration: 2500 })
+	}
 }
 
 onMounted(async () => {
 	await nextTick()
 
-	// 同時並發拉取統計數據與列表數據，縮短等待時間
+	// 同时并发拉取统计数据与列表数据，缩短等待时间
 	await Promise.all([
 		fetchData(),
 		fetchIdleItems(1)
 	])
 
-	// 數據都返回後再允許展示列表或空狀態，避免空狀態閃爍（FOUC）
+	// 数据都返回后再允许展示列表或空状态，避免空状态闪烁（FOUC）
 	listReady.value = true
 })
 </script>
@@ -597,16 +653,20 @@ onMounted(async () => {
 	transition-delay: var(--stagger-delay);
 }
 :deep(.list-enter-from),
-:deep(.list-appear-from),
-:deep(.list-leave-to) {
+:deep(.list-appear-from) {
 	opacity: 0;
 	transform: translateY(12rpx);
 }
+:deep(.list-leave-to) {
+	opacity: 0;
+	transform: translateY(-8rpx) scale(0.96);
+}
 :deep(.list-move) {
-	transition: transform 400ms ease;
+	transition: transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 :deep(.list-leave-active) {
 	position: absolute;
 	width: calc(100% - 0rpx);
+	transition: opacity 350ms ease, transform 350ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 </style>

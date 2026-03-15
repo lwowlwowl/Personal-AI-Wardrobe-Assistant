@@ -156,7 +156,7 @@
 						key="wardrobe"
 						@switch-to-tryon="handleSwitchToTryon"
 					/>
-					<MyCalendar v-else-if="activeMenu === 'calendar'" key="calendar" />
+					<MyCalendar ref="myCalendarRef" v-else-if="activeMenu === 'calendar'" key="calendar" />
 					<WardrobeAnalysis v-else-if="activeMenu === 'analysis'" key="analysis" :is-logged-in="isLoggedIn" />
 				</transition>
 			</view>
@@ -342,11 +342,17 @@ const onConversationStateUpdate = (v) => {
 	if (v && Array.isArray(v.conversations)) conversationState.value = v
 }
 
+const myCalendarRef = ref(null)
 const setActiveMenu = (menu) => {
 	activeMenu.value = menu
 	if (menu !== 'tryon') {
 		initialClothingForTryon.value = null
 		initialPersonImageForTryon.value = null
+	}
+	if (menu === 'calendar') {
+		nextTick(() => {
+			myCalendarRef.value?.refetch?.()
+		})
 	}
 }
 
