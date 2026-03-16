@@ -349,7 +349,7 @@ const uploadImageToComfyUI = (filePath, type) => {
 // --- 核心：修改后的生成逻辑 ---
 const handleGenerate = async () => {
   if (!canGenerate.value) {
-   return
+    return
   }
 
   showResult.value = true
@@ -360,54 +360,63 @@ const handleGenerate = async () => {
   uni.showToast({ title: 'Uploading images...', icon: 'loading', duration: 2000 })
 
   try {
-   const token = getCleanToken()
+    const token = getCleanToken()
 
-   // 1. 上传图片到后端
-   if (!personImgName.value || personImg.value.includes('blob:')) {
-    personImgName.value = await uploadImageToComfyUI(personImg.value, 'person')
-   }
-
-   if (!clothingImgName.value || clothingImg.value.includes('blob:')) {
-    clothingImgName.value = await uploadImageToComfyUI(clothingImg.value, 'clothing')
-   }
-
-   uni.showToast({ title: 'Generating...', icon: 'loading', duration: 4000 })
-
-uni.request({
-    url: 'http://127.0.0.1:8000/api/virtual-try-on/generate',
-    method: 'POST',
-    header: { 'content-type': 'application/json' }, // 改回默认的 JSON 格式
-    data: {
-     person_image: personImgName.value,
-     clothing_image: clothingImgName.value,
-     token: token,
-     model_type: '2509'
-    },
-    // 🚨 注意：这里删除了 responseType: 'arraybuffer'
-    success: (res) => {
-     console.log('API Response:', res.data) // 在控制台打印后端到底回了什么
-     isLoading.value = false
-
-     // 按照你的后端原始格式进行解析
-     if (res.statusCode === 200 && res.data && res.data.success) {
-      // 成功获取到图片的 URL 或 Base64
-      resultImg.value = res.data.data.result_image
-      uni.showToast({ title: 'Generation completed!', icon: 'success' })
-     } else {
-      uni.showToast({ title: res.data?.message || 'Generation failed', icon: 'none' })
-     }
-    },
-    fail: (err) => {
-     console.error('API Error:', err)
-     isLoading.value = false
-     uni.showToast({ title: 'Network error', icon: 'none' })
+    // 🌟 1. 强制上传并拿到真实的文件名 (防止 blob 链接混入)
+    let finalPersonName = personImgName.value
+    // 如果名字是空的，或者是 blob: 开头的本地链接，强制重新上传
+    if (!finalPersonName || finalPersonName.startsWith('blob:') || finalPersonName.startsWith('http')) {
+      finalPersonName = await uploadImageToComfyUI(personImg.value, 'person')
+      personImgName.value = finalPersonName // 存起来
     }
-   })
+
+    let finalClothingName = clothingImgName.value
+    // 如果名字是空的，或者是 blob: 开头的本地链接，强制重新上传
+    if (!finalClothingName || finalClothingName.startsWith('blob:') || finalClothingName.startsWith('http')) {
+      finalClothingName = await uploadImageToComfyUI(clothingImg.value, 'clothing')
+      clothingImgName.value = finalClothingName // 存起来
+    }
+
+    uni.showToast({ title: 'Generating...', icon: 'loading', duration: 4000 })
+
+    // 🌟 2. 携带真正的文件名发起生成请求
+    uni.request({
+      url: 'http://127.0.0.1:8000/api/virtual-try-on/generate',
+      method: 'POST',
+      header: { 'content-type': 'application/json' },
+      responseType: 'arraybuffer', // 保持二进制接收，用来解析图片
+      data: {
+        person_image: finalPersonName,     // 👈 这里必须是 upload_xxx.png 的格式
+        clothing_image: finalClothingName, // 👈 这里必须是 upload_xxx.png 的格式
+        token: token,
+        model_type: '2509'
+      },
+      success: (res) => {
+        isLoading.value = false
+        if (res.statusCode === 200 && res.data) {
+          try {
+            const base64 = uni.arrayBufferToBase64(res.data)
+            resultImg.value = 'data:image/png;base64,' + base64
+            uni.showToast({ title: 'Generation completed!', icon: 'success' })
+          } catch (e) {
+            console.error('图片转换失败:', e)
+            uni.showToast({ title: 'Image process failed', icon: 'none' })
+          }
+        } else {
+          uni.showToast({ title: 'Generation failed', icon: 'none' })
+        }
+      },
+      fail: (err) => {
+        console.error('API Error:', err)
+        isLoading.value = false
+        uni.showToast({ title: 'Network error', icon: 'none' })
+      }
+    })
 
   } catch (error) {
-   console.error('Process Error:', error)
-   isLoading.value = false
-   uni.showToast({ title: error.message || 'Process failed', icon: 'none' })
+    console.error('Process Error:', error)
+    isLoading.value = false
+    uni.showToast({ title: error.message || 'Process failed', icon: 'none' })
   }
 }
 </script>

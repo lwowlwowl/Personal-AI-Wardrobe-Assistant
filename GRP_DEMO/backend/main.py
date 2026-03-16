@@ -7,6 +7,8 @@ import requests
 import logging
 import hashlib
 import time
+from pydantic import BaseModel
+from typing import Optional
 from datetime import datetime, timedelta
 from fastapi.exceptions import RequestValidationError
 from typing import Optional, List
@@ -68,7 +70,6 @@ except ImportError:
 
 # 创建数据库表
 models.Base.metadata.create_all(bind=engine)
-
 # ============ FastAPI应用配置 ============
 # 1. 确保在文件最上面（import 区域）有这行导入：
 from fastapi.middleware.cors import CORSMiddleware
@@ -205,32 +206,36 @@ async def verify_token(token: str, db: Session = Depends(get_db)):
 
 
 # ============ 虚拟试穿接口 (核心修改) ============
+from pydantic import BaseModel
+
+# 👇 1. 新增：定义专门用来接收前端 JSON 数据的类
+class GenerateTryOnRequest(BaseModel):
+    person_image: str
+    clothing_image: str
+    token: Optional[str] = None
+    model_type: str = "2509"
+    prompt: str = ""
+
+# 👇 2. 修改后的生成接口
 if COMFYUI_AVAILABLE:
     @app.post("/api/virtual-try-on/generate")
-    async def generate_virtual_tryon(
-    person_image: str = Form("2.jpg"),        # 给它个默认值
-    clothing_image: str = Form("2.jpg"),      # 给它个默认值
-    token: Optional[str] = Form(None),         # 👈 把 (...) 改成 None，这是解决 422 的关键！
-    accessory_image: Optional[str] = Form(None),
-    model_type: str = Form("2509"),
-    prompt: str = Form("")
-):
-    # 进去之后的第一件事：强行打印，证明我们进来了
-        print("🚀 [突破成功] 后端已经接收到请求，开始对接 ComfyUI...")
+    async def generate_virtual_tryon(req: GenerateTryOnRequest):
+        # 进去之后的第一件事：强行打印，证明我们不仅进来了，还成功拿到了真名字！
+        print(f"🚀 [突破成功] 后端要求 ComfyUI 替换的图片为：人物={req.person_image}, 衣服={req.clothing_image}")
+        
         """基于 Qwen2.5-VL 的图像编辑/试穿接口"""
-        # 1. 验证身份
-        #payload = crud.verify_access_token(token)
+        # 1. 验证身份 (目前注释掉方便本地调试)
+        #payload = crud.verify_access_token(req.token)
         #if not payload:
             #raise HTTPException(status_code=401, detail="认证失败")
 
         try:
             # 2. 构建 Qwen 工作流
             workflow = build_virtual_tryon_workflow(
-                person_image=person_image,
-                clothing_image=clothing_image,
-                #accessory_image=accessory_image,
-                model_type=model_type,
-                prompt_text=prompt
+                person_image=req.person_image,
+                clothing_image=req.clothing_image,
+                model_type=req.model_type,
+                prompt_text=req.prompt
             )
 
             # 3. 提交任务
@@ -263,7 +268,6 @@ if COMFYUI_AVAILABLE:
         except Exception as e:
             logger.error(f"虚拟试穿失败: {traceback.format_exc()}")
             raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/api/virtual-try-on/upload-image")
 async def upload_virtual_tryon_image(file: UploadFile = File(...), token: str = Form(...)):
