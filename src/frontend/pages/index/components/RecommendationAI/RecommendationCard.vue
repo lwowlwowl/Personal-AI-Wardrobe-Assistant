@@ -1,7 +1,14 @@
-<!-- 推荐卡片：杂志感排版、单品 Title/Subtitle/Tags、Caution 浮窗 -->
+<!-- 推荐卡片：杂志感排版、单品 Title/Subtitle/Tags、Caution 浮窗；纯聊天由 ChatMessageBubble 渲染 -->
 <template>
-	<view class="recommend-card">
-		<text v-if="recommendation.content" class="message-text ai-fade-block">{{ recommendation.content }}</text>
+	<ChatMessageBubble
+		v-if="isPureChat"
+		:content="recommendation.content"
+		:show-regenerate="showRegenerate"
+		@regenerate="$emit('regenerate')"
+	/>
+
+	<view v-else class="recommend-card">
+		<view v-if="recommendation.content" class="message-text rich-text ai-fade-block" v-html="formattedContent"></view>
 		
 		<!-- 风格标签：title + styleTags + temperature -->
 		<view v-if="displayTags.length > 0" class="tag-row ai-fade-block" style="animation-delay: 0.15s">
@@ -78,8 +85,10 @@
 /**
  * 推荐卡片：接收 recommendation 对象，杂志感排版
  * 结构：{ title, temperature, styleTags, content, items: [{ type, name, subtitle?, reason?, details?, tags? }], whyThisWorks, cautions?, images }
+ * 纯聊天（无 items/images/cautions/whyThisWorks）由 ChatMessageBubble 单独渲染。
  */
 import { reactive, computed, watch } from 'vue'
+import ChatMessageBubble from './ChatMessageBubble.vue'
 
 const props = defineProps({
 	recommendation: {
@@ -107,6 +116,29 @@ const displayTags = computed(() => {
 const toggleExpand = (itemIndex) => {
 	expanded[itemIndex] = !expanded[itemIndex]
 }
+
+// 简易 Markdown -> HTML（加粗、列表、换行），用于富文本展示
+const formattedContent = computed(() => {
+	let text = props.recommendation?.content
+	if (!text || typeof text !== 'string') return ''
+	// 防 XSS：先转义再插入我们自己的标签
+	text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+	text = text.replace(/\*\*([^*]+)\*\*/g, '<span class="highlight-text">$1</span>')
+	text = text.replace(/^[-*]\s+(.+)$/gm, '<p class="list-bullet"><span class="bullet-dot">•</span>$1</p>')
+	text = text.replace(/\n\n/g, '<div class="paragraph-spacer"></div>')
+	text = text.replace(/\n/g, '<br>')
+	return text
+})
+
+// 仅纯聊天（无穿搭清单、无图、无警示、无 whyThisWorks）时用气泡样式
+const isPureChat = computed(() => {
+	const r = props.recommendation
+	return (r.content && r.content.trim()) &&
+		(!r.items || r.items.length === 0) &&
+		(!r.images || r.images.length === 0) &&
+		(!r.cautions || r.cautions.length === 0) &&
+		(!r.whyThisWorks || r.whyThisWorks.length === 0)
+})
 
 // 当 recommendation 变化时重置展开状态
 watch(() => props.recommendation, () => {
@@ -138,6 +170,37 @@ watch(() => props.recommendation, () => {
 	word-wrap: break-word;
 	user-select: text;
 	-webkit-user-select: text;
+}
+
+/* 富文本（推荐卡片内 content 的加粗、列表、段落间距） */
+.rich-text {
+	font-size: 30rpx;
+	color: #2C2C2E;
+	line-height: 1.7;
+}
+:deep(.highlight-text) {
+	font-weight: 600;
+	color: #1D1D1F;
+	background: linear-gradient(120deg, rgba(157, 139, 112, 0.2) 0%, rgba(157, 139, 112, 0) 100%);
+	background-repeat: no-repeat;
+	background-size: 100% 40%;
+	background-position: 0 88%;
+	padding: 0 4rpx;
+}
+:deep(.list-bullet) {
+	display: flex;
+	margin-top: 12rpx;
+	margin-bottom: 12rpx;
+	padding-left: 12rpx;
+}
+:deep(.bullet-dot) {
+	color: #9D8B70;
+	margin-right: 16rpx;
+	font-size: 32rpx;
+	line-height: 1.5;
+}
+:deep(.paragraph-spacer) {
+	height: 24rpx;
 }
 
 .ai-fade-block {

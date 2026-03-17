@@ -148,8 +148,14 @@
 								@regenerate="handleRegenerate(index)"
 								@preview-images="previewImages"
 							/>
-							<!-- 兼容旧格式：无推荐数据时仅显示 content -->
-							<view v-else-if="msg.content" class="message-text">{{ msg.content }}</view>
+							<!-- 无推荐数据但有 content：仍走 RecommendationCard，由 isPureChat 触发 ChatMessageBubble -->
+							<RecommendationCard
+								v-else-if="msg.content"
+								:recommendation="{ content: msg.content }"
+								:show-regenerate="true"
+								@regenerate="handleRegenerate(index)"
+								@preview-images="previewImages"
+							/>
 						</view>
 					</view>
 					
