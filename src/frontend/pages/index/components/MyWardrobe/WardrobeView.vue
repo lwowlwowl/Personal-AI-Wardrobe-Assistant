@@ -468,7 +468,7 @@
 			@update:visible="onClothUploadVisibleChange"
 			@confirm="handleClothUploadConfirm"
 		/>
-		<DetailModal
+		<ClothDetailModal
 			v-model:visible="showModal"
 			:item="selectedItem"
 			:all-clothes="clothes"
@@ -497,7 +497,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, inject } from 'vue'
-import DetailModal from './DetailModal.vue'
+import ClothDetailModal from './ClothDetailModal.vue'
 import ModelDetailModal from './ModelDetailModal.vue'
 import ModelUploadModal from './ModelUploadModal.vue'
 import ClothUploadModal from './ClothUploadModal.vue'

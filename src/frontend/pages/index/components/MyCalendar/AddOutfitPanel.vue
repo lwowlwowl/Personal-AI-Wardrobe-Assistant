@@ -12,69 +12,36 @@
 				<view 
 					class="filter-btn" 
 					:class="{ 
-						open: filterCategoryOpen, 
+						open: activeFilter === 'category', 
 						'has-value': filterCategory.length > 0 
 					}"
-					@click="openFilter('category')"
+					@click.stop="toggleFilterDropdown('category')"
 				>
 					<text>{{ filterCategoryLabel }}</text>
 					<image 
-						:src="filterCategoryOpen ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" 
+						:src="activeFilter === 'category' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" 
 						mode="aspectFit" 
 						class="icon-arrow"
 					></image>
 				</view>
-				<transition name="dropdown-fade">
-					<view v-if="filterCategoryOpen" class="dropdown-menu" @click.stop>
+				<transition name="filter-panel">
+					<view v-if="activeFilter === 'category'" class="dropdown-menu" @click.stop>
 						<text class="dropdown-title">Clothing Type</text>
 						<view class="option-list">
 							<view
 								v-for="opt in filterCategoryOptions"
 								:key="opt.value"
 								class="option-item"
-								:class="{ active: isFilterSelected('category', opt) }"
-								@click.stop="toggleFilter('category', opt)"
+								:class="{ active: selectedCategory.includes(opt.value) }"
+								@click.stop="handleOptionClick('category', opt.value)"
 							>{{ opt.label }}</view>
 						</view>
 						<view class="dropdown-actions">
 							<view class="reset-btn" @click.stop="resetFilter('category')">
 								<text>Reset</text>
 							</view>
-						</view>
-					</view>
-				</transition>
-			</view>
-			<view class="filter-group">
-				<view 
-					class="filter-btn" 
-					:class="{ 
-						open: filterColorOpen, 
-						'has-value': filterColor.length > 0 
-					}"
-					@click="openFilter('color')"
-				>
-					<text>{{ filterColorLabel }}</text>
-					<image 
-						:src="filterColorOpen ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" 
-						mode="aspectFit" 
-						class="icon-arrow"
-					></image>
-				</view>
-				<transition name="dropdown-fade">
-					<view v-if="filterColorOpen" class="dropdown-menu" @click.stop>
-						<text class="dropdown-title">Color</text>
-						<view class="option-list">
-							<view
-								v-for="opt in filterColorOptions"
-								:key="opt.value"
-								class="option-item"
-								:class="{ active: isFilterSelected('color', opt) }"
-								@click.stop="toggleFilter('color', opt)"
-							>{{ opt.label }}</view>
-						</view>
-						<view class="dropdown-actions">
-							<view class="reset-btn" @click.stop="resetFilter('color')">
-								<text>Reset</text>
+							<view class="apply-btn" @click.stop="applyFilter('category')">
+								<text>Apply</text>
 							</view>
 						</view>
 					</view>
@@ -84,33 +51,75 @@
 				<view 
 					class="filter-btn" 
 					:class="{ 
-						open: filterSeasonOpen, 
-						'has-value': filterSeason.length > 0 
+						open: activeFilter === 'color', 
+						'has-value': filterColor.length > 0 
 					}"
-					@click="openFilter('season')"
+					@click.stop="toggleFilterDropdown('color')"
 				>
-					<text>{{ filterSeasonLabel }}</text>
+					<text>{{ filterColorLabel }}</text>
 					<image 
-						:src="filterSeasonOpen ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" 
+						:src="activeFilter === 'color' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" 
 						mode="aspectFit" 
 						class="icon-arrow"
 					></image>
 				</view>
-				<transition name="dropdown-fade">
-					<view v-if="filterSeasonOpen" class="dropdown-menu" @click.stop>
+				<transition name="filter-panel">
+					<view v-if="activeFilter === 'color'" class="dropdown-menu" @click.stop>
+						<text class="dropdown-title">Color</text>
+						<view class="option-list">
+							<view
+								v-for="opt in filterColorOptions"
+								:key="opt.value"
+								class="option-item"
+								:class="{ active: selectedColor.includes(opt.value) }"
+								@click.stop="handleOptionClick('color', opt.value)"
+							>{{ opt.label }}</view>
+						</view>
+						<view class="dropdown-actions">
+							<view class="reset-btn" @click.stop="resetFilter('color')">
+								<text>Reset</text>
+							</view>
+							<view class="apply-btn" @click.stop="applyFilter('color')">
+								<text>Apply</text>
+							</view>
+						</view>
+					</view>
+				</transition>
+			</view>
+			<view class="filter-group">
+				<view 
+					class="filter-btn" 
+					:class="{ 
+						open: activeFilter === 'season', 
+						'has-value': filterSeason.length > 0 
+					}"
+					@click.stop="toggleFilterDropdown('season')"
+				>
+					<text>{{ filterSeasonLabel }}</text>
+					<image 
+						:src="activeFilter === 'season' ? '/static/icons/icon-arrow-up.svg' : '/static/icons/icon-arrow-down.svg'" 
+						mode="aspectFit" 
+						class="icon-arrow"
+					></image>
+				</view>
+				<transition name="filter-panel">
+					<view v-if="activeFilter === 'season'" class="dropdown-menu" @click.stop>
 						<text class="dropdown-title">Season</text>
 						<view class="option-list">
 							<view
 								v-for="opt in filterSeasonOptions"
 								:key="opt.value"
 								class="option-item"
-								:class="{ active: isFilterSelected('season', opt) }"
-								@click.stop="toggleFilter('season', opt)"
+								:class="{ active: selectedSeason.includes(opt.value) }"
+								@click.stop="handleOptionClick('season', opt.value)"
 							>{{ opt.label }}</view>
 						</view>
 						<view class="dropdown-actions">
 							<view class="reset-btn" @click.stop="resetFilter('season')">
 								<text>Reset</text>
+							</view>
+							<view class="apply-btn" @click.stop="applyFilter('season')">
+								<text>Apply</text>
 							</view>
 						</view>
 					</view>
@@ -167,7 +176,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { TYPE_OPTIONS, COLOR_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
+import { TYPE_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
 import { getClothingList, API_BASE_URL } from '@/api/wardrobe.js'
 
 const props = defineProps({
@@ -237,6 +246,11 @@ async function loadWardrobe() {
 			if (image && image.startsWith('/') && !image.startsWith('//')) {
 				image = `${API_BASE_URL}${image}`
 			}
+
+			// 与 WardrobeView 保持一致：后端 season 可能是数组 ['autumn','winter']，此处统一转成逗号分隔字符串
+			const seasonVal = item.season
+			const seasonStr = Array.isArray(seasonVal) ? seasonVal.join(',') : (seasonVal || '')
+
 			return {
 				id: item.id,
 				name: item.name || '未命名',
@@ -244,7 +258,7 @@ async function loadWardrobe() {
 				accentColor: (item.color && /^#?[0-9A-Fa-f]{6}$/i.test(String(item.color).replace(/^#/, ''))) ? (item.color.startsWith('#') ? item.color : '#' + item.color) : '#8d6e63',
 				category: item.category || '',
 				color: item.color || '',
-				season: item.season || ''
+				season: seasonStr
 			}
 		})
 		wardrobeItems.value = items
@@ -259,49 +273,67 @@ async function loadWardrobe() {
 onMounted(() => loadWardrobe())
 watch(() => props.token, () => loadWardrobe())
 
-/** Filter 状态：多选数组，空数组表示「全部」 */
+/** Filter 状态 */
+// 应用中的筛选条件（与 WardrobeView 的 applied* 含义一致；空数组表示「全部」）
 const filterCategory = ref([])
 const filterColor = ref([])
 const filterSeason = ref([])
 const filterSearch = ref('')
-const filterCategoryOpen = ref(false)
-const filterColorOpen = ref(false)
-const filterSeasonOpen = ref(false)
 
+// 当前展开的筛选面板名称：'category' | 'color' | 'season' | null
+const activeFilter = ref(null)
+
+// 临时选择（下拉展开时编辑的值，点击 Apply 后才同步到已应用条件）
+const selectedCategory = ref([])
+const selectedColor = ref([])
+const selectedSeason = ref([])
+
+// 下拉选项：
+// - 类别与季节：直接沿用与「我的衣橱」一致的枚举
+// - 颜色：根据实际衣物颜色动态生成，避免出现大量与当前衣橱无关的颜色
 const filterCategoryOptions = TYPE_OPTIONS
-const filterColorOptions = COLOR_OPTIONS
 const filterSeasonOptions = SEASON_OPTIONS
-
-/** 切换筛选选项（多选）：如果已选中则取消，未选中则添加 */
-function toggleFilter(type, opt) {
-	// opt 是 { label, value } 对象，使用 value (code) 进行存储和匹配
-	const optValue = typeof opt === 'string' ? opt : opt.value
-	if (type === 'category') {
-		const arr = filterCategory.value
-		const i = arr.indexOf(optValue)
-		if (i === -1) filterCategory.value = [...arr, optValue]
-		else filterCategory.value = arr.filter((_, j) => j !== i)
-	} else if (type === 'color') {
-		const arr = filterColor.value
-		const i = arr.indexOf(optValue)
-		if (i === -1) filterColor.value = [...arr, optValue]
-		else filterColor.value = arr.filter((_, j) => j !== i)
-	} else if (type === 'season') {
-		const arr = filterSeason.value
-		const i = arr.indexOf(optValue)
-		if (i === -1) filterSeason.value = [...arr, optValue]
-		else filterSeason.value = arr.filter((_, j) => j !== i)
+const filterColorOptions = computed(() => {
+	const set = new Set()
+	for (const item of wardrobeItems.value) {
+		const str = item.color || ''
+		if (!str) continue
+		str
+			.split(/[,/]+/)
+			.map((s) => s.trim())
+			.filter(Boolean)
+			.forEach((code) => set.add(code))
 	}
+	return Array.from(set)
+		.sort((a, b) => String(a).localeCompare(String(b)))
+		.map((code) => ({ label: code, value: code }))
+})
+
+/** 点击下拉按钮：展开或收起对应的筛选面板，并把已应用条件同步到临时选择 */
+function toggleFilterDropdown(type) {
+	if (activeFilter.value === type) {
+		activeFilter.value = null
+		return
+	}
+	activeFilter.value = type
+	if (type === 'category') selectedCategory.value = [...filterCategory.value]
+	if (type === 'color') selectedColor.value = [...filterColor.value]
+	if (type === 'season') selectedSeason.value = [...filterSeason.value]
 }
 
-/** 检查筛选选项是否已选中 */
-function isFilterSelected(type, opt) {
-	// opt 是 { label, value } 对象，使用 value (code) 进行匹配
-	const optValue = typeof opt === 'string' ? opt : opt.value
-	if (type === 'category') return filterCategory.value.includes(optValue)
-	if (type === 'color') return filterColor.value.includes(optValue)
-	if (type === 'season') return filterSeason.value.includes(optValue)
-	return false
+/** 点击选项：只更新临时选择，不立即影响已应用条件 */
+function handleOptionClick(type, value) {
+	let target
+	if (type === 'category') target = selectedCategory
+	else if (type === 'color') target = selectedColor
+	else target = selectedSeason
+
+	const idx = target.value.indexOf(value)
+	if (idx > -1) {
+		target.value = target.value.filter((v) => v !== value)
+	} else {
+		target.value = [...target.value, value]
+	}
 }
 
 /** 筛选按钮显示的标签：未选中时显示默认文本，选中1项显示该项标签，选中多项显示数量 */
@@ -318,12 +350,8 @@ const filterCategoryLabel = computed(() => {
 const filterColorLabel = computed(() => {
 	const arr = filterColor.value
 	if (!arr.length) return 'Color'
-	// 将 code 转换为 label
-	const labels = arr.map(code => {
-		const opt = COLOR_OPTIONS.find(o => o.value === code)
-		return opt ? opt.label : code
-	})
-	return arr.length >= 2 ? `Color (${arr.length})` : labels[0]
+	// Color 這裡使用實際顏色 code 作為 label（與 WardrobeView 保持一致）
+	return arr.length >= 2 ? `Color (${arr.length})` : arr[0]
 })
 const filterSeasonLabel = computed(() => {
 	const arr = filterSeason.value
@@ -336,53 +364,70 @@ const filterSeasonLabel = computed(() => {
 	return arr.length >= 2 ? `Season (${arr.length})` : labels[0]
 })
 
+// 与 MyWardrobe 的逻辑保持一致：搜索仅做「单词前缀」匹配，而不是任意子串
+function nameMatchesSearch(name, searchTerm) {
+	const nameWords = (name || '').toLowerCase().split(/\s+/).filter(Boolean)
+	const searchWords = searchTerm.trim().toLowerCase().split(/\s+/).filter(Boolean)
+	if (searchWords.length === 0) return true
+	return searchWords.every((searchWord) =>
+		nameWords.some((nameWord) => nameWord.startsWith(searchWord))
+	)
+}
+
 /** 依 filter 筛选后的衣柜列表（多选：空数组＝不筛选该维度） */
 const filteredWardrobeItems = computed(() => {
 	const items = wardrobeItems.value
 	let list = [...items]
+
+	// type/color/season 可能为多选（逗号或斜线分隔），只要有一个命中即显示
+	const parseItemCodes = (str) => (str || '').split(/[,/]+/).map((s) => s.trim()).filter(Boolean)
+
 	const cat = filterCategory.value
 	if (cat.length) {
-		// 将选中的 code 转换为对应的 label，然后与 wardrobeItems 中的 category 匹配
-		const selectedLabels = cat.map(code => {
-			const opt = TYPE_OPTIONS.find(o => o.value === code)
+		// Category：下拉使用 code，后端字段多为 label，需将 code 映射回 label 再匹配
+		const selectedLabels = cat.map((code) => {
+			const opt = TYPE_OPTIONS.find((o) => o.value === code)
 			return opt ? opt.label : code
 		})
-		const set = new Set(selectedLabels.map(l => l.toLowerCase()))
+		const set = new Set(selectedLabels.map((l) => l.toLowerCase()))
 		list = list.filter((i) => {
-			const itemCategory = (i.category || '').toLowerCase()
-			return set.has(itemCategory)
+			const cats = parseItemCodes(i.category)
+			return cats.some((c) => set.has(c.toLowerCase()))
 		})
 	}
+
 	const col = filterColor.value
 	if (col.length) {
-		// 将选中的 code 转换为对应的 label，然后与 wardrobeItems 中的 color 匹配
-		const selectedLabels = col.map(code => {
-			const opt = COLOR_OPTIONS.find(o => o.value === code)
-			return opt ? opt.label : code
-		})
-		const set = new Set(selectedLabels.map(l => l.toLowerCase()))
-		list = list.filter((i) => {
-			const itemColor = (i.color || '').toLowerCase()
-			return set.has(itemColor)
-		})
+		// Color：后端多返回 code，本地直接按 code 匹配
+		const set = new Set(col)
+		list = list.filter((i) => parseItemCodes(i.color).some((code) => set.has(code)))
 	}
+
 	const sea = filterSeason.value
 	if (sea.length) {
-		// 将选中的 code 转换为对应的 label，然后与 wardrobeItems 中的 season 匹配
-		const selectedLabels = sea.map(code => {
-			const opt = SEASON_OPTIONS.find(o => o.value === code)
-			return opt ? opt.label : code
-		})
-		const set = new Set(selectedLabels.map(l => l.toLowerCase()))
+		// Season：优先按 code 匹配，同时兼容部分数据直接存 label 的情况
+		const codeSet = new Set(sea)
+		const labelSet = new Set(
+			sea
+				.map((code) => {
+					const opt = SEASON_OPTIONS.find((o) => o.value === code)
+					return opt ? String(opt.label).toLowerCase() : String(code).toLowerCase()
+				})
+		)
 		list = list.filter((i) => {
-			const itemSeason = (i.season || '').toLowerCase()
-			return set.has(itemSeason)
+			const seasons = parseItemCodes(i.season)
+			return seasons.some((val) => {
+				const v = String(val).toLowerCase()
+				return codeSet.has(val) || labelSet.has(v)
+			})
 		})
 	}
+
 	if (filterSearch.value.trim()) {
-		const q = filterSearch.value.trim().toLowerCase()
-		list = list.filter((i) => (i.name || '').toLowerCase().includes(q))
+		const q = filterSearch.value.trim()
+		list = list.filter((i) => nameMatchesSearch(i.name, q))
 	}
+
 	return list
 })
 
@@ -410,37 +455,32 @@ function handleConfirm() {
 	}
 }
 
-/** 打开指定的筛选下拉菜单（如果已打开则关闭，实现切换效果） */
-function openFilter(type) {
-	const open = type === 'category' ? filterCategoryOpen.value : type === 'color' ? filterColorOpen.value : filterSeasonOpen.value
-	filterCategoryOpen.value = false
-	filterColorOpen.value = false
-	filterSeasonOpen.value = false
-	if (!open) {
-		if (type === 'category') filterCategoryOpen.value = true
-		else if (type === 'color') filterColorOpen.value = true
-		else if (type === 'season') filterSeasonOpen.value = true
-	}
-}
-
 /** 关闭所有筛选下拉菜单 */
 function closeAllFilters() {
-	filterCategoryOpen.value = false
-	filterColorOpen.value = false
-	filterSeasonOpen.value = false
+	activeFilter.value = null
 }
 
-/** 重置指定类型的筛选条件（清空选中项） */
+/** Apply：同步临时选择到已应用条件并关闭当前下拉 */
+function applyFilter(type) {
+	if (type === 'category') filterCategory.value = [...selectedCategory.value]
+	else if (type === 'color') filterColor.value = [...selectedColor.value]
+	else if (type === 'season') filterSeason.value = [...selectedSeason.value]
+	activeFilter.value = null
+}
+
+/** Reset：清空指定类型的筛选条件（临时与已应用一并清空），并关闭下拉 */
 function resetFilter(type) {
 	if (type === 'category') {
 		filterCategory.value = []
+		selectedCategory.value = []
 	} else if (type === 'color') {
 		filterColor.value = []
+		selectedColor.value = []
 	} else if (type === 'season') {
 		filterSeason.value = []
+		selectedSeason.value = []
 	}
-	// 重置后关闭 dropdown
-	closeAllFilters()
+	activeFilter.value = null
 }
 </script>
 
@@ -520,14 +560,15 @@ function resetFilter(type) {
 	top: 100%;
 	left: 0;
 	margin-top: 16rpx;
-	background: #FFF;
+	background: rgba(255, 255, 255, 0.96);
 	border-radius: 20rpx;
 	padding: 24rpx;
-	box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
+	box-shadow: 0 15rpx 35rpx rgba(0, 0, 0, 0.12);
 	z-index: 100;
 	width: 320rpx;
 	border: 2rpx solid #E8E4DC;
 	animation: dropdown-in 0.25s ease;
+	backdrop-filter: blur(12px);
 }
 
 @keyframes dropdown-in {
@@ -576,44 +617,43 @@ function resetFilter(type) {
 
 .dropdown-actions {
 	display: flex;
-	justify-content: center;
+	justify-content: space-between;
+	gap: 20rpx;
 	margin-top: 20rpx;
 	padding-top: 20rpx;
 	border-top: 1rpx solid rgba(0, 0, 0, 0.06);
 }
 
+.apply-btn,
 .reset-btn {
-	padding: 14rpx 28rpx;
+	flex: 1;
+	padding: 16rpx 32rpx;
 	font-size: 26rpx;
 	border-radius: 12rpx;
 	cursor: pointer;
-	transition: opacity 0.2s, background 0.2s;
+	transition: opacity 0.2s;
+	text-align: center;
+}
+
+.apply-btn {
+	background: #9D8B70;
+	color: #FFF;
+	font-weight: 600;
+}
+
+.reset-btn {
 	background: transparent;
 	color: #1D1D1F;
-	font-weight: 500;
 }
 
-.reset-btn:hover {
-	background: rgba(0, 0, 0, 0.04);
+.filter-panel-enter-active,
+.filter-panel-leave-active {
+	transition: all 0.22s ease;
 }
-
-.reset-btn:active {
-	opacity: 0.7;
-}
-
-.dropdown-fade-enter-active,
-.dropdown-fade-leave-active {
-	transition: opacity 0.25s ease, transform 0.25s ease;
-}
-
-.dropdown-fade-enter-from {
+.filter-panel-enter-from,
+.filter-panel-leave-to {
 	opacity: 0;
-	transform: translateY(-8rpx) scale(0.95);
-}
-
-.dropdown-fade-leave-to {
-	opacity: 0;
-	transform: translateY(-8rpx) scale(0.95);
+	transform: translateY(-6rpx) scale(0.97);
 }
 
 /* 右侧面板内「选择衣服」：容器与可滚动列表（替代原底部弹窗） */
