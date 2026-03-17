@@ -1,8 +1,7 @@
 <!-- 推荐 AI 聊天组件：初始问候、多行输入、图片上传、用户/AI 消息展示 -->
 <template>
 	<view class="chat-container">
-		<!-- 初始状态：问候语 + 标签 + 输入框在同一滚动列，输入框上伸时整体同步上移 -->
-		<scroll-view 
+		<scroll-view
 			v-if="!hasSearched"
 			class="initial-scroll"
 			scroll-y
@@ -29,9 +28,10 @@
 						</view>
 					</view>
 				</view>
+
 				<view class="input-container input-in-flow">
 					<view class="search-bar">
-						<div 
+						<div
 							class="search-bar-drop-zone"
 							:class="{ 'drag-over': isDragOverInput }"
 							@drop.prevent="handleDropImage"
@@ -39,82 +39,71 @@
 							@dragleave.prevent="handleDragLeaveInput"
 							@dragenter.prevent
 						>
-						<!-- 图片预览区：在输入行上方，仍属于输入框内部 -->
-						<view v-if="uploadedImages.length > 0" class="input-thumb-row">
-							<scroll-view class="input-thumb-wrap" scroll-x :show-scrollbar="false">
-								<view class="input-thumb-list">
-									<view v-for="(url, idx) in uploadedImages" :key="idx" class="input-thumb-pill">
-										<image :src="url" mode="aspectFill" class="input-thumb-img" @click="previewImageAt(idx)"></image>
-										<view class="input-thumb-remove" @click.stop="removeUploadedImageAt(idx)">
-											<image src="/static/icons/icon-close.svg" mode="aspectFit" class="icon-close-small"></image>
+							<view v-if="uploadedImages.length > 0" class="input-thumb-row">
+								<scroll-view class="input-thumb-wrap" scroll-x :show-scrollbar="false">
+									<view class="input-thumb-list">
+										<view v-for="(url, idx) in uploadedImages" :key="idx" class="input-thumb-pill">
+											<image :src="url" mode="aspectFill" class="input-thumb-img" @click="previewImageAt(idx)"></image>
+											<view class="input-thumb-remove" @click.stop="removeUploadedImageAt(idx)">
+												<image src="/static/icons/icon-close.svg" mode="aspectFit" class="icon-close-small"></image>
+											</view>
 										</view>
 									</view>
+								</scroll-view>
+							</view>
+
+							<view class="search-input-row">
+								<view class="search-icon-left" @click="handleAdd">
+									<image src="/static/icons/icon-plus.svg" mode="aspectFit" class="icon-search-btn"></image>
 								</view>
-							</scroll-view>
-						</view>
-						<!-- 输入行：+ | 文字 | 发送 -->
-						<view class="search-input-row">
-							<view class="search-icon-left" @click="handleAdd">
-								<image src="/static/icons/icon-plus.svg" mode="aspectFit" class="icon-search-btn"></image>
+								<textarea
+									class="search-input search-textarea"
+									v-model="searchQuery"
+									placeholder="Ask me anything!"
+									placeholder-class="search-placeholder"
+									:maxlength="-1"
+									:auto-height="true"
+									@keydown.enter.exact.prevent="handleSearch"
+									@confirm="handleSearch"
+								/>
+								<view class="search-button" @click="handleSearch">
+									<image src="/static/icons/icon-send.svg" mode="aspectFit" class="icon-search-btn"></image>
+								</view>
 							</view>
-							<textarea 
-								class="search-input search-textarea"
-								v-model="searchQuery"
-								placeholder="Ask me anything!"
-								placeholder-class="search-placeholder"
-								:maxlength="-1"
-								:auto-height="true"
-								@keydown.enter.exact.prevent="handleSearch"
-								@confirm="handleSearch"
-							/>
-							<view class="search-button" @click="handleSearch">
-								<image src="/static/icons/icon-send.svg" mode="aspectFit" class="icon-search-btn"></image>
-							</view>
-						</view>
 						</div>
 					</view>
 				</view>
+
 				<view class="search-tabs">
-					<text 
-						class="tab-text" 
-						:class="{ 'active': activeTab === 'wardrobe' }"
-						@click="setActiveTab('wardrobe')"
-					>My Wardrobe</text>
+					<text class="tab-text" :class="{ active: activeTab === 'wardrobe' }" @click="setActiveTab('wardrobe')">My Wardrobe</text>
 					<view class="tab-divider"></view>
-					<text 
-						class="tab-text" 
-						:class="{ 'active': activeTab === 'online' }"
-						@click="setActiveTab('online')"
-					>Online Search</text>
+					<text class="tab-text" :class="{ active: activeTab === 'online' }" @click="setActiveTab('online')">Online Search</text>
 				</view>
 			</view>
 		</scroll-view>
-		
-		<!-- 聊天状态：scroll-view 聊天区域 -->
-		<scroll-view 
+
+		<scroll-view
 			v-else
-			class="chat-scroll-area" 
-			scroll-y 
+			class="chat-scroll-area"
+			scroll-y
 			:scroll-into-view="scrollTarget"
 			:scroll-with-animation="true"
 			:enable-back-to-top="true"
 		>
 			<view class="message-list">
-				<view 
-					v-for="(msg, index) in chatHistory" 
-					:key="index" 
+				<view
+					v-for="(msg, index) in chatHistory"
+					:key="index"
 					:id="'msg-' + index"
 					class="message-row"
 					:class="msg.role"
 				>
-					<!-- 用户消息 (右侧) -->
 					<view v-if="msg.role === 'user'" class="user-bubble">
-						<!-- 用户消息图片 -->
 						<view v-if="msg.images && msg.images.length > 0" class="user-image-group">
-							<image 
-								v-for="(img, imgIndex) in msg.images" 
+							<image
+								v-for="(img, imgIndex) in msg.images"
 								:key="imgIndex"
-								:src="img" 
+								:src="img"
 								mode="aspectFill"
 								class="user-msg-img"
 								@click="previewImages(msg.images, imgIndex)"
@@ -122,15 +111,65 @@
 						</view>
 						<text v-if="msg.content" class="message-text">{{ msg.content }}</text>
 					</view>
-					
-					<!-- AI 消息 (左侧)：推荐卡片组件，支持多套推荐与左右滑动 -->
+
 					<view v-else-if="msg.role === 'ai'" class="ai-container ai-fade-in">
 						<view class="ai-avatar">
 							<image src="/static/icons/icon-robot.svg" mode="aspectFit" class="icon-robot-avatar"></image>
 						</view>
+
 						<view class="ai-content">
-							<!-- 多套推荐：swiper 左右滑动 -->
-							<swiper v-if="getRecommendations(msg).length > 1" class="recommend-swiper" :indicator-dots="true" indicator-active-color="#9D8B70">
+							<!-- 计划表（多天/多场景/按日程组织） -->
+							<PlanScheduleCard
+								v-if="getMessageRenderType(msg) === 'plan'"
+								:plan="msg.plan"
+								:raw-text="msg.rawText || msg.content || ''"
+							/>
+
+							<!-- 纯文本 -->
+							<ChatMessageBubble
+								v-else-if="getMessageRenderType(msg) === 'text'"
+								:content="getDisplayContent(msg)"
+							/>
+
+							<!-- 混合型：上面文字，下面推荐 -->
+							<view v-else-if="getMessageRenderType(msg) === 'mixed'" class="mixed-message-wrap">
+								<ChatMessageBubble
+									v-if="getMixedIntroContent(msg)"
+									:content="getMixedIntroContent(msg)"
+								/>
+
+								<swiper
+									v-if="getRecommendations(msg).length > 1"
+									class="recommend-swiper mixed-swiper"
+									:indicator-dots="true"
+									indicator-active-color="#9D8B70"
+								>
+									<swiper-item v-for="(rec, ri) in getRecommendations(msg)" :key="ri">
+										<RecommendationCard
+											:recommendation="rec"
+											:show-regenerate="ri === 0"
+											@regenerate="handleRegenerate(index)"
+											@preview-images="previewImages"
+										/>
+									</swiper-item>
+								</swiper>
+
+								<RecommendationCard
+									v-else-if="getRecommendations(msg).length === 1"
+									:recommendation="getRecommendations(msg)[0]"
+									:show-regenerate="true"
+									@regenerate="handleRegenerate(index)"
+									@preview-images="previewImages"
+								/>
+							</view>
+
+							<!-- 纯推荐 -->
+							<swiper
+								v-else-if="getMessageRenderType(msg) === 'recommendation' && getRecommendations(msg).length > 1"
+								class="recommend-swiper"
+								:indicator-dots="true"
+								indicator-active-color="#9D8B70"
+							>
 								<swiper-item v-for="(rec, ri) in getRecommendations(msg)" :key="ri">
 									<RecommendationCard
 										:recommendation="rec"
@@ -140,26 +179,23 @@
 									/>
 								</swiper-item>
 							</swiper>
-							<!-- 单套推荐：直接渲染 -->
+
 							<RecommendationCard
-								v-else-if="getRecommendations(msg).length === 1"
+								v-else-if="getMessageRenderType(msg) === 'recommendation' && getRecommendations(msg).length === 1"
 								:recommendation="getRecommendations(msg)[0]"
 								:show-regenerate="true"
 								@regenerate="handleRegenerate(index)"
 								@preview-images="previewImages"
 							/>
-							<!-- 无推荐数据但有 content：仍走 RecommendationCard，由 isPureChat 触发 ChatMessageBubble -->
-							<RecommendationCard
-								v-else-if="msg.content"
-								:recommendation="{ content: msg.content }"
-								:show-regenerate="true"
-								@regenerate="handleRegenerate(index)"
-								@preview-images="previewImages"
+
+							<!-- 兜底 -->
+							<ChatMessageBubble
+								v-else
+								:content="msg.rawText || msg.content || ''"
 							/>
 						</view>
 					</view>
-					
-					<!-- 加载指示器：毛玻璃光晕卡片 + 极光扫光 + 呼吸文字 -->
+
 					<view v-if="msg.role === 'loading'" class="ai-container ai-fade-in">
 						<view class="ai-avatar">
 							<image src="/static/icons/icon-robot.svg" mode="aspectFit" class="icon-robot-avatar"></image>
@@ -185,15 +221,15 @@
 						</view>
 					</view>
 				</view>
+
 				<view class="spacer" id="bottom-spacer"></view>
 			</view>
 		</scroll-view>
-		
-		<!-- 聊天状态：输入框固定在底部，外层 box 铺满右侧、背景与页面一致 -->
+
 		<view v-if="hasSearched" class="input-box-wrapper">
 			<view class="input-container fixed-bottom">
 				<view class="search-bar">
-					<div 
+					<div
 						class="search-bar-drop-zone"
 						:class="{ 'drag-over': isDragOverInput }"
 						@drop.prevent="handleDropImage"
@@ -201,70 +237,58 @@
 						@dragleave.prevent="handleDragLeaveInput"
 						@dragenter.prevent
 					>
-				<!-- 图片预览区：在输入行上方，仍属于输入框内部 -->
-				<view v-if="uploadedImages.length > 0" class="input-thumb-row">
-					<scroll-view class="input-thumb-wrap" scroll-x :show-scrollbar="false">
-						<view class="input-thumb-list">
-							<view v-for="(url, idx) in uploadedImages" :key="idx" class="input-thumb-pill">
-								<image :src="url" mode="aspectFill" class="input-thumb-img" @click="previewImageAt(idx)"></image>
-								<view class="input-thumb-remove" @click.stop="removeUploadedImageAt(idx)">
-									<image src="/static/icons/icon-close.svg" mode="aspectFit" class="icon-close-small"></image>
+						<view v-if="uploadedImages.length > 0" class="input-thumb-row">
+							<scroll-view class="input-thumb-wrap" scroll-x :show-scrollbar="false">
+								<view class="input-thumb-list">
+									<view v-for="(url, idx) in uploadedImages" :key="idx" class="input-thumb-pill">
+										<image :src="url" mode="aspectFill" class="input-thumb-img" @click="previewImageAt(idx)"></image>
+										<view class="input-thumb-remove" @click.stop="removeUploadedImageAt(idx)">
+											<image src="/static/icons/icon-close.svg" mode="aspectFit" class="icon-close-small"></image>
+										</view>
+									</view>
 								</view>
+							</scroll-view>
+						</view>
+
+						<view class="search-input-row">
+							<view class="search-icon-left" @click="handleAdd">
+								<image src="/static/icons/icon-plus.svg" mode="aspectFit" class="icon-search-btn"></image>
+							</view>
+							<textarea
+								class="search-input search-textarea"
+								v-model="searchQuery"
+								placeholder="Ask me anything!"
+								placeholder-class="search-placeholder"
+								:maxlength="-1"
+								:auto-height="true"
+								@keydown.enter.exact.prevent="handleSearch"
+								@confirm="handleSearch"
+							/>
+							<view class="search-button" @click="handleSearch">
+								<image src="/static/icons/icon-send.svg" mode="aspectFit" class="icon-search-btn"></image>
 							</view>
 						</view>
-					</scroll-view>
-				</view>
-				<!-- 输入行：+ | 文字 | 发送 -->
-				<view class="search-input-row">
-					<view class="search-icon-left" @click="handleAdd">
-						<image src="/static/icons/icon-plus.svg" mode="aspectFit" class="icon-search-btn"></image>
-					</view>
-					<textarea 
-						class="search-input search-textarea"
-						v-model="searchQuery"
-						placeholder="Ask me anything!"
-						placeholder-class="search-placeholder"
-						:maxlength="-1"
-						:auto-height="true"
-						@keydown.enter.exact.prevent="handleSearch"
-						@confirm="handleSearch"
-					/>
-					<view class="search-button" @click="handleSearch">
-						<image src="/static/icons/icon-send.svg" mode="aspectFit" class="icon-search-btn"></image>
-					</view>
-				</view>
 					</div>
 				</view>
 			</view>
+
 			<view class="search-tabs">
-				<text 
-					class="tab-text" 
-					:class="{ 'active': activeTab === 'wardrobe' }"
-					@click="setActiveTab('wardrobe')"
-				>My Wardrobe</text>
+				<text class="tab-text" :class="{ active: activeTab === 'wardrobe' }" @click="setActiveTab('wardrobe')">My Wardrobe</text>
 				<view class="tab-divider"></view>
-				<text 
-					class="tab-text" 
-					:class="{ 'active': activeTab === 'online' }"
-					@click="setActiveTab('online')"
-				>Online Search</text>
+				<text class="tab-text" :class="{ active: activeTab === 'online' }" @click="setActiveTab('online')">Online Search</text>
 			</view>
 		</view>
 	</view>
 </template>
 
 <script setup>
-/**
- * 推荐 AI 聊天逻辑：
- * - 初始 / 聊天两种布局切换
- * - 用户消息支持文字 + 图片
- * - 推荐数据 reactive 结构，v-for 渲染，RecommendationCard 独立组件
- * - 支持多会话：由父组件传入 currentConversationId / currentConversation，并 emit create/update
- */
 import { ref, watch, nextTick, onMounted, computed } from 'vue'
 import RecommendationCard from './RecommendationCard.vue'
+import ChatMessageBubble from './ChatMessageBubble.vue'
+import PlanScheduleCard from './PlanScheduleCard.vue'
 import { LOADING_STEPS, normalizeChatResponse } from './chatContentAdapter.js'
 import { chatRecommendation, getWeatherNow } from '@/api/recommendationApi.js'
+import { getClothingList, API_BASE_URL } from '@/api/wardrobe.js'
 
 const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false },
@@ -274,11 +298,10 @@ const props = defineProps({
 
 const emit = defineEmits(['create-conversation', 'update-conversation'])
 
-const activeTab = ref('wardrobe') // 当前标签：wardrobe | online
+const activeTab = ref('wardrobe')
 const searchQuery = ref('')
-const hasSearched = ref(false) // 状态管理：是否已搜索
+const hasSearched = ref(false)
 
-// 天气：由经纬度请求后端获取；加载前显示 —，加载完淡入；半小时内同位置复用（跨页面，切到我的衣柜再回来不重复请求）
 const WEATHER_MIN_LOADING_MS = 300
 const loadingWeather = ref(true)
 const weatherTemp = ref('')
@@ -289,104 +312,244 @@ const weatherTextDisplay = computed(() => (loadingWeather.value ? '—' : (weath
 const weatherWindDisplay = computed(() => (loadingWeather.value ? '—' : (weatherWindDesc.value || '—')))
 
 function applyWeatherData(data) {
-  if (data.temp != null && data.temp !== '') weatherTemp.value = String(data.temp)
-  if (data.text != null && data.text !== '') weatherText.value = String(data.text)
-  if (data.windDesc) weatherWindDesc.value = data.windDesc
+	if (data.temp != null && data.temp !== '') weatherTemp.value = String(data.temp)
+	if (data.text != null && data.text !== '') weatherText.value = String(data.text)
+	if (data.windDesc) weatherWindDesc.value = data.windDesc
 }
 
 function setWeatherReady() {
-  loadingWeather.value = false
+	loadingWeather.value = false
 }
 
 const DEFAULT_LAT = 29.87
 const DEFAULT_LON = 121.55
 
 async function fetchWeatherForCoords(lat, lon) {
-  const t0 = Date.now()
-  try {
-    const data = await getWeatherNow(lat, lon)
-    applyWeatherData(data)
-    const dt = Date.now() - t0
-    if (dt < WEATHER_MIN_LOADING_MS) {
-      await new Promise(r => setTimeout(r, WEATHER_MIN_LOADING_MS - dt))
-    }
-    setWeatherReady()
-  } catch (err) {
-    console.warn('[RecommendationAI] 天气请求失败', err?.message || err)
-    setWeatherReady()
-  }
+	const t0 = Date.now()
+	try {
+		const data = await getWeatherNow(lat, lon)
+		applyWeatherData(data)
+		const dt = Date.now() - t0
+		if (dt < WEATHER_MIN_LOADING_MS) {
+			await new Promise(r => setTimeout(r, WEATHER_MIN_LOADING_MS - dt))
+		}
+		setWeatherReady()
+	} catch (err) {
+		console.warn('[RecommendationAI] 天气请求失败', err?.message || err)
+		setWeatherReady()
+	}
 }
 
 function tryFetchWeather() {
-  if (!props.isLoggedIn) {
-    setWeatherReady()
-    return
-  }
-  loadingWeather.value = true
-  uni.getLocation({
-    type: 'wgs84',
-    success: (res) => {
-      fetchWeatherForCoords(res.latitude, res.longitude)
-    },
-    fail: () => {
-      fetchWeatherForCoords(DEFAULT_LAT, DEFAULT_LON)
-    }
-  })
+	if (!props.isLoggedIn) {
+		setWeatherReady()
+		return
+	}
+	loadingWeather.value = true
+	uni.getLocation({
+		type: 'wgs84',
+		success: (res) => {
+			fetchWeatherForCoords(res.latitude, res.longitude)
+		},
+		fail: () => {
+			fetchWeatherForCoords(DEFAULT_LAT, DEFAULT_LON)
+		}
+	})
 }
 
 onMounted(() => {
-  tryFetchWeather()
+	tryFetchWeather()
+	fetchMyWardrobe()
 })
 
 watch(() => props.isLoggedIn, (loggedIn) => {
-  if (loggedIn) tryFetchWeather()
+	if (loggedIn) {
+		tryFetchWeather()
+		fetchMyWardrobe()
+	}
 })
-const chatHistory = ref([]) // 聊天历史记录
-const scrollTarget = ref('') // 用于自动滚动
-const justCreatedConversation = ref(false) // 刚建立会话尚未收到 AI 回复，避免被 prop 覆盖
-const loadingStep = ref(0) // 加载过程步骤，用于展示「分析中」文案
-const loadingProgress = ref(0) // 渐进式阻尼假进度 0–100，用于缓解等待焦虑
-const loadingProgressPercent = computed(() => Math.floor(loadingProgress.value)) // 展示用整数，避免布局抖动
-let progressTimer = null // 阻尼进度定时器，finishLoading 时清除
 
-/** 将 AI 消息转为 recommendation 数组，支持多套推荐与 swiper 滑动 */
+const chatHistory = ref([])
+const scrollTarget = ref('')
+const justCreatedConversation = ref(false)
+const loadingStep = ref(0)
+const loadingProgress = ref(0)
+const loadingProgressPercent = computed(() => Math.floor(loadingProgress.value))
+let progressTimer = null
+
+// --- AI 單品 ID -> 衣櫥真實圖片 對應（僅依靠 clothingId 精準匹配）---
+const myWardrobeList = ref([])
+
+function getAuthToken() {
+	// 與 MyWardrobe/WardrobeView.vue 對齊
+	return uni.getStorageSync('auth_token') || ''
+}
+
+function buildImageUrl(imageUrl) {
+	if (!imageUrl) return ''
+	if (imageUrl.startsWith('http')) return imageUrl
+	if (imageUrl.startsWith('/')) return `${API_BASE_URL}${imageUrl}`
+	return `${API_BASE_URL}/${imageUrl}`
+}
+
+async function fetchMyWardrobe() {
+	if (!props.isLoggedIn) {
+		myWardrobeList.value = []
+		return
+	}
+	const token = getAuthToken()
+	if (!token) return
+	try {
+		const res = await getClothingList({
+			token,
+			page: 1,
+			// 后端限制 page_size <= 100（否则 422）
+			page_size: 100,
+			order_by: 'created_at',
+			order_desc: true
+		})
+		if (res?.statusCode === 200 && res?.data?.success) {
+			const items = res.data?.data?.items || []
+			myWardrobeList.value = items.map(it => ({
+				id: (it.id != null && it.id !== '' ? Number(it.id) : null),
+				name: it.name || '',
+				category: it.category || '',
+				subcategory: it.subcategory || '',
+				color: it.color || '',
+				tags: Array.isArray(it.tags) ? it.tags : [],
+				description: it.description || '',
+				image_url: it.image_url || '',
+				image: buildImageUrl(it.image_url || '')
+			}))
+		}
+	} catch (err) {
+		console.warn('[RecommendationAI] 拉取衣櫥資料失敗', err?.message || err)
+	}
+}
+
+function attachImagesToAiMessage(msg) {
+	if (!msg || msg.role !== 'ai') return msg
+	if (!Array.isArray(myWardrobeList.value) || myWardrobeList.value.length === 0) return msg
+
+	const processItems = (items) => {
+		if (!Array.isArray(items)) return
+		for (const item of items) {
+			// 保底：若後端未解析 clothingId，但 name 仍帶 (ID: 123)，前端只做 ID 抽取（不做名稱模糊匹配）
+			let id = item?.clothingId
+			if ((id == null || id === '') && typeof item?.name === 'string') {
+				const m = item.name.match(/[\(（]\s*id\s*[:：]\s*(\d+)\s*[\)）]/i)
+				if (m) id = Number(m[1])
+			}
+			if (id == null || id === '') continue
+			const needle = Number(id)
+			if (!Number.isFinite(needle)) continue
+			const cloth = myWardrobeList.value.find(c => Number(c?.id) === needle)
+			if (!cloth || !cloth.image) continue
+
+			// 精準 ID 命中：直接覆寫圖片字段
+			item.image = cloth.image
+			item.images = [cloth.image]
+		}
+	}
+
+	// plan：day.items[*].images
+	if (msg.renderType === 'plan' && Array.isArray(msg?.plan?.days)) {
+		for (const day of msg.plan.days) {
+			processItems(day?.items)
+		}
+	}
+
+	// recommendation：recommendations[*].items[*].images（兼容後端/前端解析結構）
+	if (Array.isArray(msg?.recommendations)) {
+		for (const rec of msg.recommendations) {
+			processItems(rec?.items)
+		}
+	}
+
+	return msg
+}
+
+function normalizeHistoryMessage(msg) {
+	if (!msg || typeof msg !== 'object') return msg
+
+	if (msg.role === 'ai') {
+		return normalizeChatResponse(msg)
+	}
+
+	if (msg.role === 'user') {
+		return {
+			role: 'user',
+			content: msg.content || '',
+			images: Array.isArray(msg.images) ? msg.images : []
+		}
+	}
+
+	return msg
+}
+
 const getRecommendations = (msg) => {
-	if (msg.recommendations && Array.isArray(msg.recommendations) && msg.recommendations.length > 0) {
+	if (Array.isArray(msg?.recommendations) && msg.recommendations.length > 0) {
 		return msg.recommendations
 	}
-	// 兼容旧格式：content + tags + outfitItems 转为单条 recommendation
-	const items = (msg.outfitItems || []).map(it => ({
+
+	const items = (msg?.outfitItems || []).map(it => ({
 		type: it.category,
 		name: it.name,
 		reason: it.desc,
 		details: it.details
 	}))
-	if (msg.list && msg.list.length > 0 && items.length === 0) {
+
+	if (msg?.list && msg.list.length > 0 && items.length === 0) {
 		msg.list.forEach(t => items.push({ type: 'Item', name: t, reason: '' }))
 	}
-	const tags = msg.tags || []
+
+	const tags = msg?.tags || []
 	const tempTag = tags.find(t => /°C|℃/.test(t))
 	const styleTags = tags.filter(t => t !== tempTag)
+
 	const rec = {
 		title: styleTags[0] || '',
 		temperature: tempTag || '',
 		styleTags,
-		content: msg.content,
+		content: msg?.content || '',
 		items,
-		whyThisWorks: msg.whyThisWorks || [],
-		images: msg.images || []
+		whyThisWorks: msg?.whyThisWorks || [],
+		images: msg?.images || []
 	}
-	// 有 items 或 images 才当推荐卡片；仅 content 时返回 []，由模板以纯文字展示（联调第一阶段）
+
 	return items.length > 0 || (rec.images && rec.images.length > 0) ? [rec] : []
 }
+
+const getMessageRenderType = (msg) => {
+	if (msg?.renderType) return msg.renderType
+
+	if (msg?.plan && Array.isArray(msg.plan.days) && msg.plan.days.length > 0) return 'plan'
+
+	const recs = getRecommendations(msg)
+	if (recs.length === 0) return 'text'
+	if (msg?.content && msg.content.trim()) return 'mixed'
+	return 'recommendation'
+}
+
+const getDisplayContent = (msg) => {
+	return msg?.rawText || msg?.content || ''
+}
+
+const getMixedIntroContent = (msg) => {
+	return msg?.content || ''
+}
+
 const handleRegenerate = (msgIdx) => {
 	const msg = chatHistory.value[msgIdx]
 	if (msg?.role !== 'ai') return
+
 	chatHistory.value[msgIdx] = { role: 'loading', content: '' }
 	loadingStep.value = 0
+
 	const stepInterval = setInterval(() => {
 		loadingStep.value = (loadingStep.value + 1) % LOADING_STEPS.length
 	}, 500)
+
 	setTimeout(() => {
 		clearInterval(stepInterval)
 		chatHistory.value[msgIdx] = { ...msg }
@@ -396,7 +559,6 @@ const handleRegenerate = (msgIdx) => {
 	}, 2000)
 }
 
-// 依当前会话同步本地状态：新建会话则清空；切换会话则载入该会话消息
 watch(
 	() => [props.currentConversationId, props.currentConversation],
 	([cid, conv]) => {
@@ -406,9 +568,13 @@ watch(
 			justCreatedConversation.value = false
 			return
 		}
+
 		if (justCreatedConversation.value) return
+
 		if (conv && conv.messages) {
-			chatHistory.value = conv.messages.length ? [...conv.messages] : []
+			chatHistory.value = conv.messages.length
+				? conv.messages.map(normalizeHistoryMessage)
+				: []
 			hasSearched.value = chatHistory.value.length > 0
 		} else {
 			chatHistory.value = []
@@ -422,11 +588,9 @@ const setActiveTab = (tab) => {
 	activeTab.value = tab
 }
 
-// 自动滚动到底部
 const scrollToBottom = () => {
 	nextTick(() => {
 		scrollTarget.value = 'bottom-spacer'
-		// 延迟确保 DOM 更新完成
 		setTimeout(() => {
 			scrollTarget.value = ''
 		}, 100)
@@ -438,6 +602,7 @@ const handleSearch = async () => {
 		uni.showToast({ title: 'Please log in first', icon: 'none' })
 		return
 	}
+
 	const query = searchQuery.value.trim()
 	const hasImages = uploadedImages.value.length > 0
 	if (!query && !hasImages) return
@@ -446,15 +611,12 @@ const handleSearch = async () => {
 	const isPendingSession = props.currentConversationId && !props.currentConversation
 	const isFirstMessageInConversation = props.currentConversationId && (props.currentConversation?.messages?.length === 0)
 
-	// 1. 切换 UI 状态：搜索框下移，问候语消失
 	hasSearched.value = true
 
-	// 2. 添加用户消息（带入文字与已上传图片）
 	const imagesToSend = uploadedImages.value.length > 0 ? [...uploadedImages.value] : undefined
 	const userMsg = { role: 'user', content: query, images: imagesToSend }
 	chatHistory.value.push(userMsg)
 
-	// 首次进入直接输入 或 点击新建会话后首次输入：通知父组件建立会话并加入列表
 	if (isNewSession || isPendingSession) {
 		const title = (query || '新对话').slice(0, 36)
 		const payload = { title, firstMessage: userMsg }
@@ -463,42 +625,78 @@ const handleSearch = async () => {
 		justCreatedConversation.value = true
 	}
 
-	// 清空输入框与已上传图片
 	searchQuery.value = ''
 	uploadedImages.value = []
-
-	// 滚动到底部
 	scrollToBottom()
 
-	// 3. 添加加载指示器（过程感文案轮播 + 渐进式阻尼进度条）
 	chatHistory.value.push({ role: 'loading', content: '' })
 	loadingStep.value = 0
 	loadingProgress.value = 0
 	scrollToBottom()
 
-	// 轮播文案
 	const stepInterval = setInterval(() => {
 		loadingStep.value = (loadingStep.value + 1) % LOADING_STEPS.length
 	}, 800)
 
-	// 渐进式阻尼进度：快速冲到 ~60% 后逐渐减速逼近 95%，结果到达时瞬间 100%
+	const progressStartAt = Date.now()
 	progressTimer = setInterval(() => {
-		const remaining = 95 - loadingProgress.value
-		if (remaining > 0.5) {
-			loadingProgress.value += remaining * 0.08
+		const elapsed = Date.now() - progressStartAt
+
+		// 分段“假进度”节奏：前期快、中期卡一会、后期慢慢逼近 95
+		let cap = 95
+		let factor = 0.08
+		let stallChance = 0
+
+		if (elapsed < 650) {
+			// 0-0.65s：先“起步犹豫”一小下（更像真实）
+			cap = 22
+			factor = 0.16
+			stallChance = 0.25
+		} else if (elapsed < 1400) {
+			// 0.65-1.4s：快速拉升到 ~60
+			cap = 60
+			factor = 0.26
+			stallChance = 0.08
+		} else if (elapsed < 2400) {
+			// 1.4-2.4s：早期再轻微卡一下（停在 60-68）
+			cap = 68
+			factor = 0.06
+			stallChance = 0.18
+		} else if (elapsed < 5200) {
+			// 1.2-5.2s：中段放缓，停留在 75-88 区间更久
+			cap = 88
+			factor = 0.035
+			stallChance = 0.12
+		} else {
+			// 5.2s+：最后非常缓慢逼近 95
+			cap = 95
+			factor = 0.018
+			stallChance = 0.06
+		}
+
+		const remaining = cap - loadingProgress.value
+		if (remaining > 0.2) {
+			// 让进度“非匀速”：用轻微波动 + 偶发停顿制造真实感（且保持单调递增）
+			if (stallChance > 0 && Math.random() < stallChance) return
+			const wobble = 0.75 + 0.25 * Math.sin(elapsed / 230)
+			loadingProgress.value += remaining * factor * wobble
+			if (loadingProgress.value > cap) loadingProgress.value = cap
 		}
 	}, 150)
 
-	// 获取 AI 回复：请求后端 /api/ai/chat/stream，经 chatContentAdapter 解析后 push
 	const finishLoading = (aiMessage) => {
 		clearInterval(stepInterval)
 		clearInterval(progressTimer)
 		progressTimer = null
 		loadingProgress.value = 100
+
 		setTimeout(() => {
 			chatHistory.value = chatHistory.value.filter(msg => msg.role !== 'loading')
-			chatHistory.value.push(aiMessage)
+			let normalized = normalizeChatResponse(aiMessage)
+			normalized = attachImagesToAiMessage(normalized)
+			chatHistory.value.push(normalized)
 			justCreatedConversation.value = false
+
 			const cid = props.currentConversationId
 			if (cid) {
 				const payload = { id: cid, messages: [...chatHistory.value] }
@@ -509,15 +707,18 @@ const handleSearch = async () => {
 		}, 300)
 	}
 
-	// 请求后端 /api/ai/chat/stream，传入历史对话以支持多轮上下文
 	const history = chatHistory.value
-		.slice(0, -2) // 排除刚加入的 userMsg 与 loading
+		.slice(0, -2)
 		.filter(m => m.role === 'user' || m.role === 'ai')
-		.map(m => ({ role: m.role, content: (m.content || '').trim() }))
+		.map(m => ({
+			role: m.role,
+			content: (m.rawText || m.content || '').trim()
+		}))
 		.filter(m => m.content)
+
 	try {
 		const res = await chatRecommendation(query, history)
-		finishLoading(normalizeChatResponse(res))
+		finishLoading(res)
 	} catch (err) {
 		finishLoading({
 			role: 'ai',
@@ -527,7 +728,6 @@ const handleSearch = async () => {
 	}
 }
 
-// 本地上传图片（输入框内缩略图，最多 8 张）
 const MAX_UPLOAD_IMAGES = 8
 const uploadedImages = ref([])
 const isDragOverInput = ref(false)
@@ -545,19 +745,24 @@ const handleDragLeaveInput = () => {
 const handleDropImage = (e) => {
 	e.preventDefault()
 	isDragOverInput.value = false
-	// 与 VirtualTryOn 一致：兼容各种 event 结构
 	const rawFiles = e.dataTransfer?.files || e.originalEvent?.dataTransfer?.files
 	if (!rawFiles || !rawFiles.length) return
+
 	const remain = MAX_UPLOAD_IMAGES - uploadedImages.value.length
 	if (remain <= 0) {
 		uni.showToast({ title: `最多只能上传 ${MAX_UPLOAD_IMAGES} 张图片`, icon: 'none' })
 		return
 	}
-	const files = Array.from(rawFiles).filter(f => f.type && f.type.startsWith('image/')).slice(0, remain)
+
+	const files = Array.from(rawFiles)
+		.filter(f => f.type && f.type.startsWith('image/'))
+		.slice(0, remain)
+
 	if (files.length === 0) {
 		uni.showToast({ title: '请拖入图片文件', icon: 'none' })
 		return
 	}
+
 	if (typeof URL === 'undefined' || !URL.createObjectURL) return
 	const add = files.map(f => URL.createObjectURL(f))
 	uploadedImages.value = [...uploadedImages.value, ...add]
@@ -573,6 +778,7 @@ const handleAdd = () => {
 		})
 		return
 	}
+
 	uni.chooseImage({
 		count: remain,
 		sizeType: ['original', 'compressed'],
@@ -581,8 +787,7 @@ const handleAdd = () => {
 			const selectedCount = res.tempFilePaths?.length || 0
 			const add = (res.tempFilePaths || []).slice(0, remain)
 			uploadedImages.value = [...uploadedImages.value, ...add]
-			
-			// 如果用户选择的图片数量超过了剩余可上传数量，显示提示
+
 			if (selectedCount > remain) {
 				uni.showToast({
 					title: `最多只能上传 ${MAX_UPLOAD_IMAGES} 张图片，已自动添加 ${remain} 张`,
@@ -601,7 +806,6 @@ const removeUploadedImageAt = (index) => {
 	uploadedImages.value = uploadedImages.value.filter((_, i) => i !== index)
 }
 
-// 点击缩略图预览完整图片（输入框内）
 const previewImageAt = (index) => {
 	const urls = uploadedImages.value
 	if (!urls || urls.length === 0) return
@@ -611,7 +815,6 @@ const previewImageAt = (index) => {
 	})
 }
 
-// 点击聊天消息中的图片预览大图
 const previewImages = (urls, index = 0) => {
 	if (!urls || urls.length === 0) return
 	uni.previewImage({
@@ -647,6 +850,30 @@ const previewImages = (urls, index = 0) => {
 	0%, 100% { opacity: 1; transform: scale(1) translate(0, 0); }
 	33% { opacity: 0.95; transform: scale(1.02) translate(2%, 1%); }
 	66% { opacity: 1; transform: scale(0.98) translate(-1%, 2%); }
+}
+
+.mixed-message-wrap {
+	display: flex;
+	flex-direction: column;
+	gap: 20rpx;
+	width: 100%;
+}
+
+.ai-content {
+	width: 100%;
+	max-width: calc(100% - 70rpx);
+	display: flex;
+	flex-direction: column;
+	gap: 16rpx;
+}
+
+.recommend-swiper {
+	width: 100%;
+	min-height: 720rpx;
+}
+
+.mixed-swiper {
+	margin-top: 4rpx;
 }
 
 /* 初始状态：整体滚动区（问候语与输入框同步上移） */

@@ -1,35 +1,35 @@
-<!-- 推荐卡片：杂志感排版、单品 Title/Subtitle/Tags、Caution 浮窗；纯聊天由 ChatMessageBubble 渲染 -->
 <template>
-	<ChatMessageBubble
-		v-if="isPureChat"
-		:content="recommendation.content"
-		:show-regenerate="showRegenerate"
-		@regenerate="$emit('regenerate')"
-	/>
-
-	<view v-else class="recommend-card">
+	<view class="recommend-card">
 		<view v-if="recommendation.content" class="message-text rich-text ai-fade-block" v-html="formattedContent"></view>
-		
-		<!-- 风格标签：title + styleTags + temperature -->
+
 		<view v-if="displayTags.length > 0" class="tag-row ai-fade-block" style="animation-delay: 0.15s">
-			<text v-for="(tag, ti) in displayTags" :key="ti" class="tag" :class="{ 'tag-temp': tag === recommendation.temperature }">{{ tag }}</text>
+			<text
+				v-for="(tag, ti) in displayTags"
+				:key="ti"
+				class="tag"
+				:class="{ 'tag-temp': tag === recommendation.temperature }"
+			>
+				{{ tag }}
+			</text>
 		</view>
-		
-		<!-- 警示浮窗：强烈不推荐 / 请务必携带等 -->
-		<view v-if="recommendation.cautions && recommendation.cautions.length > 0" class="cautions-wrap ai-fade-block" style="animation-delay: 0.18s">
+
+		<view
+			v-if="recommendation.cautions && recommendation.cautions.length > 0"
+			class="cautions-wrap ai-fade-block"
+			style="animation-delay: 0.18s"
+		>
 			<view v-for="(caution, ci) in recommendation.cautions" :key="ci" class="caution-chip">
 				<text class="caution-icon">!</text>
 				<text class="caution-text">{{ caution }}</text>
 			</view>
 		</view>
-		
-		<!-- 穿搭清单：Title(英文) + Subtitle(中文/描述) + Tags，错位弹起 -->
+
 		<view v-if="recommendation.items && recommendation.items.length > 0" class="outfit-list">
-			<view 
-				v-for="(item, itemIndex) in recommendation.items" 
-				:key="itemIndex" 
-				class="item-block ai-fade-block" 
-				:class="{ 'item-block-expandable': item.details }" 
+			<view
+				v-for="(item, itemIndex) in recommendation.items"
+				:key="itemIndex"
+				class="item-block ai-fade-block"
+				:class="{ 'item-block-expandable': item.details }"
 				:style="{ animationDelay: (0.2 + itemIndex * 0.08) + 's' }"
 				@click="item.details && toggleExpand(itemIndex)"
 			>
@@ -45,34 +45,40 @@
 					</view>
 					<text v-if="item.details" class="item-expand-icon">{{ expanded[itemIndex] ? '▲' : '▼' }}</text>
 				</view>
+
 				<view v-if="item.details && expanded[itemIndex]" class="item-details">
 					<text class="item-details-text">{{ item.details }}</text>
 				</view>
 			</view>
 		</view>
-		
-		<!-- Why this works：3 条极简 bullet -->
-		<view v-if="recommendation.whyThisWorks && recommendation.whyThisWorks.length > 0" class="why-this-works ai-fade-block" style="animation-delay: 0.5s">
+
+		<view
+			v-if="recommendation.whyThisWorks && recommendation.whyThisWorks.length > 0"
+			class="why-this-works ai-fade-block"
+			style="animation-delay: 0.5s"
+		>
 			<text class="why-title">Why this works</text>
 			<view v-for="(line, wi) in recommendation.whyThisWorks" :key="wi" class="why-item">
 				<text class="why-bullet">•</text>
 				<text class="why-text">{{ line }}</text>
 			</view>
 		</view>
-		
-		<!-- 搭配拼图区：grid 三列 -->
-		<view v-if="recommendation.images && recommendation.images.length > 0" class="image-row ai-fade-block" style="animation-delay: 0.55s">
-			<image 
-				v-for="(img, imgIndex) in recommendation.images" 
+
+		<view
+			v-if="recommendation.images && recommendation.images.length > 0"
+			class="image-row ai-fade-block"
+			style="animation-delay: 0.55s"
+		>
+			<image
+				v-for="(img, imgIndex) in recommendation.images"
 				:key="imgIndex"
-				:src="img" 
+				:src="img"
 				mode="aspectFill"
 				class="rec-img-grid"
 				@click="$emit('preview-images', recommendation.images, imgIndex)"
 			/>
 		</view>
-		
-		<!-- Regenerate Look 按钮 -->
+
 		<view v-if="showRegenerate" class="regenerate-row ai-fade-block" style="animation-delay: 0.6s">
 			<view class="btn-regenerate" @click="$emit('regenerate')">
 				<text class="btn-regenerate-text">Regenerate Look</text>
@@ -82,13 +88,7 @@
 </template>
 
 <script setup>
-/**
- * 推荐卡片：接收 recommendation 对象，杂志感排版
- * 结构：{ title, temperature, styleTags, content, items: [{ type, name, subtitle?, reason?, details?, tags? }], whyThisWorks, cautions?, images }
- * 纯聊天（无 items/images/cautions/whyThisWorks）由 ChatMessageBubble 单独渲染。
- */
 import { reactive, computed, watch } from 'vue'
-import ChatMessageBubble from './ChatMessageBubble.vue'
 
 const props = defineProps({
 	recommendation: {
@@ -103,12 +103,11 @@ defineEmits(['regenerate', 'preview-images'])
 
 const expanded = reactive({})
 
-// 合并 title、styleTags、temperature 用于展示（去重）
 const displayTags = computed(() => {
-	const r = props.recommendation
+	const r = props.recommendation || {}
 	const set = new Set()
 	if (r.title) set.add(r.title)
-	r.styleTags?.forEach(t => set.add(t))
+	;(r.styleTags || []).forEach(t => set.add(t))
 	if (r.temperature) set.add(r.temperature)
 	return [...set]
 })
@@ -117,33 +116,30 @@ const toggleExpand = (itemIndex) => {
 	expanded[itemIndex] = !expanded[itemIndex]
 }
 
-// 简易 Markdown -> HTML（加粗、列表、换行），用于富文本展示
 const formattedContent = computed(() => {
 	let text = props.recommendation?.content
 	if (!text || typeof text !== 'string') return ''
-	// 防 XSS：先转义再插入我们自己的标签
-	text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+	text = text
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+
 	text = text.replace(/\*\*([^*]+)\*\*/g, '<span class="highlight-text">$1</span>')
 	text = text.replace(/^[-*]\s+(.+)$/gm, '<p class="list-bullet"><span class="bullet-dot">•</span>$1</p>')
 	text = text.replace(/\n\n/g, '<div class="paragraph-spacer"></div>')
 	text = text.replace(/\n/g, '<br>')
+
 	return text
 })
 
-// 仅纯聊天（无穿搭清单、无图、无警示、无 whyThisWorks）时用气泡样式
-const isPureChat = computed(() => {
-	const r = props.recommendation
-	return (r.content && r.content.trim()) &&
-		(!r.items || r.items.length === 0) &&
-		(!r.images || r.images.length === 0) &&
-		(!r.cautions || r.cautions.length === 0) &&
-		(!r.whyThisWorks || r.whyThisWorks.length === 0)
-})
-
-// 当 recommendation 变化时重置展开状态
-watch(() => props.recommendation, () => {
-	Object.keys(expanded).forEach(k => delete expanded[k])
-}, { deep: true })
+watch(
+	() => props.recommendation,
+	() => {
+		Object.keys(expanded).forEach(k => delete expanded[k])
+	},
+	{ deep: true }
+)
 </script>
 
 <style scoped>
@@ -172,12 +168,12 @@ watch(() => props.recommendation, () => {
 	-webkit-user-select: text;
 }
 
-/* 富文本（推荐卡片内 content 的加粗、列表、段落间距） */
 .rich-text {
 	font-size: 30rpx;
 	color: #2C2C2E;
 	line-height: 1.7;
 }
+
 :deep(.highlight-text) {
 	font-weight: 600;
 	color: #1D1D1F;
@@ -187,18 +183,21 @@ watch(() => props.recommendation, () => {
 	background-position: 0 88%;
 	padding: 0 4rpx;
 }
+
 :deep(.list-bullet) {
 	display: flex;
 	margin-top: 12rpx;
 	margin-bottom: 12rpx;
 	padding-left: 12rpx;
 }
+
 :deep(.bullet-dot) {
 	color: #9D8B70;
 	margin-right: 16rpx;
 	font-size: 32rpx;
 	line-height: 1.5;
 }
+
 :deep(.paragraph-spacer) {
 	height: 24rpx;
 }
@@ -235,13 +234,13 @@ watch(() => props.recommendation, () => {
 	color: #4a90a4;
 }
 
-/* 警示浮窗：红色 Caution */
 .cautions-wrap {
 	display: flex;
 	flex-direction: column;
 	gap: 16rpx;
 	margin-top: 24rpx;
 }
+
 .caution-chip {
 	display: flex;
 	align-items: flex-start;
@@ -251,6 +250,7 @@ watch(() => props.recommendation, () => {
 	border-radius: 20rpx;
 	padding: 20rpx 24rpx;
 }
+
 .caution-icon {
 	flex-shrink: 0;
 	width: 36rpx;
@@ -263,6 +263,7 @@ watch(() => props.recommendation, () => {
 	font-weight: 700;
 	border-radius: 50%;
 }
+
 .caution-text {
 	font-size: 26rpx;
 	color: #8b2e26;
@@ -338,6 +339,7 @@ watch(() => props.recommendation, () => {
 	gap: 10rpx;
 	margin-top: 6rpx;
 }
+
 .item-tag {
 	font-size: 22rpx;
 	color: #9D8B70;

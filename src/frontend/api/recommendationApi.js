@@ -42,6 +42,7 @@ export function chatRecommendation(query, history = []) {
     const decoder = new TextDecoder()
     let buffer = ''
     let fullContent = ''
+    let finalMessage = null
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -55,6 +56,9 @@ export function chatRecommendation(query, history = []) {
             if (json.type === 'delta' && json.content) {
               fullContent += json.content
             }
+            if (json.type === 'final' && json.message) {
+              finalMessage = json.message
+            }
             if (json.type === 'error') throw new Error(json.message || 'Stream error')
           } catch (e) {
             if (e instanceof SyntaxError) continue
@@ -63,6 +67,7 @@ export function chatRecommendation(query, history = []) {
         }
       }
     }
+    if (finalMessage) return finalMessage
     return { content: fullContent.trim() }
   })
 }

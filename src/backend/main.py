@@ -3,6 +3,7 @@
 包含所有业务逻辑和路由定义
 """
 import json
+import re
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -4059,6 +4060,9 @@ async def delete_ai_conversation(
 
 react_agent = ReactAgent()
 
+# AI 消息结构化构建（plan/recommendation/text）拆分到独立模块，避免 main.py 过于臃肿
+from ai_message_builder import build_ai_message
+
 
 @app.post("/api/ai/chat/stream")
 async def ai_chat_stream(
@@ -4091,6 +4095,7 @@ async def ai_chat_stream(
                 full_query = f"以下是历史对话，请结合上下文回答：\n{history_text}\n\n当前问题：{req.query}"
 
             previous_text = ""
+            final_full_text = ""
             async for chunk_text in react_agent.execute_stream(full_query):
                 if not chunk_text:
                     continue
@@ -4099,11 +4104,16 @@ async def ai_chat_stream(
                 else:
                     delta = chunk_text
                 previous_text = chunk_text
+                final_full_text = chunk_text
                 if not delta:
                     continue
                 payload = json.dumps({"type": "delta", "content": delta}, ensure_ascii=False)
                 yield f"data: {payload}\n\n"
 
+            # 流式结束：先发 final（结构化 message），再发 done（兼容旧前端）
+            final_message = build_ai_message(final_full_text)
+            final_payload = json.dumps({"type": "final", "message": final_message}, ensure_ascii=False)
+            yield f"data: {final_payload}\n\n"
             yield 'data: {"type":"done"}\n\n'
         except Exception as e:
             error_payload = json.dumps(
