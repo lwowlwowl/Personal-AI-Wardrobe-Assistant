@@ -40,7 +40,8 @@ function extractTitleFromHeader(line) {
  * 返回 { type, name, subtitle, reason, details, tags }
  */
 function parseItemLine(line) {
-	const trimmed = stripBold(line)
+	// 先去掉 Markdown 无序列表前缀（- / *），避免被当成奇怪的标题
+	const trimmed = stripBold(line).replace(/^[-*]\s*/, '').trim()
 	// 反引号英文 + 括号中文|描述
 	const backtick = /`([^`]+)`\s*[（(]([^）)]+)[）)]/.exec(trimmed)
 	if (backtick) {
@@ -117,16 +118,21 @@ function extractWhyThisWorks(block) {
 	return bullets
 }
 
-/** 从全文或块内提取警示句（强烈不推荐、▲、❌、! **请务必**） */
+/** 从全文或块内提取警示句（强烈不推荐、▲、❌、!、注意、避免） */
 function extractCautions(text) {
 	const list = []
-	// ! **请务必携带**、**强烈不推荐**、▲、❌ 开头的句子
 	const patterns = [
-		/!?\s*\*\*([^*]+)\*\*[：:]?\s*([^\n]+)/g,
+		// 1. 必须显式以 ! 开头、且带有加粗标题的句子（避免把所有 **标题** 当成警告）
+		/!\s*\*\*([^*]+)\*\*[：:]?\s*([^\n]+)/g,
+		// 2. 带有特殊警告符号
 		/▲\s*([^\n]+)/g,
 		/❌\s*([^\n]+)/g,
+		// 3. 明确写了强烈情绪的词汇
 		/\*\*强烈不推荐\*\*[^\n]*/g,
-		/\*\*请务必[^*]*\*\*[^\n]*/g
+		/\*\*不推荐\*\*[^\n]*/g,
+		/\*\*请务必[^*]*\*\*[^\n]*/g,
+		// 4. 常见「注意：」「避免：」開頭的提醒
+		/(?:注意|避免)[：:]\s*([^\n]+)/g
 	]
 	const seen = new Set()
 	for (const re of patterns) {
@@ -134,6 +140,7 @@ function extractCautions(text) {
 		const copy = new RegExp(re.source, re.flags)
 		while ((m = copy.exec(text)) !== null) {
 			const raw = m[0].trim()
+			// 去掉前導符號，留下乾淨句子
 			const cleaned = stripBold(raw).replace(/^[!▲❌\s]+/, '').trim()
 			if (cleaned.length > 4 && cleaned.length < 200 && !seen.has(cleaned)) {
 				seen.add(cleaned)

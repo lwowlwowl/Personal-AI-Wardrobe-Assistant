@@ -52,7 +52,9 @@ export function chatRecommendation(query, history = []) {
         if (line.startsWith('data: ')) {
           try {
             const json = JSON.parse(line.slice(6))
-            if (json.type === 'delta' && json.content) fullContent += json.content
+            if (json.type === 'delta' && json.content) {
+              fullContent += json.content
+            }
             if (json.type === 'error') throw new Error(json.message || 'Stream error')
           } catch (e) {
             if (e instanceof SyntaxError) continue

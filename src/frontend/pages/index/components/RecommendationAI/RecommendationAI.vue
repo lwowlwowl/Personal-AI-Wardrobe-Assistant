@@ -153,17 +153,28 @@
 						</view>
 					</view>
 					
-					<!-- 加载指示器：过程感文案轮播 -->
-					<view v-if="msg.role === 'loading'" class="ai-container">
+					<!-- 加载指示器：毛玻璃光晕卡片 + 极光扫光 + 呼吸文字 -->
+					<view v-if="msg.role === 'loading'" class="ai-container ai-fade-in">
 						<view class="ai-avatar">
 							<image src="/static/icons/icon-robot.svg" mode="aspectFit" class="icon-robot-avatar"></image>
 						</view>
-						<view class="loading-indicator">
-							<text class="loading-step-text">{{ LOADING_STEPS[loadingStep] }}</text>
-							<view class="loading-dots">
-								<view class="loading-dot"></view>
-								<view class="loading-dot"></view>
-								<view class="loading-dot"></view>
+						<view class="loading-premium-card">
+							<view class="shimmer-layer"></view>
+							<view class="loading-content-center">
+								<view class="aura-ring"></view>
+								<text class="loading-step-text editorial-text">{{ LOADING_STEPS[loadingStep] }}</text>
+								<text class="loading-sub-text">Scanning your wardrobe assets...</text>
+							</view>
+							<view class="loading-progress-wrap">
+								<view class="loading-progress-track">
+									<view class="loading-progress-fill" :style="{ width: loadingProgress + '%' }"></view>
+								</view>
+								<text class="loading-progress-label">{{ loadingProgressPercent }}%</text>
+							</view>
+							<view class="skeleton-lines">
+								<view class="skeleton-line short"></view>
+								<view class="skeleton-line long"></view>
+								<view class="skeleton-line medium"></view>
 							</view>
 						</view>
 					</view>
@@ -328,6 +339,9 @@ const chatHistory = ref([]) // 聊天历史记录
 const scrollTarget = ref('') // 用于自动滚动
 const justCreatedConversation = ref(false) // 刚建立会话尚未收到 AI 回复，避免被 prop 覆盖
 const loadingStep = ref(0) // 加载过程步骤，用于展示「分析中」文案
+const loadingProgress = ref(0) // 渐进式阻尼假进度 0–100，用于缓解等待焦虑
+const loadingProgressPercent = computed(() => Math.floor(loadingProgress.value)) // 展示用整数，避免布局抖动
+let progressTimer = null // 阻尼进度定时器，finishLoading 时清除
 
 /** 将 AI 消息转为 recommendation 数组，支持多套推荐与 swiper 滑动 */
 const getRecommendations = (msg) => {
@@ -450,27 +464,43 @@ const handleSearch = async () => {
 	// 滚动到底部
 	scrollToBottom()
 
-	// 3. 添加加载指示器（过程感文案轮播）
+	// 3. 添加加载指示器（过程感文案轮播 + 渐进式阻尼进度条）
 	chatHistory.value.push({ role: 'loading', content: '' })
 	loadingStep.value = 0
+	loadingProgress.value = 0
 	scrollToBottom()
+
+	// 轮播文案
 	const stepInterval = setInterval(() => {
 		loadingStep.value = (loadingStep.value + 1) % LOADING_STEPS.length
-	}, 500)
+	}, 800)
 
-	// 获取 AI 回复：请求后端 /api/ai/chat/stream，经 chatContentAdapter 解析后 push（见 backend/AIwardrobe/README.md）
+	// 渐进式阻尼进度：快速冲到 ~60% 后逐渐减速逼近 95%，结果到达时瞬间 100%
+	progressTimer = setInterval(() => {
+		const remaining = 95 - loadingProgress.value
+		if (remaining > 0.5) {
+			loadingProgress.value += remaining * 0.08
+		}
+	}, 150)
+
+	// 获取 AI 回复：请求后端 /api/ai/chat/stream，经 chatContentAdapter 解析后 push
 	const finishLoading = (aiMessage) => {
 		clearInterval(stepInterval)
-		chatHistory.value = chatHistory.value.filter(msg => msg.role !== 'loading')
-		chatHistory.value.push(aiMessage)
-		justCreatedConversation.value = false
-		const cid = props.currentConversationId
-		if (cid) {
-			const payload = { id: cid, messages: [...chatHistory.value] }
-			if (isFirstMessageInConversation) payload.title = (query || '新对话').slice(0, 36)
-			emit('update-conversation', payload)
-		}
-		scrollToBottom()
+		clearInterval(progressTimer)
+		progressTimer = null
+		loadingProgress.value = 100
+		setTimeout(() => {
+			chatHistory.value = chatHistory.value.filter(msg => msg.role !== 'loading')
+			chatHistory.value.push(aiMessage)
+			justCreatedConversation.value = false
+			const cid = props.currentConversationId
+			if (cid) {
+				const payload = { id: cid, messages: [...chatHistory.value] }
+				if (isFirstMessageInConversation) payload.title = (query || '新对话').slice(0, 36)
+				emit('update-conversation', payload)
+			}
+			scrollToBottom()
+		}, 300)
 	}
 
 	// 请求后端 /api/ai/chat/stream，传入历史对话以支持多轮上下文
@@ -739,18 +769,76 @@ const previewImages = (urls, index = 0) => {
 	position: relative;
 }
 
-/* 加载指示器：杂志感文案 + 柔和缩放呼吸 */
-.loading-indicator {
+/* 高级毛玻璃 Loading 卡片 */
+.loading-premium-card {
+	position: relative;
+	width: 100%;
+	min-height: 400rpx;
+	background: rgba(255, 255, 255, 0.4);
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
+	border-radius: 40rpx;
+	border: 1px solid rgba(255, 255, 255, 0.8);
+	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	gap: 16rpx;
-	padding: 20rpx 0;
-	animation: loadingBreath 2.5s ease-in-out infinite;
+	justify-content: center;
+	align-items: center;
+	box-shadow: 0 16rpx 60rpx rgba(0, 0, 0, 0.03);
 }
 
-@keyframes loadingBreath {
-	0%, 100% { transform: scale(1); opacity: 1; }
-	50% { transform: scale(1.02); opacity: 0.92; }
+/* 核心：极其细腻的斜向流光扫过卡片 */
+.shimmer-layer {
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(
+		120deg,
+		rgba(255, 255, 255, 0) 0%,
+		rgba(255, 255, 255, 0.8) 50%,
+		rgba(255, 255, 255, 0) 100%
+	);
+	background-size: 200% 100%;
+	animation: premiumShimmer 2.5s infinite linear;
+	z-index: 1;
+}
+
+@keyframes premiumShimmer {
+	0% { background-position: -200% 0; }
+	100% { background-position: 200% 0; }
+}
+
+/* 内部文字布局 */
+.loading-content-center {
+	position: relative;
+	z-index: 2;
+	text-align: center;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16rpx;
+}
+
+/* 光晕环：柔和呼吸光圈 */
+.aura-ring {
+	width: 80rpx;
+	height: 80rpx;
+	border-radius: 50%;
+	background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.3) 50%, transparent 70%);
+	animation: auraPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes auraPulse {
+	0%, 100% { transform: scale(1); opacity: 0.6; }
+	50% { transform: scale(1.15); opacity: 1; }
+}
+
+/* 衬线体排版，增加呼吸感 */
+.editorial-text {
+	font-family: "Didot", "Times New Roman", "PingFang SC", serif;
+	font-size: 36rpx;
+	color: #1D1D1F;
+	letter-spacing: 0.05em;
+	animation: textBreath 3s ease-in-out infinite;
 }
 
 .loading-step-text {
@@ -761,41 +849,94 @@ const previewImages = (urls, index = 0) => {
 	letter-spacing: 0.04em;
 }
 
-.loading-dots {
+.loading-sub-text {
+	font-size: 24rpx;
+	color: #9D8B70;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	opacity: 0.7;
+}
+
+@keyframes textBreath {
+	0%, 100% { transform: scale(1); opacity: 0.8; letter-spacing: 0.05em; }
+	50% { transform: scale(1.02); opacity: 1; letter-spacing: 0.08em; }
+}
+
+/* 底部骨架屏：增加真实感 */
+.skeleton-lines {
+	position: absolute;
+	bottom: 60rpx;
+	left: 60rpx;
+	right: 60rpx;
+	display: flex;
+	flex-direction: column;
+	gap: 20rpx;
+	opacity: 0.3;
+	z-index: 2;
+}
+
+.skeleton-line {
+	height: 12rpx;
+	background: #EAE5D9;
+	border-radius: 10rpx;
+}
+
+.skeleton-line.short { width: 30%; }
+.skeleton-line.long { width: 80%; }
+.skeleton-line.medium { width: 60%; }
+
+/* 实时进度条：渐进式阻尼 + 能量光效 */
+.loading-progress-wrap {
+	position: relative;
+	z-index: 2;
+	width: 100%;
+	padding: 0 60rpx;
+	box-sizing: border-box;
 	display: flex;
 	align-items: center;
-	gap: 12rpx;
+	gap: 24rpx;
+	margin-top: 32rpx;
 }
-
-.loading-dot {
-	width: 12rpx;
-	height: 12rpx;
+.loading-progress-track {
+	flex: 1;
+	height: 6rpx;
+	background: rgba(157, 139, 112, 0.15);
+	border-radius: 6rpx;
+	overflow: hidden;
+	position: relative;
+}
+.loading-progress-fill {
+	height: 100%;
+	background: linear-gradient(90deg, #9D8B70 0%, #C4B59D 50%, #9D8B70 100%);
+	background-size: 200% 100%;
+	border-radius: 6rpx;
+	transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	animation: gradientFlow 2s linear infinite;
+	position: relative;
+}
+.loading-progress-fill::after {
+	content: '';
+	position: absolute;
+	right: 0;
+	top: -2rpx;
+	bottom: -2rpx;
+	width: 20rpx;
+	background: #FFF;
+	box-shadow: 0 0 10rpx 4rpx rgba(255, 255, 255, 0.8);
 	border-radius: 50%;
-	background-color: #9D8B70;
-	animation: loading-bounce 1.4s ease-in-out infinite;
+	filter: blur(2px);
 }
-
-.loading-dots .loading-dot:nth-child(1) {
-	animation-delay: 0s;
+@keyframes gradientFlow {
+	0% { background-position: 100% 0; }
+	100% { background-position: -100% 0; }
 }
-
-.loading-dots .loading-dot:nth-child(2) {
-	animation-delay: 0.2s;
-}
-
-.loading-dots .loading-dot:nth-child(3) {
-	animation-delay: 0.4s;
-}
-
-@keyframes loading-bounce {
-	0%, 80%, 100% {
-		transform: scale(0.8);
-		opacity: 0.5;
-	}
-	40% {
-		transform: scale(1.2);
-		opacity: 1;
-	}
+.loading-progress-label {
+	font-size: 20rpx;
+	color: #9D8B70;
+	font-variant-numeric: tabular-nums;
+	min-width: 56rpx;
+	text-align: right;
+	font-weight: 500;
 }
 
 /* 聊天状态：scroll-view 区域 */
