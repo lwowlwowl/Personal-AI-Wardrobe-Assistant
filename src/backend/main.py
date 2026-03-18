@@ -4112,6 +4112,14 @@ async def ai_chat_stream(
 
             # 流式结束：先发 final（结构化 message），再发 done（兼容旧前端）
             final_message = build_ai_message(final_full_text)
+            try:
+                print("=== [ai_chat_stream] final_full_text ===")
+                print(final_full_text)
+                print("=== [ai_chat_stream] final_message ===")
+                print(json.dumps(final_message, ensure_ascii=False))
+            except Exception:
+                # 调试日志失败不影响主流程
+                pass
             final_payload = json.dumps({"type": "final", "message": final_message}, ensure_ascii=False)
             yield f"data: {final_payload}\n\n"
             yield 'data: {"type":"done"}\n\n'

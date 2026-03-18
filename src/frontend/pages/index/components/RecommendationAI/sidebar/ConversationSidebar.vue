@@ -203,7 +203,7 @@ const confirmDelete = async () => {
 	}
 	conversations.value = conversations.value.filter(c => c.id !== id)
 	if (currentConversationId.value === id) {
-		currentConversationId.value = conversations.value[0]?.id ?? null
+		currentConversationId.value = null
 	}
 	syncState()
 }

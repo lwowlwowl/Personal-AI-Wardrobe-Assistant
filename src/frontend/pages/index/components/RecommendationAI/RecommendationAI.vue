@@ -23,8 +23,6 @@
 							<text class="weather-info">{{ weatherTextDisplay }}</text>
 							<text class="weather-divider">|</text>
 							<text class="weather-info">{{ weatherWindDisplay }}</text>
-							<text class="weather-divider">|</text>
-							<text class="weather-info">Ideal for a Light Jacket</text>
 						</view>
 					</view>
 				</view>
@@ -125,73 +123,42 @@
 								:raw-text="msg.rawText || msg.content || ''"
 							/>
 
-							<!-- 纯文本 -->
-							<ChatMessageBubble
-								v-else-if="getMessageRenderType(msg) === 'text'"
-								:content="getDisplayContent(msg)"
-							/>
-
-							<!-- 混合型：上面文字，下面推荐 -->
-							<view v-else-if="getMessageRenderType(msg) === 'mixed'" class="mixed-message-wrap">
+							<!-- 推荐型：上文字（可选）+ 下卡片，同一容器内 -->
+							<view v-else-if="getMessageRenderType(msg) === 'recommendation'" class="mixed-message-wrap">
 								<ChatMessageBubble
-									v-if="getMixedIntroContent(msg)"
-									:content="getMixedIntroContent(msg)"
+									v-if="msg.content"
+									:content="msg.content"
 								/>
-
-								<swiper
-									v-if="getRecommendations(msg).length > 1"
-									class="recommend-swiper mixed-swiper"
-									:indicator-dots="true"
-									indicator-active-color="#9D8B70"
-								>
-									<swiper-item v-for="(rec, ri) in getRecommendations(msg)" :key="ri">
-										<RecommendationCard
-											:recommendation="rec"
-											:show-regenerate="ri === 0"
-											@regenerate="handleRegenerate(index)"
-											@preview-images="previewImages"
-										/>
-									</swiper-item>
-								</swiper>
-
-								<RecommendationCard
-									v-else-if="getRecommendations(msg).length === 1"
-									:recommendation="getRecommendations(msg)[0]"
-									:show-regenerate="true"
-									@regenerate="handleRegenerate(index)"
-									@preview-images="previewImages"
-								/>
-							</view>
-
-							<!-- 纯推荐 -->
-							<swiper
-								v-else-if="getMessageRenderType(msg) === 'recommendation' && getRecommendations(msg).length > 1"
-								class="recommend-swiper"
-								:indicator-dots="true"
-								indicator-active-color="#9D8B70"
-							>
-								<swiper-item v-for="(rec, ri) in getRecommendations(msg)" :key="ri">
+								<view class="cards-area">
+									<swiper
+										v-if="getRecommendations(msg).length > 1"
+										class="recommend-swiper"
+										:indicator-dots="true"
+										indicator-active-color="#9D8B70"
+									>
+										<swiper-item v-for="(rec, ri) in getRecommendations(msg)" :key="ri">
+											<RecommendationCard
+												:recommendation="rec"
+												:show-regenerate="ri === 0"
+												@regenerate="handleRegenerate(index)"
+												@preview-images="previewImages"
+											/>
+										</swiper-item>
+									</swiper>
 									<RecommendationCard
-										:recommendation="rec"
-										:show-regenerate="ri === 0"
+										v-else-if="getRecommendations(msg).length === 1"
+										:recommendation="getRecommendations(msg)[0]"
+										:show-regenerate="true"
 										@regenerate="handleRegenerate(index)"
 										@preview-images="previewImages"
 									/>
-								</swiper-item>
-							</swiper>
+								</view>
+							</view>
 
-							<RecommendationCard
-								v-else-if="getMessageRenderType(msg) === 'recommendation' && getRecommendations(msg).length === 1"
-								:recommendation="getRecommendations(msg)[0]"
-								:show-regenerate="true"
-								@regenerate="handleRegenerate(index)"
-								@preview-images="previewImages"
-							/>
-
-							<!-- 兜底 -->
+							<!-- 纯文本 / 兜底 -->
 							<ChatMessageBubble
 								v-else
-								:content="msg.rawText || msg.content || ''"
+								:content="getDisplayContent(msg)"
 							/>
 						</view>
 					</view>
@@ -292,7 +259,8 @@ import { getClothingList, API_BASE_URL } from '@/api/wardrobe.js'
 
 const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false },
-	currentConversationId: { type: String, default: null },
+	// 父组件目前会传数字 ID，这里放宽为字符串或数字，避免类型告警
+	currentConversationId: { type: [String, Number], default: null },
 	currentConversation: { type: Object, default: null }
 })
 
@@ -440,6 +408,25 @@ function attachImagesToAiMessage(msg) {
 				const m = item.name.match(/[\(（]\s*id\s*[:：]\s*(\d+)\s*[\)）]/i)
 				if (m) id = Number(m[1])
 			}
+
+			// 标记“用户上传图片”等特殊项（无 ID 且名称中含 uploaded/上传/None）
+			if (
+				item?.name &&
+				(typeof item.name === 'string') &&
+				(
+					item.name.includes('上传') ||
+					item.name.toLowerCase().includes('uploaded') ||
+					((id == null || id === '') && /id\s*[:：]\s*(None|null|uploaded)/i.test(item.name))
+				)
+			) {
+				item.isUploaded = true
+			}
+
+			// 清理展示名称中的 (ID: xxx)
+			if (typeof item?.name === 'string') {
+				item.name = item.name.replace(/\s*[\(（]\s*id\s*[:：]\s*[A-Za-z0-9_]+\s*[\)）]\s*/gi, '').trim()
+			}
+
 			if (id == null || id === '') continue
 			const needle = Number(id)
 			if (!Number.isFinite(needle)) continue
@@ -463,6 +450,14 @@ function attachImagesToAiMessage(msg) {
 	if (Array.isArray(msg?.recommendations)) {
 		for (const rec of msg.recommendations) {
 			processItems(rec?.items)
+
+			// 将本推荐方案内所有单品图片汇总到 rec.images，供画廊显示
+			const itemImages = (rec?.items || []).map(i => i.image).filter(Boolean)
+			if (itemImages.length > 0) {
+				const existing = Array.isArray(rec.images) ? rec.images : []
+				const merged = [...new Set([...existing, ...itemImages])]
+				rec.images = merged
+			}
 		}
 	}
 
@@ -473,7 +468,10 @@ function normalizeHistoryMessage(msg) {
 	if (!msg || typeof msg !== 'object') return msg
 
 	if (msg.role === 'ai') {
-		return normalizeChatResponse(msg)
+		let normalized = normalizeChatResponse(msg)
+		// 关键：历史消息也需要附加图片
+		normalized = attachImagesToAiMessage(normalized)
+		return normalized
 	}
 
 	if (msg.role === 'user') {
@@ -526,17 +524,12 @@ const getMessageRenderType = (msg) => {
 	if (msg?.plan && Array.isArray(msg.plan.days) && msg.plan.days.length > 0) return 'plan'
 
 	const recs = getRecommendations(msg)
-	if (recs.length === 0) return 'text'
-	if (msg?.content && msg.content.trim()) return 'mixed'
-	return 'recommendation'
+	if (recs.length > 0) return 'recommendation'
+	return 'text'
 }
 
 const getDisplayContent = (msg) => {
 	return msg?.rawText || msg?.content || ''
-}
-
-const getMixedIntroContent = (msg) => {
-	return msg?.content || ''
 }
 
 const handleRegenerate = (msgIdx) => {
@@ -691,10 +684,17 @@ const handleSearch = async () => {
 		loadingProgress.value = 100
 
 		setTimeout(() => {
-			chatHistory.value = chatHistory.value.filter(msg => msg.role !== 'loading')
 			let normalized = normalizeChatResponse(aiMessage)
 			normalized = attachImagesToAiMessage(normalized)
-			chatHistory.value.push(normalized)
+
+			// 用 AI 消息替换 loading 消息，避免“先删再加”导致视觉断层
+			const loadingIdx = chatHistory.value.findIndex(msg => msg.role === 'loading')
+			if (loadingIdx !== -1) {
+				chatHistory.value.splice(loadingIdx, 1, normalized)
+			} else {
+				chatHistory.value.push(normalized)
+			}
+
 			justCreatedConversation.value = false
 
 			const cid = props.currentConversationId
@@ -855,7 +855,58 @@ const previewImages = (urls, index = 0) => {
 .mixed-message-wrap {
 	display: flex;
 	flex-direction: column;
-	gap: 20rpx;
+	gap: 12rpx;
+	width: 100%;
+}
+
+/* 1. 将上方的文字气泡改造成“后台思考/分析记录” */
+.mixed-message-wrap :deep(.chat-bubble) {
+	background: transparent !important;
+	box-shadow: none !important;
+	border: none !important;
+	padding: 12rpx 20rpx 12rpx 32rpx;
+	border-left: 6rpx solid rgba(157, 139, 112, 0.3) !important;
+	border-radius: 0 !important;
+	margin: 0 0 16rpx 12rpx;
+}
+
+.mixed-message-wrap :deep(.chat-bubble)::before {
+	content: '💭 AI Analysis & Strategy';
+	display: flex;
+	align-items: center;
+	font-size: 22rpx;
+	color: #9D8B70;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	margin-bottom: 16rpx;
+	font-family: "Didot", serif;
+	opacity: 0.8;
+}
+
+/* 2. 弱化思考文字的字号和颜色，拉开与正式卡片的层级差距 */
+.mixed-message-wrap :deep(.chat-bubble .message-text),
+.mixed-message-wrap :deep(.chat-bubble .rich-text) {
+	font-size: 26rpx !important;
+	color: #8E8E93 !important;
+	line-height: 1.6 !important;
+}
+
+.mixed-message-wrap :deep(.chat-bubble .highlight-text) {
+	background: none !important;
+	color: #6C6C70 !important;
+	font-weight: 600 !important;
+	padding: 0 !important;
+}
+
+/* 3. 确保推荐卡片（正式结果）恢复完整的圆角和阴影 */
+.mixed-message-wrap :deep(.recommend-card) {
+	border-radius: 40rpx !important;
+	border-top: 1px solid rgba(255, 255, 255, 0.9) !important;
+	box-shadow: 0 16rpx 60rpx rgba(0, 0, 0, 0.05) !important;
+}
+
+.cards-area {
 	width: 100%;
 }
 
@@ -870,10 +921,6 @@ const previewImages = (urls, index = 0) => {
 .recommend-swiper {
 	width: 100%;
 	min-height: 720rpx;
-}
-
-.mixed-swiper {
-	margin-top: 4rpx;
 }
 
 /* 初始状态：整体滚动区（问候语与输入框同步上移） */

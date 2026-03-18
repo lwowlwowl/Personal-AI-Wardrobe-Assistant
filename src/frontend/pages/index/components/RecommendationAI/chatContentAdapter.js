@@ -2,13 +2,13 @@
  * 推荐 AI 聊天内容适配层
  * 目标：
  * 1. 将后端返回统一适配成前端稳定消息结构
- * 2. 把 AI 消息分为 text / recommendation / mixed
+ * 2. 把 AI 消息分为 text / recommendation / plan（有推荐内容时统一为 recommendation：上为解读文字，下为推荐卡片）
  * 3. 保留 rawText，方便后续做“查看原始回复”或调试
  *
  * 输出结构：
  * {
  *   role: 'ai',
- *   renderType: 'text' | 'recommendation' | 'mixed' | 'plan',
+ *   renderType: 'text' | 'recommendation' | 'plan',
  *   rawText: string,
  *   content: string,
  *   recommendations: [],
@@ -38,14 +38,6 @@ export const LOADING_STEPS = [
 function stripBold(s) {
 	if (typeof s !== 'string') return ''
 	return s.replace(/\*\*([^*]+)\*\*/g, '$1').trim()
-}
-
-/** 安全文本裁剪 */
-function safeTrimText(text, max = 240) {
-	if (!text || typeof text !== 'string') return ''
-	const t = text.replace(/\n{3,}/g, '\n\n').trim()
-	if (t.length <= max) return t
-	return t.slice(0, max).trim() + '…'
 }
 
 /** -------- plan（多天/计划表）识别与解析 -------- */
@@ -272,11 +264,12 @@ function parseItemLine(line) {
 		let name = tableMatch[2].trim().replace(/^\*\*|\*\*$/g, '')
 		const reason = tableMatch[3].trim().replace(/^\*\*|\*\*$/g, '') || undefined
 
+		// 只删掉中文括号说明（如「（米色针织衫）」），安全保留后面的 (ID: 42)
 		const cnInName = /[（(]([^）)]+)[）)]/.exec(name)
 		let subtitle
 		if (cnInName) {
 			subtitle = cnInName[1].trim()
-			name = name.replace(/\s*[（(][^）)]+[）)]\s*/, '').trim()
+			name = name.replace(cnInName[0], '').trim()
 		}
 
 		return {
@@ -430,9 +423,10 @@ function parseSchemeBlock(block) {
 	let content = ''
 	let temperature = ''
 
-	let recMatch = block.match(/(?:③|3)[\s]*\*?\*?推荐搭配[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:④|4)[\s]*\*?\*?|⑤|5[\s]*\*?\*?|###|$)/i)
+	// 只把行首的「③/3 推荐搭配」視作章節開頭；④/⑤ 也必須在新行開頭，避免誤傷 ID: 42/45 等數字
+	let recMatch = block.match(/(?:^|\n)\s*(?:③|3)[\s]*\*?\*?推荐搭配[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:^|\n)\s*(?:④|4)[\s]*\*?\*?|(?:^|\n)\s*(?:⑤|5)[\s]*\*?\*?|###|$)/i)
 	if (!recMatch) {
-		recMatch = block.match(/\*?\*?推荐搭配[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=为什么这样搭|(?:④|4)[\s]*\*?\*?|⑤|5[\s]*\*?\*?|###|$)/i)
+		recMatch = block.match(/\*?\*?推荐搭配[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=为什么这样搭|(?:^|\n)\s*(?:④|4)[\s]*\*?\*?|(?:^|\n)\s*(?:⑤|5)[\s]*\*?\*?|###|$)/i)
 	}
 	if (recMatch) {
 		const tableBlock = recMatch[1]
@@ -447,7 +441,7 @@ function parseSchemeBlock(block) {
 		}
 	}
 
-	const whyMatch = block.match(/(?:④|4)[\s]*\*?\*?为什么这样搭[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:⑤|5)[\s]*\*?\*?|可替换|###|$)/i)
+	const whyMatch = block.match(/(?:④|4)[\s]*\*?\*?为什么这样搭[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:^|\n)\s*(?:⑤|5)[\s]*\*?\*?|可替换|###|$)/i)
 	if (whyMatch) whyThisWorks.push(...extractWhyThisWorks(whyMatch[1]))
 
 	const sceneMatch = block.match(/(?:①|1)[\s]*\*?\*?场景理解[^*\n]*\*?\*?[：:]*\s*([^\n]+)/i)
@@ -458,6 +452,31 @@ function parseSchemeBlock(block) {
 
 	const cautions = extractCautions(block)
 
+	// ⑤ 可替换方案 (Alternatives) 及底部问候语：按段落拆分，最后一段无冒号或含问候词则视为 footer，避免把方案当问候语
+	const altMatch = block.match(/(?:⑤|5)[\s]*\*?\*?(?:可替换方案|Alternatives)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=###|$)/i)
+	const alternatives = []
+	let footer = ''
+
+	if (altMatch) {
+		let rawAltText = altMatch[1].trim()
+		const paragraphs = rawAltText.split(/\n\n+/)
+		if (paragraphs.length > 1) {
+			const lastPara = paragraphs[paragraphs.length - 1].trim()
+			if (!lastPara.includes('：') && !lastPara.includes(':') || /祝|需要我|期待|随时/.test(lastPara)) {
+				footer = lastPara.replace(/^[-*•→]\s*/, '').trim()
+				paragraphs.pop()
+			}
+		}
+		const remainingText = paragraphs.join('\n\n')
+		const lines = remainingText.split('\n').map(s => s.trim()).filter(s => s && s.length > 2)
+		alternatives.push(...lines)
+	}
+
+	if (!footer) {
+		const fallbackMatch = block.match(/(?:\n\s*|^)(需要我|祝你们?|期待|随时告诉|有什么问题|Let me know)[\s\S]*$/i)
+		if (fallbackMatch) footer = fallbackMatch[0].replace(/^[-*•→]\s*/, '').trim()
+	}
+
 	return {
 		title: title || '穿搭方案',
 		temperature,
@@ -466,6 +485,8 @@ function parseSchemeBlock(block) {
 		items,
 		whyThisWorks: whyThisWorks.length ? whyThisWorks : undefined,
 		cautions: cautions.length ? cautions : undefined,
+		alternatives: alternatives.length ? alternatives : undefined,
+		footer: footer || undefined,
 		images: []
 	}
 }
@@ -476,15 +497,18 @@ function parseRawContentToRecommendations(rawText) {
 	const text = rawText.trim()
 	const recommendations = []
 
+	// 精准截断 intro：文字气泡只显示到「② 穿搭核心思路」结束，「③ 推荐搭配」及之后全部交给卡片
+	const splitIndex = text.search(/(?:^|\n)\s*(?:③|3|###)\s*\*?\*?推荐搭配/)
+	let intro = splitIndex !== -1 ? text.slice(0, splitIndex).trim() : ''
+
 	const schemeSplit = text.split(/(?=####\s*方案[一二三四五六七八九十]+|方案[一二三四五六七八九十]\s*\|)/)
-	let intro = ''
 
 	for (let i = 0; i < schemeSplit.length; i++) {
 		const block = schemeSplit[i].trim()
 		if (!block) continue
 
 		if (i === 0 && !/方案[一二三四五六七八九十]/.test(block)) {
-			intro = block.slice(0, 500)
+			if (!intro) intro = block.slice(0, 500)
 			continue
 		}
 
@@ -506,9 +530,9 @@ function parseRawContentToRecommendations(rawText) {
 }
 
 function detectRenderType({ content = '', recommendations = [] }) {
-	if (recommendations.length === 0) return 'text'
-	if (content && content.trim()) return 'mixed'
-	return 'recommendation'
+	// 只要有推荐内容，统一为 recommendation（上为 AI 解读文字，下为推荐卡片）
+	if (recommendations.length > 0) return 'recommendation'
+	return 'text'
 }
 
 function buildTextMessage(rawText, content) {
@@ -545,6 +569,7 @@ function buildPlanMessage(rawText, plan) {
 
 /**
  * 规范化旧消息 / 历史消息 / 当前返回消息
+ * 类型统一：有推荐或后端给 mixed → 一律 renderType: 'recommendation'；保底从 rawText 重提 intro 防截断
  */
 export function normalizeChatResponse(apiResponse) {
 	if (!apiResponse || typeof apiResponse !== 'object') {
@@ -552,18 +577,18 @@ export function normalizeChatResponse(apiResponse) {
 	}
 
 	const role = apiResponse.role || 'ai'
-	const directRenderType = apiResponse.renderType
-	const directRecs = Array.isArray(apiResponse.recommendations) ? apiResponse.recommendations : []
+	let directRecs = Array.isArray(apiResponse.recommendations) ? apiResponse.recommendations : []
 	const rawText =
 		apiResponse.rawText ||
 		apiResponse.raw_text ||
 		apiResponse.content ||
 		''
+	const rawRenderType = apiResponse.renderType || ''
 
-	// 已经是新格式
-	if (role === 'ai' && directRenderType) {
-		if (directRenderType === 'plan') {
-			const plan = apiResponse.plan || (rawText ? parsePlanFromRawText(rawText) : null) || { days: [] }
+	// 1. Plan 优先，直接返回（但必须有实际天数；days 为空则视为普通文本，避免误判）
+	if (role === 'ai' && (rawRenderType === 'plan' || (rawText && typeof rawText === 'string' && detectPlan(rawText)))) {
+		const plan = apiResponse.plan || (rawText ? parsePlanFromRawText(rawText) : null) || { days: [] }
+		if (plan && Array.isArray(plan.days) && plan.days.length > 0) {
 			return {
 				role: 'ai',
 				renderType: 'plan',
@@ -573,49 +598,41 @@ export function normalizeChatResponse(apiResponse) {
 				plan
 			}
 		}
+	}
 
-		// 兼容旧会话：以前 mixed 的 content 可能被截断过；如果有 rawText，就重新提取 intro 作为 content
-		if (directRenderType === 'mixed' && rawText && typeof rawText === 'string') {
-			const { intro } = parseRawContentToRecommendations(rawText)
-			const rebuilt = safeTrimText(intro || '', 800)
-			return {
-				role: 'ai',
-				renderType: directRenderType,
-				rawText: rawText || '',
-				content: rebuilt || apiResponse.content || '',
-				recommendations: directRecs
-			}
-		}
+	// 2. 统一类型：无论后端给 mixed 还是 recommendation，有推荐就统一为 recommendation
+	let finalType = 'text'
+	if (rawRenderType === 'mixed' || rawRenderType === 'recommendation' || directRecs.length > 0) {
+		finalType = 'recommendation'
+	} else if (rawRenderType) {
+		finalType = rawRenderType
+	}
 
-		return {
-			role: 'ai',
-			renderType: directRenderType,
-			rawText: rawText || '',
-			content: apiResponse.content || '',
-			recommendations: directRecs
+	// 3. 保底提取 & 强力解析：recommendation 且 rawText 存在时，从全文重提 intro；仅当后端 items 无 ID 且前端解析出带 (ID: xx) 时才用 parsedRecs，避免覆盖掉有图的后端数据
+	let displayContent = apiResponse.content || ''
+	if (finalType === 'recommendation' && rawText && typeof rawText === 'string') {
+		const { intro, recommendations: parsedRecs } = parseRawContentToRecommendations(rawText)
+		if (intro) displayContent = intro
+		if (parsedRecs && parsedRecs.length > 0) {
+			const backendHasId = directRecs.some(rec => (rec?.items || []).some(it => it?.clothingId != null || (typeof it?.name === 'string' && /[\(（]\s*id\s*[:：]\s*\d+\s*[\)）]/i.test(it.name))))
+			if (!backendHasId) directRecs = parsedRecs
 		}
 	}
 
-	// plan：优先识别（避免被 recommendation 解析“误吸收”）
-	if (rawText && typeof rawText === 'string' && detectPlan(rawText)) {
-		const plan = parsePlanFromRawText(rawText)
-		if (plan) return buildPlanMessage(rawText, plan)
-	}
-
-	// 后端直接给 recommendations
-	if (directRecs.length > 0) {
-		return buildStructuredMessage(rawText, apiResponse.content || '', directRecs)
-	}
-
-	// 旧文本尝试解析
-	if (rawText && typeof rawText === 'string') {
+	// 4. 无结构化推荐时，尝试从 rawText 解析出推荐
+	if (finalType === 'text' && rawText && typeof rawText === 'string') {
 		const { recommendations, intro } = parseRawContentToRecommendations(rawText)
 		if (recommendations.length > 0) {
-			const shortContent = safeTrimText(intro || '', 800)
-			return buildStructuredMessage(rawText, shortContent, recommendations)
+			const content = intro || ''
+			return buildStructuredMessage(rawText, content, recommendations)
 		}
-		return buildTextMessage(rawText, rawText)
 	}
 
-	return buildTextMessage('', '')
+	return {
+		role: 'ai',
+		renderType: finalType,
+		rawText: rawText || '',
+		content: displayContent,
+		recommendations: directRecs
+	}
 }

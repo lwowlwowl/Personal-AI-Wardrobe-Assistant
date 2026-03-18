@@ -293,7 +293,7 @@ def _extract_why_this_works(raw_text: str) -> list:
         return []
     text = raw_text.replace("\r\n", "\n")
     m = re.search(
-        r"(?:④|4)\s*.*?(为什么这样搭|why\s+this\s+works|styling\s+rationale)[：:]*\s*([\s\S]*?)(?=(?:⑤|5)\s*|$)",
+        r"(?:④|4)\s*.*?(为什么这样搭|why\s+this\s+works|styling\s+rationale)[：:]*\s*([\s\S]*?)(?=(?:^|\n)\s*(?:⑤|5)\s*|$)",
         text,
         re.I,
     )
@@ -302,7 +302,7 @@ def _extract_why_this_works(raw_text: str) -> list:
         block = m.group(2) or ""
     else:
         m2 = re.search(
-            r"(为什么这样搭|why\s+this\s+works|styling\s+rationale)[：:]*\s*([\s\S]*?)(?=(可替换方案|alternatives|(?:⑤|5)\s*)|$)",
+            r"(为什么这样搭|why\s+this\s+works|styling\s+rationale)[：:]*\s*([\s\S]*?)(?=(可替换方案|alternatives|(?:^|\n)\s*(?:⑤|5)\s*)|$)",
             text,
             re.I,
         )
@@ -335,11 +335,21 @@ def build_recommendation_message(raw_text: str) -> dict:
     items = []
 
     rec_block = None
-    m = re.search(r"(?:③|3)\s*.*?推荐搭配[：:]*\s*([\s\S]*?)(?=(?:④|4)\s*|(?:⑤|5)\s*|$)", raw, re.I)
+    # 只把「行首的 ③/3 推荐搭配」當作章節開頭；④/⑤ 也必須出現在新行開頭才會截斷，
+    # 避免誤把 ID: 42 / 45 等數字當成下一章開始。
+    m = re.search(
+        r"(?:^|\n)\s*(?:③|3)\s*.*?推荐搭配[：:]*\s*([\s\S]*?)(?=(?:^|\n)\s*(?:④|4)\s*|(?:^|\n)\s*(?:⑤|5)\s*|$)",
+        raw,
+        re.I,
+    )
     if m:
         rec_block = m.group(1)
     else:
-        m2 = re.search(r"推荐搭配[：:]*\s*([\s\S]*?)(?=为什么这样搭|(?:④|4)\s*|(?:⑤|5)\s*|$)", raw, re.I)
+        m2 = re.search(
+            r"推荐搭配[：:]*\s*([\s\S]*?)(?=为什么这样搭|(?:^|\n)\s*(?:④|4)\s*|(?:^|\n)\s*(?:⑤|5)\s*|$)",
+            raw,
+            re.I,
+        )
         if m2:
             rec_block = m2.group(1)
 
@@ -363,7 +373,7 @@ def build_recommendation_message(raw_text: str) -> dict:
         "temperature": "",
         "styleTags": [],
         "content": "",
-        "items": [{"type": it["type"], "name": it["name"], "reason": it.get("reason")} for it in items],
+        "items": [{"type": it["type"], "name": it["name"], "reason": it.get("reason"), "clothingId": it.get("clothingId")} for it in items],
         "whyThisWorks": why_this_works,
         "cautions": [],
         "images": [],
