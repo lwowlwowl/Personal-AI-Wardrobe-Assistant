@@ -43,32 +43,57 @@ export function chatRecommendation(query, history = []) {
     let buffer = ''
     let fullContent = ''
     let finalMessage = null
+
+    function processLine(line) {
+      if (!line.startsWith('data: ')) return
+      try {
+        const json = JSON.parse(line.slice(6))
+        if (json.type === 'delta' && json.content) fullContent += json.content
+        if (json.type === 'final' && json.message) finalMessage = json.message
+        if (json.type === 'error') throw new Error(json.message || 'Stream error')
+      } catch (e) {
+        if (e instanceof SyntaxError) return
+        throw e
+      }
+    }
+
     while (true) {
       const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
+      if (value) {
+        buffer += decoder.decode(value, { stream: true })
+      }
       const lines = buffer.split('\n')
       buffer = lines.pop() || ''
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const json = JSON.parse(line.slice(6))
-            if (json.type === 'delta' && json.content) {
-              fullContent += json.content
-            }
-            if (json.type === 'final' && json.message) {
-              finalMessage = json.message
-            }
-            if (json.type === 'error') throw new Error(json.message || 'Stream error')
-          } catch (e) {
-            if (e instanceof SyntaxError) continue
-            throw e
-          }
-        }
+        processLine(line)
+      }
+      if (done) {
+        // 流结束：处理剩余 buffer（final 事件常在最后一块，必须解析）
+        if (buffer.trim()) processLine(buffer)
+        break
       }
     }
+
     if (finalMessage) return finalMessage
-    return { content: fullContent.trim() }
+    const trimmed = fullContent.trim()
+    // 若未收到 final 事件但累积内容是 JSON（含 recommendations/plan），解析后返回结构化消息，供前端按结构优先渲染
+    if (trimmed.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (parsed && typeof parsed === 'object') {
+          return {
+            role: 'ai',
+            rawText: trimmed,
+            content: parsed.content || '',
+            recommendations: parsed.recommendations || [],
+            plan: parsed.plan || null,
+            locale: parsed.locale || 'en',
+            renderType: (parsed.plan && parsed.plan.days && parsed.plan.days.length) ? 'plan' : (Array.isArray(parsed.recommendations) && parsed.recommendations.length) ? 'recommendation' : 'text'
+          }
+        }
+      } catch (_) {}
+    }
+    return { content: trimmed }
   })
 }
 

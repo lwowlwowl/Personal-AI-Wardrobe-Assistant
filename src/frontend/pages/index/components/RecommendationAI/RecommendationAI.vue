@@ -681,7 +681,7 @@ const handleSearch = async () => {
 		}
 	}, 150)
 
-	// 调接口后一定先 normalize（后端 JSON 优先，旧文本兜底），见前端修改.md §6
+	// 调接口后一定用 final 结构化消息整体替换占位消息（修改.md：替换不是 append）
 	const finishLoading = (aiMessage) => {
 		clearInterval(stepInterval)
 		clearInterval(progressTimer)
@@ -689,7 +689,26 @@ const handleSearch = async () => {
 		loadingProgress.value = 100
 
 		setTimeout(() => {
-			let normalized = normalizeChatResponse(aiMessage)
+			// 若接口只返回了 content（未收到 final 或 buffer 未解析），且 content 为 JSON，解析后按结构渲染
+			let toNormalize = aiMessage
+			const hasStructure = (Array.isArray(aiMessage?.recommendations) && aiMessage.recommendations.length > 0) ||
+				(aiMessage?.plan?.days && aiMessage.plan.days.length > 0)
+			if (!hasStructure && aiMessage?.content && typeof aiMessage.content === 'string' && aiMessage.content.trim().startsWith('{')) {
+				try {
+					const parsed = JSON.parse(aiMessage.content.trim())
+					if (parsed && typeof parsed === 'object') {
+						toNormalize = {
+							role: 'ai',
+							rawText: aiMessage.content.trim(),
+							content: parsed.content ?? '',
+							recommendations: parsed.recommendations ?? [],
+							plan: parsed.plan ?? null,
+							locale: parsed.locale ?? 'en'
+						}
+					}
+				} catch (_) {}
+			}
+			let normalized = normalizeChatResponse(toNormalize)
 			normalized = attachImagesToAiMessage(normalized)
 
 			// 用 AI 消息替换 loading 消息，避免“先删再加”导致视觉断层

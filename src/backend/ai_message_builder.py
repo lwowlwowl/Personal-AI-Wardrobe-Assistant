@@ -1,7 +1,6 @@
 import json
 from typing import Any, Dict, List, Optional
 
-ALLOWED_RESPONSE_TYPES = {"text", "recommendation", "plan"}
 ALLOWED_ITEM_TYPES = {
     "TOP", "BOTTOM", "DRESS", "OUTERWEAR", "FOOTWEAR",
     "ACCESSORY", "BAG", "UNDERWEAR", "OTHER"
@@ -29,42 +28,41 @@ def _try_parse_json(raw_text: str) -> Optional[Dict[str, Any]]:
 
 
 def _normalize_json_response(data: Dict[str, Any], raw_text: str) -> Optional[dict]:
-    response_type = str(data.get("response_type") or "text").strip().lower()
-    if response_type not in ALLOWED_RESPONSE_TYPES:
-        response_type = "text"
-
     locale = str(data.get("locale") or "en").strip().lower()
     if locale not in {"en", "zh"}:
         locale = "en"
 
     content = str(data.get("content") or "").strip()
 
-    if response_type == "recommendation":
-        recommendations = _normalize_recommendations(data.get("recommendations"))
-        if recommendations:
-            return {
-                "role": "ai",
-                "renderType": "recommendation",
-                "rawText": raw_text.strip(),
-                "content": content,
-                "recommendations": recommendations,
-                "plan": None,
-                "locale": locale,
-            }
+    # 先解析真实结构（不依赖 response_type，避免 LLM 写错 response_type 导致推荐/计划被丢掉）
+    recommendations = _normalize_recommendations(data.get("recommendations"))
+    plan = _normalize_plan(data.get("plan"))
 
-    if response_type == "plan":
-        plan = _normalize_plan(data.get("plan"))
-        if plan and plan.get("days"):
-            return {
-                "role": "ai",
-                "renderType": "plan",
-                "rawText": raw_text.strip(),
-                "content": content or (plan.get("intro") or ""),
-                "recommendations": [],
-                "plan": plan,
-                "locale": locale,
-            }
+    # 1. 结构优先：plan
+    if plan and plan.get("days"):
+        return {
+            "role": "ai",
+            "renderType": "plan",
+            "rawText": raw_text.strip(),
+            "content": content or (plan.get("intro") or ""),
+            "recommendations": [],
+            "plan": plan,
+            "locale": locale,
+        }
 
+    # 2. 结构优先：recommendation
+    if recommendations:
+        return {
+            "role": "ai",
+            "renderType": "recommendation",
+            "rawText": raw_text.strip(),
+            "content": content,
+            "recommendations": recommendations,
+            "plan": None,
+            "locale": locale,
+        }
+
+    # 3. 没有结构内容时，按 text 处理
     return {
         "role": "ai",
         "renderType": "text",

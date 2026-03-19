@@ -565,7 +565,9 @@ function createBaseMessage() {
 
 /**
  * 规范化后端 / 历史 / 当前消息
- * 优先级：1) 后端已给的 JSON 结构  2) 旧数据兼容（从 rawText 解析）  3) 纯文本 fallback
+ * 优先级：1) 后端结构优先（有 plan.days / recommendations 即按对应类型渲染）
+ *         2) 再按 renderType（后端已修正为结构优先，此处双重保险）
+ *         3) 旧数据兼容（从 rawText 解析）  4) 纯文本 fallback
  */
 export function normalizeChatResponse(apiResponse) {
 	if (!apiResponse || typeof apiResponse !== 'object') {
@@ -581,10 +583,9 @@ export function normalizeChatResponse(apiResponse) {
 	const locale = apiResponse.locale || 'en'
 	const renderType = apiResponse.renderType || ''
 
-	// 1. 优先相信后端已给好的 plan
+	// 1. 结构优先：有 plan.days 即按 plan 渲染（不依赖 renderType，防止后端/历史数据声明错误）
 	if (
 		role === 'ai' &&
-		renderType === 'plan' &&
 		apiResponse.plan &&
 		Array.isArray(apiResponse.plan.days) &&
 		apiResponse.plan.days.length > 0
@@ -601,10 +602,9 @@ export function normalizeChatResponse(apiResponse) {
 		}
 	}
 
-	// 2. 优先相信后端已给好的 recommendation（含 mixed 统一为 recommendation）
+	// 2. 结构优先：有 recommendations 即按 recommendation 渲染（不依赖 renderType）
 	if (
 		role === 'ai' &&
-		(renderType === 'recommendation' || renderType === 'mixed') &&
 		Array.isArray(apiResponse.recommendations) &&
 		apiResponse.recommendations.length > 0
 	) {
@@ -620,7 +620,7 @@ export function normalizeChatResponse(apiResponse) {
 		}
 	}
 
-	// 3. 后端明确说是 text
+	// 3. 无结构内容时，按后端声明的 text 渲染
 	if (role === 'ai' && renderType === 'text') {
 		return {
 			...createBaseMessage(),
