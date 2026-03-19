@@ -4062,6 +4062,7 @@ react_agent = ReactAgent()
 
 # AI 消息结构化构建（plan/recommendation/text）拆分到独立模块，避免 main.py 过于臃肿
 from ai_message_builder import build_ai_message
+from language_policy import decide_reply_language
 
 
 @app.post("/api/ai/chat/stream")
@@ -4077,9 +4078,17 @@ async def ai_chat_stream(
     async def event_stream():
         context_token = set_agent_request_user_id(current_user.id if current_user else None)
         try:
+            query_stripped = (req.query or "").strip()
+            if not query_stripped:
+                error_payload = json.dumps({"type": "error", "message": "query 不能为空"}, ensure_ascii=False)
+                yield f"data: {error_payload}\n\n"
+                return
+            # 先根据当前消息与历史判定回复语言（默认英语）
+            lang = decide_reply_language(req.query or "", req.history or [])
+
             # ReactAgent 当前接口仅接收 query；将历史上下文压成文本前缀传入。
             history_lines = []
-            for item in req.history:
+            for item in req.history or []:
                 role = item.get("role")
                 content = (item.get("content") or "").strip()
                 if not content:
@@ -4089,14 +4098,14 @@ async def ai_chat_stream(
                 elif role == "ai":
                     history_lines.append(f"助手: {content}")
 
-            full_query = req.query
+            full_query = req.query or ""
             if history_lines:
                 history_text = "\n".join(history_lines[-10:])
                 full_query = f"以下是历史对话，请结合上下文回答：\n{history_text}\n\n当前问题：{req.query}"
 
             previous_text = ""
             final_full_text = ""
-            async for chunk_text in react_agent.execute_stream(full_query):
+            async for chunk_text in react_agent.execute_stream(full_query, lang=lang):
                 if not chunk_text:
                     continue
                 if chunk_text.startswith(previous_text):
@@ -4112,6 +4121,8 @@ async def ai_chat_stream(
 
             # 流式结束：先发 final（结构化 message），再发 done（兼容旧前端）
             final_message = build_ai_message(final_full_text)
+            # 强制把最终 locale 同步成后端判定语言（防止模型偶尔写错）
+            final_message["locale"] = lang
             try:
                 print("=== [ai_chat_stream] final_full_text ===")
                 print(final_full_text)

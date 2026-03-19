@@ -11,16 +11,28 @@ from AIwardrobe.agent.tools.agent_tools import (rag_summarize, get_weather,
 from AIwardrobe.agent.tools.middleware import monitor_tool, log_before_model, report_prompt_switch
 
 class ReactAgent:
-    def __init__(self, lang="zh"):
-        self.agent = create_agent(
+    def __init__(self):
+        self.tools = [
+            rag_summarize,
+            get_weather,
+            get_user_location,
+            fetch_external_data,
+            get_agent_user_context,
+        ]
+        self.middleware = [monitor_tool, log_before_model, report_prompt_switch]
+
+    def create_agent_for_lang(self, lang: str):
+        """按语言动态创建 agent，默认英语；lang 为 'zh' 或 'en'。"""
+        system_prompt = load_system_prompts(lang)
+        return create_agent(
             model=chat_model,
-            system_prompt=load_system_prompts(lang),
-            tools = [rag_summarize, get_weather, get_user_location,
-                     fetch_external_data, get_agent_user_context],
-            middleware=[monitor_tool, log_before_model, report_prompt_switch],
+            system_prompt=system_prompt,
+            tools=self.tools,
+            middleware=self.middleware,
         )
 
-    async def execute_stream(self, query: str):
+    async def execute_stream(self, query: str, lang: str = "en"):
+        agent = self.create_agent_for_lang(lang)
         input_dict = {
             "messages": [
                 {"role": "user", "content": query},
@@ -28,7 +40,7 @@ class ReactAgent:
         }
 
         # 第三个参数context就是上下文runtime中的信息，就是我们做提示词切换的标记 如果加上别的标记的话记得在这里先初始化一下
-        async for chunk in self.agent.astream(
+        async for chunk in agent.astream(
             input_dict,
             stream_mode="values",
             context={"report": False},

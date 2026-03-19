@@ -55,7 +55,9 @@ const PLAN_KEYWORDS = [
 	'5 套不重样',
 	'outfit schedule',
 	'schedule',
-	'plan'
+	'plan',
+	'week',
+	'daily'
 ]
 
 const DAY_TOKEN_RE = /(?:周[一二三四五六日天]|星期[一二三四五六日天]|礼拜[一二三四五六日天]|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon\.?|Tue\.?|Wed\.?|Thu\.?|Fri\.?|Sat\.?|Sun\.?|Day\s*\d+|\d{1,2}[./-]\d{1,2})/gi
@@ -265,7 +267,8 @@ function parseItemLine(line) {
 		const reason = tableMatch[3].trim().replace(/^\*\*|\*\*$/g, '') || undefined
 
 		// 只删掉中文括号说明（如「（米色针织衫）」），安全保留后面的 (ID: 42)
-		const cnInName = /[（(]([^）)]+)[）)]/.exec(name)
+		// 精确匹配：找到括号内容，但要求里面不能包含 'id'（忽略大小写）
+		const cnInName = /[（(](?!\s*id\s*[:：])([^）)]+)[）)]/i.exec(name)
 		let subtitle
 		if (cnInName) {
 			subtitle = cnInName[1].trim()
@@ -424,9 +427,9 @@ function parseSchemeBlock(block) {
 	let temperature = ''
 
 	// 只把行首的「③/3 推荐搭配」視作章節開頭；④/⑤ 也必須在新行開頭，避免誤傷 ID: 42/45 等數字
-	let recMatch = block.match(/(?:^|\n)\s*(?:③|3)[\s]*\*?\*?推荐搭配[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:^|\n)\s*(?:④|4)[\s]*\*?\*?|(?:^|\n)\s*(?:⑤|5)[\s]*\*?\*?|###|$)/i)
+	let recMatch = block.match(/(?:^|\n)\s*(?:③|3\.?|###)[\s]*\*?\*?\s*(?:推荐搭配|Outfit recommendation(?:s)?|Recommended outfit(?:s)?)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:^|\n)\s*(?:④|4\.?)[\s]*\*?\*?|(?:^|\n)\s*(?:⑤|5\.?)[\s]*\*?\*?|###|$)/i)
 	if (!recMatch) {
-		recMatch = block.match(/\*?\*?推荐搭配[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=为什么这样搭|(?:^|\n)\s*(?:④|4)[\s]*\*?\*?|(?:^|\n)\s*(?:⑤|5)[\s]*\*?\*?|###|$)/i)
+		recMatch = block.match(/\*?\*?\s*(?:推荐搭配|Outfit recommendation(?:s)?|Recommended outfit(?:s)?)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:为什么这样搭|Why this works|Why it works|Styling rationale)|(?:^|\n)\s*(?:④|4\.?)[\s]*\*?\*?|(?:^|\n)\s*(?:⑤|5\.?)[\s]*\*?\*?|###|$)/i)
 	}
 	if (recMatch) {
 		const tableBlock = recMatch[1]
@@ -441,7 +444,9 @@ function parseSchemeBlock(block) {
 		}
 	}
 
-	const whyMatch = block.match(/(?:④|4)[\s]*\*?\*?为什么这样搭[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:^|\n)\s*(?:⑤|5)[\s]*\*?\*?|可替换|###|$)/i)
+	// 4. 提取为什么这样搭 (④)
+	// 【修复点】：加入 4\.?
+	const whyMatch = block.match(/(?:④|4\.?)[\s]*\*?\*?\s*(?:为什么这样搭|Why this works|Why it works|Styling rationale)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:⑤|5\.?|###|$))/i)
 	if (whyMatch) whyThisWorks.push(...extractWhyThisWorks(whyMatch[1]))
 
 	const sceneMatch = block.match(/(?:①|1)[\s]*\*?\*?场景理解[^*\n]*\*?\*?[：:]*\s*([^\n]+)/i)
@@ -452,8 +457,9 @@ function parseSchemeBlock(block) {
 
 	const cautions = extractCautions(block)
 
-	// ⑤ 可替换方案 (Alternatives) 及底部问候语：按段落拆分，最后一段无冒号或含问候词则视为 footer，避免把方案当问候语
-	const altMatch = block.match(/(?:⑤|5)[\s]*\*?\*?(?:可替换方案|Alternatives)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=###|$)/i)
+	// 5. 提取可替换方案 (⑤) 及底部的问候语
+	// 【修复点】：加入 5\.?
+	const altMatch = block.match(/(?:⑤|5\.?)[\s]*\*?\*?\s*(?:可替换方案|Alternatives?|Alternative options?)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=###|$)/i)
 	const alternatives = []
 	let footer = ''
 
@@ -462,7 +468,8 @@ function parseSchemeBlock(block) {
 		const paragraphs = rawAltText.split(/\n\n+/)
 		if (paragraphs.length > 1) {
 			const lastPara = paragraphs[paragraphs.length - 1].trim()
-			if (!lastPara.includes('：') && !lastPara.includes(':') || /祝|需要我|期待|随时/.test(lastPara)) {
+			// 增加英文问候语匹配词：hope, let me know, feel free 等
+			if (!lastPara.includes('：') && !lastPara.includes(':') || /祝|需要我|期待|随时|hope|let me know|feel free|would you/i.test(lastPara)) {
 				footer = lastPara.replace(/^[-*•→]\s*/, '').trim()
 				paragraphs.pop()
 			}
@@ -473,7 +480,9 @@ function parseSchemeBlock(block) {
 	}
 
 	if (!footer) {
-		const fallbackMatch = block.match(/(?:\n\s*|^)(需要我|祝你们?|期待|随时告诉|有什么问题|Let me know)[\s\S]*$/i)
+		// 6. 全局保底：如果 AI 连 ⑤ 都没输出
+		// 【修改点】：在 Fallback 匹配中加入英文问候关键词
+		const fallbackMatch = block.match(/(?:\n\s*|^)(需要我|祝你们?|期待|随时告诉|有什么问题|Let me know|Feel free|Would you|Hope)[\s\S]*$/i)
 		if (fallbackMatch) footer = fallbackMatch[0].replace(/^[-*•→]\s*/, '').trim()
 	}
 
@@ -497,29 +506,30 @@ function parseRawContentToRecommendations(rawText) {
 	const text = rawText.trim()
 	const recommendations = []
 
-	// 精准截断 intro：文字气泡只显示到「② 穿搭核心思路」结束，「③ 推荐搭配」及之后全部交给卡片
-	const splitIndex = text.search(/(?:^|\n)\s*(?:③|3|###)\s*\*?\*?推荐搭配/)
-	let intro = splitIndex !== -1 ? text.slice(0, splitIndex).trim() : ''
+	// 【修复点】：加入 3\.? 兼容 AI 输出的 "3."，并加入 \s* 兼容星号后的空格
+	const splitRegex = /(?:\n|^)\s*(?:③|3\.?|###)\s*\*?\*?\s*(?:推荐搭配|Outfit recommendation(?:s)?|Recommended outfit(?:s)?)/i
+	const splitIndex = text.search(splitRegex)
 
-	const schemeSplit = text.split(/(?=####\s*方案[一二三四五六七八九十]+|方案[一二三四五六七八九十]\s*\|)/)
+	let intro = text
+	if (splitIndex !== -1) {
+		intro = text.slice(0, splitIndex).trim()
+	}
 
-	for (let i = 0; i < schemeSplit.length; i++) {
-		const block = schemeSplit[i].trim()
+	const introRemoved = splitIndex !== -1 ? text.slice(splitIndex) : text
+
+	// 切割块也加入英文兼容
+	const schemeBlocks = introRemoved.split(/(?=(?:③|3\.?|###)\s*\*?\*?\s*(?:推荐搭配|Outfit recommendation(?:s)?|Recommended outfit(?:s)?))/i)
+
+	for (const blk of schemeBlocks) {
+		const block = blk.trim()
 		if (!block) continue
-
-		if (i === 0 && !/方案[一二三四五六七八九十]/.test(block)) {
-			if (!intro) intro = block.slice(0, 500)
-			continue
-		}
-
-		if (!/方案[一二三四五六七八九十]/.test(block)) continue
 		const rec = parseSchemeBlock(block)
 		if (rec.items.length > 0 || rec.whyThisWorks?.length || rec.cautions?.length) {
 			recommendations.push(rec)
 		}
 	}
 
-	if (recommendations.length === 0 && (text.includes('推荐搭配') || text.includes('**上衣**') || text.includes('上衣：'))) {
+	if (recommendations.length === 0 && (text.includes('推荐搭配') || /Outfit recommendation/i.test(text) || text.includes('**上衣**') || text.includes('上衣：'))) {
 		const single = parseSchemeBlock(text)
 		if (single.items.length > 0 || single.whyThisWorks?.length || single.cautions?.length) {
 			recommendations.push(single)
@@ -529,47 +539,33 @@ function parseRawContentToRecommendations(rawText) {
 	return { recommendations, intro }
 }
 
-function detectRenderType({ content = '', recommendations = [] }) {
-	// 只要有推荐内容，统一为 recommendation（上为 AI 解读文字，下为推荐卡片）
-	if (recommendations.length > 0) return 'recommendation'
-	return 'text'
-}
-
 function buildTextMessage(rawText, content) {
 	const finalContent = content || rawText || ''
 	return {
-		role: 'ai',
-		renderType: 'text',
+		...createBaseMessage(),
 		rawText: rawText || finalContent || '',
 		content: finalContent || '',
-		recommendations: []
-	}
-}
-
-function buildStructuredMessage(rawText, content, recommendations) {
-	return {
-		role: 'ai',
-		renderType: detectRenderType({ content, recommendations }),
-		rawText: rawText || content || '',
-		content: content || '',
-		recommendations: recommendations || []
-	}
-}
-
-function buildPlanMessage(rawText, plan) {
-	return {
-		role: 'ai',
-		renderType: 'plan',
-		rawText: rawText || '',
-		content: plan?.intro || '',
 		recommendations: [],
-		plan: plan || { days: [] }
+		plan: null
+	}
+}
+
+/** 统一默认消息结构，组件可依此判空 */
+function createBaseMessage() {
+	return {
+		role: 'ai',
+		renderType: 'text',
+		rawText: '',
+		content: '',
+		recommendations: [],
+		plan: null,
+		locale: 'en'
 	}
 }
 
 /**
- * 规范化旧消息 / 历史消息 / 当前返回消息
- * 类型统一：有推荐或后端给 mixed → 一律 renderType: 'recommendation'；保底从 rawText 重提 intro 防截断
+ * 规范化后端 / 历史 / 当前消息
+ * 优先级：1) 后端已给的 JSON 结构  2) 旧数据兼容（从 rawText 解析）  3) 纯文本 fallback
  */
 export function normalizeChatResponse(apiResponse) {
 	if (!apiResponse || typeof apiResponse !== 'object') {
@@ -577,62 +573,109 @@ export function normalizeChatResponse(apiResponse) {
 	}
 
 	const role = apiResponse.role || 'ai'
-	let directRecs = Array.isArray(apiResponse.recommendations) ? apiResponse.recommendations : []
 	const rawText =
 		apiResponse.rawText ||
 		apiResponse.raw_text ||
 		apiResponse.content ||
 		''
-	const rawRenderType = apiResponse.renderType || ''
+	const locale = apiResponse.locale || 'en'
+	const renderType = apiResponse.renderType || ''
 
-	// 1. Plan 优先，直接返回（但必须有实际天数；days 为空则视为普通文本，避免误判）
-	if (role === 'ai' && (rawRenderType === 'plan' || (rawText && typeof rawText === 'string' && detectPlan(rawText)))) {
-		const plan = apiResponse.plan || (rawText ? parsePlanFromRawText(rawText) : null) || { days: [] }
-		if (plan && Array.isArray(plan.days) && plan.days.length > 0) {
+	// 1. 优先相信后端已给好的 plan
+	if (
+		role === 'ai' &&
+		renderType === 'plan' &&
+		apiResponse.plan &&
+		Array.isArray(apiResponse.plan.days) &&
+		apiResponse.plan.days.length > 0
+	) {
+		return {
+			...createBaseMessage(),
+			role: 'ai',
+			renderType: 'plan',
+			rawText,
+			content: apiResponse.content || apiResponse.plan.intro || '',
+			recommendations: [],
+			plan: apiResponse.plan,
+			locale
+		}
+	}
+
+	// 2. 优先相信后端已给好的 recommendation（含 mixed 统一为 recommendation）
+	if (
+		role === 'ai' &&
+		(renderType === 'recommendation' || renderType === 'mixed') &&
+		Array.isArray(apiResponse.recommendations) &&
+		apiResponse.recommendations.length > 0
+	) {
+		return {
+			...createBaseMessage(),
+			role: 'ai',
+			renderType: 'recommendation',
+			rawText,
+			content: apiResponse.content || '',
+			recommendations: apiResponse.recommendations,
+			plan: null,
+			locale
+		}
+	}
+
+	// 3. 后端明确说是 text
+	if (role === 'ai' && renderType === 'text') {
+		return {
+			...createBaseMessage(),
+			role: 'ai',
+			renderType: 'text',
+			rawText,
+			content: apiResponse.content || rawText || '',
+			recommendations: [],
+			plan: null,
+			locale
+		}
+	}
+
+	// 4. 兼容旧数据：必要时才从 rawText 猜
+	if (role === 'ai' && rawText && typeof rawText === 'string') {
+		if (detectPlan(rawText)) {
+			const plan = parsePlanFromRawText(rawText)
+			if (plan?.days?.length) {
+				return {
+					...createBaseMessage(),
+					role: 'ai',
+					renderType: 'plan',
+					rawText,
+					content: apiResponse.content || plan.intro || '',
+					recommendations: [],
+					plan,
+					locale
+				}
+			}
+		}
+
+		const { recommendations, intro } = parseRawContentToRecommendations(rawText)
+		if (recommendations.length > 0) {
 			return {
+				...createBaseMessage(),
 				role: 'ai',
-				renderType: 'plan',
-				rawText: rawText || '',
-				content: apiResponse.content || plan?.intro || '',
-				recommendations: directRecs,
-				plan
+				renderType: 'recommendation',
+				rawText,
+				content: apiResponse.content || intro || '',
+				recommendations,
+				plan: null,
+				locale
 			}
 		}
 	}
 
-	// 2. 统一类型：无论后端给 mixed 还是 recommendation，有推荐就统一为 recommendation
-	let finalType = 'text'
-	if (rawRenderType === 'mixed' || rawRenderType === 'recommendation' || directRecs.length > 0) {
-		finalType = 'recommendation'
-	} else if (rawRenderType) {
-		finalType = rawRenderType
-	}
-
-	// 3. 保底提取 & 强力解析：recommendation 且 rawText 存在时，从全文重提 intro；仅当后端 items 无 ID 且前端解析出带 (ID: xx) 时才用 parsedRecs，避免覆盖掉有图的后端数据
-	let displayContent = apiResponse.content || ''
-	if (finalType === 'recommendation' && rawText && typeof rawText === 'string') {
-		const { intro, recommendations: parsedRecs } = parseRawContentToRecommendations(rawText)
-		if (intro) displayContent = intro
-		if (parsedRecs && parsedRecs.length > 0) {
-			const backendHasId = directRecs.some(rec => (rec?.items || []).some(it => it?.clothingId != null || (typeof it?.name === 'string' && /[\(（]\s*id\s*[:：]\s*\d+\s*[\)）]/i.test(it.name))))
-			if (!backendHasId) directRecs = parsedRecs
-		}
-	}
-
-	// 4. 无结构化推荐时，尝试从 rawText 解析出推荐
-	if (finalType === 'text' && rawText && typeof rawText === 'string') {
-		const { recommendations, intro } = parseRawContentToRecommendations(rawText)
-		if (recommendations.length > 0) {
-			const content = intro || ''
-			return buildStructuredMessage(rawText, content, recommendations)
-		}
-	}
-
+	// 5. 最终 fallback
 	return {
+		...createBaseMessage(),
 		role: 'ai',
-		renderType: finalType,
-		rawText: rawText || '',
-		content: displayContent,
-		recommendations: directRecs
+		renderType: 'text',
+		rawText,
+		content: apiResponse.content || rawText || '',
+		recommendations: [],
+		plan: null,
+		locale
 	}
 }

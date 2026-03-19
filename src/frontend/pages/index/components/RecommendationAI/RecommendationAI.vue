@@ -121,6 +121,7 @@
 								v-if="getMessageRenderType(msg) === 'plan'"
 								:plan="msg.plan"
 								:raw-text="msg.rawText || msg.content || ''"
+								:locale="msg.locale || 'en'"
 							/>
 
 							<!-- 推荐型：上文字（可选）+ 下卡片，同一容器内 -->
@@ -140,6 +141,7 @@
 											<RecommendationCard
 												:recommendation="rec"
 												:show-regenerate="ri === 0"
+												:locale="msg.locale || 'en'"
 												@regenerate="handleRegenerate(index)"
 												@preview-images="previewImages"
 											/>
@@ -149,6 +151,7 @@
 										v-else-if="getRecommendations(msg).length === 1"
 										:recommendation="getRecommendations(msg)[0]"
 										:show-regenerate="true"
+										:locale="msg.locale || 'en'"
 										@regenerate="handleRegenerate(index)"
 										@preview-images="previewImages"
 									/>
@@ -345,11 +348,11 @@ const loadingProgress = ref(0)
 const loadingProgressPercent = computed(() => Math.floor(loadingProgress.value))
 let progressTimer = null
 
-// --- AI 單品 ID -> 衣櫥真實圖片 對應（僅依靠 clothingId 精準匹配）---
+// --- AI 单品 ID -> 衣橱真实图片 对应（仅依靠 clothingId 精准匹配）---
 const myWardrobeList = ref([])
 
 function getAuthToken() {
-	// 與 MyWardrobe/WardrobeView.vue 對齊
+	// 与 MyWardrobe/WardrobeView.vue 对齐
 	return uni.getStorageSync('auth_token') || ''
 }
 
@@ -402,7 +405,7 @@ function attachImagesToAiMessage(msg) {
 	const processItems = (items) => {
 		if (!Array.isArray(items)) return
 		for (const item of items) {
-			// 保底：若後端未解析 clothingId，但 name 仍帶 (ID: 123)，前端只做 ID 抽取（不做名稱模糊匹配）
+			// 保底：若后端未解析 clothingId，但 name 仍带 (ID: 123)，前端只做 ID 抽取（不做名称模糊匹配）
 			let id = item?.clothingId
 			if ((id == null || id === '') && typeof item?.name === 'string') {
 				const m = item.name.match(/[\(（]\s*id\s*[:：]\s*(\d+)\s*[\)）]/i)
@@ -446,7 +449,7 @@ function attachImagesToAiMessage(msg) {
 		}
 	}
 
-	// recommendation：recommendations[*].items[*].images（兼容後端/前端解析結構）
+	// recommendation：recommendations[*].items[*].images（兼容后端/前端解析结构）
 	if (Array.isArray(msg?.recommendations)) {
 		for (const rec of msg.recommendations) {
 			processItems(rec?.items)
@@ -528,8 +531,9 @@ const getMessageRenderType = (msg) => {
 	return 'text'
 }
 
+// 优先显示已解析的 content（后端 JSON 协议下 rawText 为原始 JSON 字符串，不应直接展示）
 const getDisplayContent = (msg) => {
-	return msg?.rawText || msg?.content || ''
+	return msg?.content ?? msg?.rawText ?? ''
 }
 
 const handleRegenerate = (msgIdx) => {
@@ -677,6 +681,7 @@ const handleSearch = async () => {
 		}
 	}, 150)
 
+	// 调接口后一定先 normalize（后端 JSON 优先，旧文本兜底），见前端修改.md §6
 	const finishLoading = (aiMessage) => {
 		clearInterval(stepInterval)
 		clearInterval(progressTimer)
@@ -871,12 +876,12 @@ const previewImages = (urls, index = 0) => {
 }
 
 .mixed-message-wrap :deep(.chat-bubble)::before {
-	content: '💭 AI Analysis & Strategy';
+	content: 'AI Analysis & Strategy';
 	display: flex;
 	align-items: center;
 	font-size: 22rpx;
 	color: #9D8B70;
-	font-weight: 700;
+	font-weight: 900;
 	text-transform: uppercase;
 	letter-spacing: 0.06em;
 	margin-bottom: 16rpx;

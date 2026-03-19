@@ -4,8 +4,8 @@
   "description": "AI虚拟衣橱助手 - 基于 Vue3 + UniApp 的跨平台应用",
   "private": true,
   "scripts": {
-    "dev:h5": "UNI_INPUT_DIR=$PWD uni",
-    "build:h5": "UNI_INPUT_DIR=$PWD uni build",
+    "dev:h5": "cross-env UNI_INPUT_DIR=. uni -p h5",
+    "build:h5": "cross-env UNI_INPUT_DIR=. uni build -p h5",
     "dev:mp-weixin": "UNI_INPUT_DIR=$PWD uni -p mp-weixin",
     "build:mp-weixin": "UNI_INPUT_DIR=$PWD uni build -p mp-weixin",
     "dev:mp-alipay": "UNI_INPUT_DIR=$PWD uni -p mp-alipay",
@@ -25,6 +25,7 @@
     "@dcloudio/uni-mp-toutiao": "3.0.0-4080720251210001",
     "@dcloudio/uni-mp-weixin": "3.0.0-4080720251210001",
     "@dcloudio/vite-plugin-uni": "3.0.0-4080720251210001",
+    "cross-env": "^10.1.0",
     "sass": "^1.97.3",
     "vite": "5.2.8"
   },

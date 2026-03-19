@@ -24,6 +24,9 @@
 
 		<view v-if="recommendation.content" class="message-text rich-text ai-fade-block" v-html="formattedContent"></view>
 
+		<view v-if="recommendation.scenario" class="scenario-line ai-fade-block">{{ recommendation.scenario }}</view>
+		<view v-if="recommendation.strategy" class="strategy-line ai-fade-block">{{ recommendation.strategy }}</view>
+
 		<view v-if="displayTags.length > 0" class="tag-row ai-fade-block" style="animation-delay: 0.15s">
 			<text
 				v-for="(tag, ti) in displayTags"
@@ -72,7 +75,7 @@
 							<text class="item-name">{{ cleanName(item.name) }}</text>
 						</view>
 						<text v-if="item.subtitle" class="item-subtitle">{{ item.subtitle }}</text>
-						<text v-if="item.reason" class="item-desc">{{ item.reason }}</text>
+						<text v-if="item.reason || item.comment" class="item-desc">{{ item.reason || item.comment }}</text>
 						<view v-if="item.tags && item.tags.length" class="item-tags">
 							<text v-for="(t, ti) in item.tags" :key="ti" class="item-tag">{{ t }}</text>
 						</view>
@@ -132,7 +135,9 @@ const props = defineProps({
 		required: true,
 		default: () => ({})
 	},
-	showRegenerate: { type: Boolean, default: true }
+	showRegenerate: { type: Boolean, default: true },
+	/** 后端判定语言，用于展示细节（如标题 i18n） */
+	locale: { type: String, default: 'en' }
 })
 
 defineEmits(['regenerate', 'preview-images'])
@@ -246,7 +251,7 @@ watch(
 }
 .title-text {
 	font-size: 32rpx;
-	font-weight: 600;
+	font-weight: 700;
 	color: #1D1D1F;
 	font-family: "Didot", serif;
 }
@@ -357,6 +362,14 @@ watch(
 	color: #5A8B99;
 }
 
+.scenario-line,
+.strategy-line {
+	font-size: 28rpx;
+	color: #6B6B6B;
+	line-height: 1.25;
+	margin-top: 16rpx;
+}
+
 .cautions-wrap {
 	display: flex;
 	flex-direction: column;
@@ -388,7 +401,7 @@ watch(
 }
 
 .caution-text {
-	font-size: 26rpx;
+	font-size: 28rpx;
 	color: #8B2E26;
 	line-height: 1.5;
 	flex: 1;
@@ -498,7 +511,7 @@ watch(
 }
 
 .item-desc {
-	font-size: 24rpx;
+	font-size: 27rpx;
 	color: #888;
 	line-height: 1.5;
 }
@@ -537,7 +550,7 @@ watch(
 	line-height: 1.6;
 }
 
-/* --- 下方分析区块 --- */
+/* --- 下方分析区块（Why this works / Alternatives 标题与正文字号、字体在此改）--- */
 .why-this-works {
 	margin-top: 40rpx;
 	padding: 32rpx 0 16rpx;
@@ -546,7 +559,7 @@ watch(
 
 .why-title {
 	font-size: 30rpx;
-	font-weight: 600;
+	font-weight: 800;
 	color: #1D1D1F;
 	display: block;
 	margin-bottom: 24rpx;
@@ -568,7 +581,9 @@ watch(
 }
 
 .why-text {
-	font-size: 28rpx;
+	font-size: 26rpx;
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+	font-weight: 600;
 	color: #4A4A4A;
 	line-height: 1.6;
 }
@@ -583,7 +598,7 @@ watch(
 
 .section-title {
 	font-size: 30rpx;
-	font-weight: 600;
+	font-weight: 800;
 	color: #1D1D1F;
 	display: block;
 	margin-bottom: 24rpx;
@@ -608,9 +623,11 @@ watch(
 }
 
 .alt-text {
-	font-size: 28rpx;
+	font-size: 24rpx;
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+	font-weight: 600;
 	color: #4A4A4A;
-	line-height: 1.6;
+	line-height: 2;
 }
 
 .card-footer-text {

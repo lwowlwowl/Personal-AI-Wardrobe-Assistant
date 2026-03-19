@@ -1,5 +1,5 @@
 <template>
-	<view class="plan-card">
+	<view v-if="plan && Array.isArray(plan.days) && plan.days.length > 0" class="plan-card" :key="rawText">
 		<view class="plan-header">
 			<view class="header-main">
 				<text class="plan-title-en">Daily Lookbook</text>
@@ -21,21 +21,25 @@
 		<view v-if="days.length" class="day-scroll-container">
 			<view
 				v-for="(d, idx) in days"
-				:key="d.key || idx"
-				class="day-module"
+				:key="(d.key || idx) + (rawText || '')"
+				class="day-module ai-fade-block"
 				:class="{ 'is-expanded': expanded[idx] }"
+				:style="{ animationDelay: `${0.15 + idx * 0.1}s` }"
 			>
 				<view class="module-header" @click="toggle(idx)">
-					<view class="date-box">
+					<view class="date-box" v-if="d.dateText">
 						<text class="date-num">{{ formatDayNum(d.dateText) }}</text>
 						<view class="date-meta">
 							<text class="weekday">{{ d.label }}</text>
 							<text class="month">{{ formatMonth(d.dateText) }}</text>
 						</view>
 					</view>
+					<view v-else class="date-box">
+						<text class="weekday">{{ d.label || ('Day ' + (idx + 1)) }}</text>
+					</view>
 
 					<view class="header-content">
-						<text class="weather-brief">{{ d.weatherText }}</text>
+						<text v-if="d.weatherText" class="weather-brief">{{ d.weatherText }}</text>
 						<text class="style-keyword" v-if="extractKeyword(d.notes)"># {{ extractKeyword(d.notes) }}</text>
 					</view>
 
@@ -44,37 +48,30 @@
 					</view>
 				</view>
 
-				<view v-if="expanded[idx]" class="module-body">
-					<view class="outfit-grid-v2">
-						<view v-for="(it, ii) in d.items" :key="ii" class="closet-item-card">
-							<view class="item-images-container">
-								<template v-if="it.images && it.images.length > 0">
-									<image
-										v-for="(img, imgIdx) in it.images"
-										:key="imgIdx"
-										:src="img"
-										mode="aspectFill"
-										class="real-item-img"
-										@click.stop="previewImages(it.images, imgIdx)"
-									/>
-								</template>
-								<view v-else class="fallback-icon-wrap">
-									<text class="type-emoji">{{ mapTypeToEmoji(it.type) }}</text>
-								</view>
+				<view class="item-list-wrap" :class="{ 'is-open': expanded[idx] }">
+					<view class="item-list-inner">
+						<view class="plan-item" v-for="(it, i) in (d.items || [])" :key="i">
+							<view class="plan-item-img-wrap" v-if="it.images && it.images.length > 0" @click.stop="previewImages(it.images, 0)">
+								<image :src="it.images[0]" mode="aspectFill" class="real-item-img" />
+							</view>
+							<view class="fallback-icon-wrap" v-else>
+								<text class="type-emoji">{{ getFallbackEmoji(it.type) }}</text>
 							</view>
 							<view class="item-detail">
-								<text class="category-name">{{ mapTypeToEnglish(it.type) }}</text>
-								<text class="product-name">{{ cleanName(it.name) }}</text>
+								<view class="item-header-row">
+									<text class="category-name">{{ getEnglishCategory(it.type) }}</text>
+									<text class="product-name">{{ cleanName(it.name) }}</text>
+								</view>
+								<text class="item-reason" v-if="it.reason || it.comment">{{ it.reason || it.comment }}</text>
 							</view>
 						</view>
-					</view>
-
-					<view v-if="d.notes" class="stylist-note">
-						<view class="note-top">
-							<text class="note-title">Stylist Note</text>
-							<image src="/static/icons/icon-pin.svg" class="pin-icon" />
+						<view v-if="d.notes" class="stylist-note">
+							<view class="note-top">
+								<text class="note-title">Stylist Note</text>
+								<image src="/static/icons/icon-pin.svg" class="pin-icon" />
+							</view>
+							<text class="note-content">{{ cleanNotes(d.notes) }}</text>
 						</view>
-						<text class="note-content">{{ cleanNotes(d.notes) }}</text>
 					</view>
 				</view>
 			</view>
@@ -84,6 +81,9 @@
 			<text class="fallback-text">{{ rawText }}</text>
 		</view>
 	</view>
+	<view v-else class="fallback-wrap">
+		<text class="fallback-text">{{ rawText || 'No schedule data.' }}</text>
+	</view>
 </template>
 
 <script setup>
@@ -91,7 +91,9 @@ import { computed, reactive } from 'vue'
 
 const props = defineProps({
 	plan: { type: Object, default: null },
-	rawText: { type: String, default: '' }
+	rawText: { type: String, default: '' },
+	/** 后端判定语言，用于展示细节（如标题 i18n） */
+	locale: { type: String, default: 'en' }
 })
 
 const days = computed(() => (Array.isArray(props.plan?.days) ? props.plan.days : []))
@@ -156,9 +158,20 @@ const mapTypeToEnglish = (type) => {
 		Accessory: 'ACCESSORY',
 		Bag: 'BAG',
 		Underwear: 'UNDERWEAR',
-		Other: 'OTHER'
+		Other: 'OTHER',
+		// 后端 plan/recommendation 返回的 type 为大写，需直接映射
+		TOP: 'TOP',
+		BOTTOM: 'BOTTOM',
+		DRESS: 'DRESS',
+		OUTERWEAR: 'OUTERWEAR',
+		FOOTWEAR: 'FOOTWEAR',
+		ACCESSORY: 'ACCESSORY',
+		BAG: 'BAG',
+		UNDERWEAR: 'UNDERWEAR',
+		OTHER: 'OTHER'
 	}
-	return map[type] || 'ITEM'
+	const key = typeof type === 'string' ? type.trim() : ''
+	return map[key] || map[key.toUpperCase()] || (key ? key.toUpperCase() : 'OTHER')
 }
 
 const cleanName = (name) => {
@@ -183,6 +196,9 @@ const mapTypeToEmoji = (type) => {
 	return '✨'
 }
 
+const getEnglishCategory = (type) => mapTypeToEnglish(type)
+const getFallbackEmoji = (type) => mapTypeToEmoji(type)
+
 const previewImages = (urls, startIndex = 0) => {
 	if (!Array.isArray(urls) || urls.length === 0) return
 	uni.previewImage({ urls, current: urls[startIndex] || urls[0] })
@@ -206,130 +222,259 @@ const previewImages = (urls, startIndex = 0) => {
 	color: #C4B59D;
 	margin-bottom: 8rpx;
 }
-.title-row { display: flex; align-items: baseline; gap: 20rpx; }
+.title-row {
+	display: flex;
+	align-items: center;
+	gap: 20rpx;
+	margin-top: 8rpx;
+}
 .plan-title-zh { font-size: 48rpx; font-weight: 800; color: #1D1D1F; }
 
 .live-indicator {
-	display: flex; align-items: center; gap: 8rpx;
-	background: #E8F5E9; padding: 4rpx 12rpx; border-radius: 8rpx;
+	display: flex;
+	align-items: center;
+	gap: 10rpx;
+	background: rgba(52, 199, 89, 0.1);
+	padding: 6rpx 16rpx;
+	border-radius: 20rpx;
+	font-size: 22rpx;
+	color: #248A3D;
+	font-weight: 600;
+	letter-spacing: 0.02em;
 }
-.live-indicator text { font-size: 18rpx; color: #4CAF50; font-weight: 700; }
-.dot { width: 8rpx; height: 8rpx; background: #4CAF50; border-radius: 50%; }
+.live-indicator .dot {
+	width: 12rpx;
+	height: 12rpx;
+	background: #34C759;
+	border-radius: 50%;
+	animation: pulse-green 2s infinite cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes pulse-green {
+	0% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.4); }
+	70% { box-shadow: 0 0 0 8rpx rgba(52, 199, 89, 0); }
+	100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0); }
+}
 
-/* 总体策略 Banner */
+/* 总体策略 Banner（深色块标题「OVERALL STRATEGY」与正文：字号、字体在此调整） */
 .strategy-banner {
-	background: #1D1D1F; border-radius: 24rpx; padding: 30rpx; margin-bottom: 40rpx;
+	background: #1D1D1F; border-radius: 24rpx; padding: 32rpx; margin-bottom: 40rpx;
+	font-family: "Didot", serif;
 }
 .banner-label {
-	color: #9D8B70; font-size: 18rpx; text-transform: uppercase; 
-	letter-spacing: 2rpx; margin-bottom: 12rpx; font-weight: 700;
+	color: #9D8B70; font-size: 28rpx; text-transform: uppercase;
+	letter-spacing: 2rpx; margin-bottom: 14rpx; font-weight: 700;
 }
-.strategy-text { color: #FFF; font-size: 24rpx; line-height: 1.6; opacity: 0.9; }
+.strategy-text { color: #FFF; font-size: 28rpx; line-height: 1.65; opacity: 0.95; }
 
-/* 模块化日期 */
+/* 每天的卡片模块 */
 .day-module {
-	background: #FFF; border-radius: 32rpx; margin-bottom: 24rpx;
-	border: 1px solid #F1F1F1; overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	background: #FFFFFF;
+	border: 1px solid rgba(0, 0, 0, 0.04);
+	border-radius: 32rpx;
+	margin-bottom: 24rpx;
+	padding: 24rpx 32rpx;
+	transition: all 0.3s ease;
+	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.02);
+}
+.day-module.is-expanded {
+	background: #FCFBFA;
+	border-color: rgba(157, 139, 112, 0.15);
+	box-shadow: 0 8rpx 32rpx rgba(157, 139, 112, 0.06);
+	padding-bottom: 32rpx;
+}
+/* 未展开时：卡片有最小高度，头部占满可用高度，日期/天气/按钮在竖直方向居中 */
+.day-module:not(.is-expanded) {
+	min-height: 168rpx; /* 24+120+24，保证有空间给 header 填满并居中 */
+}
+.day-module:not(.is-expanded) .module-header {
+	flex: 1;
+	min-height: 0;
+}
+.day-module:not(.is-expanded) .item-list-wrap {
+	flex: 0 0 0;
+	min-height: 0;
 }
 
 .module-header {
-	padding: 30rpx; display: flex; align-items: center; gap: 30rpx;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	gap: 30rpx; /* 日期与天气、天气与按钮的间距，可改此值 */
 }
 
 .date-box {
-	display: flex; align-items: center; gap: 16rpx; min-width: 140rpx;
+	display: flex;
+	align-items: center;
+	gap: 16rpx;
+	width: 250rpx; /* 日期+月份列宽，避免「明天(周四)」等换行过碎，可在此调整 */
+	min-width: 220rpx;
 }
-.date-num { font-size: 56rpx; font-weight: 800; color: #1D1D1F; }
-.date-meta { display: flex; flex-direction: column; }
-.weekday { font-size: 22rpx; font-weight: 700; color: #1D1D1F; }
-.month { font-size: 18rpx; color: #9D8B70; }
+.date-num {
+	font-size: 56rpx;
+	font-family: "Didot", serif;
+	color: #1D1D1F;
+	font-weight: bold;
+	line-height: 1;
+}
+.date-meta {
+	display: flex;
+	flex-direction: column;
+}
+.weekday {
+	font-size: 30rpx;
+	color: #1D1D1F;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+.month {
+	font-size: 26rpx;
+	color: #888;
+}
 
 .header-content { flex: 1; display: flex; flex-direction: column; gap: 4rpx; }
-.weather-brief { font-size: 24rpx; color: #48484A; font-weight: 500; }
+.weather-brief { font-size: 28rpx; color: #48484A; font-weight: 500; }
 .style-keyword { font-size: 20rpx; color: #9D8B70; font-weight: 600; }
 
 .action-btn {
-	background: #F5F5F7; padding: 12rpx 20rpx; border-radius: 12rpx;
+	background: #F5F5F7; padding: 14rpx 24rpx; border-radius: 12rpx;
 }
-.btn-text { font-size: 20rpx; color: #1D1D1F; font-weight: 600; }
+.btn-text { font-size: 28rpx; color: #1D1D1F; font-weight: 600; }
 
-/* 单品网格：类似电商清单 */
-.module-body { padding: 0 30rpx 30rpx; animation: fadeIn 0.4s ease; }
-
-.outfit-grid-v2 {
-	display: grid; grid-template-columns: 1fr 1fr; gap: 20rpx; margin-top: 10rpx;
+/* 丝滑的网格高度展开动画 */
+.item-list-wrap {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+	opacity: 0;
+	min-height: 0; /* 未展开时不占高，便于 header 占满并居中 */
 }
-
-.closet-item-card {
-	background: #FAFAFA;
-	border-radius: 24rpx;
-	padding: 24rpx;
+.item-list-wrap.is-open {
+	grid-template-rows: 1fr;
+	opacity: 1;
+}
+.item-list-inner {
+	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	gap: 20rpx;
+	gap: 24rpx;
+	padding-top: 24rpx;
 }
 
-.item-images-container {
+.plan-item {
+	background: #FFFFFF;
+	border-radius: 24rpx;
+	padding: 20rpx;
 	display: flex;
-	gap: 16rpx;
-	overflow-x: auto;
-	padding-bottom: 4rpx;
-}
-
-.real-item-img,
-.fallback-icon-wrap {
-	width: 120rpx;
-	height: 120rpx;
-	background: #F5F5F7;
-	border-radius: 20rpx;
-	flex-shrink: 0;
-}
-
-.real-item-img {
+	align-items: center;
+	gap: 24rpx;
 	border: 1px solid rgba(0, 0, 0, 0.03);
 }
 
-.fallback-icon-wrap {
+.item-header-row {
 	display: flex;
 	align-items: center;
-	justify-content: center;
+	flex-wrap: wrap;
+	margin-bottom: 6rpx;
 }
 
-.type-emoji { font-size: 50rpx; opacity: 0.8; }
+.category-name {
+	font-size: 22rpx;
+	font-weight: 700;
+	color: #9D8B70;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	font-family: "Didot", serif;
+	display: flex;
+	align-items: center;
+}
+.category-name::after {
+	content: '';
+	display: inline-block;
+	width: 2rpx;
+	height: 20rpx;
+	background-color: rgba(157, 139, 112, 0.3);
+	margin-left: 16rpx;
+	margin-right: 16rpx;
+}
+
+.product-name {
+	font-size: 28rpx;
+	color: #1D1D1F;
+	font-family: "Didot", serif;
+	font-weight: 500;
+	flex: 1;
+}
 
 .item-detail {
 	display: flex;
 	flex-direction: column;
 	gap: 6rpx;
+	flex: 1;
+	min-width: 0;
 }
 
-.category-name {
-	font-size: 20rpx;
-	color: #9D8B70;
-	text-transform: uppercase;
-	font-weight: 700;
-	letter-spacing: 2rpx;
+.item-reason {
+	font-size: 24rpx;
+	color: #6B6B6B;
+	line-height: 1.5;
+	margin-top: 8rpx;
 }
 
-.product-name {
-	font-size: 26rpx;
-	color: #1D1D1F;
-	font-weight: 600;
-	line-height: 1.4;
+.plan-item-img-wrap {
+	width: 100rpx;
+	height: 100rpx;
+	flex-shrink: 0;
+	border-radius: 16rpx;
+	overflow: hidden;
 }
+.real-item-img {
+	width: 100%;
+	height: 100%;
+	border-radius: 16rpx;
+}
+.fallback-icon-wrap {
+	width: 100rpx;
+	height: 100rpx;
+	background: #F5F5F7;
+	border-radius: 16rpx;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.type-emoji { font-size: 50rpx; opacity: 0.8; }
 
-/* 造型便签 */
+/* 造型便签（「Stylist Note」标题与正文：字号、字体在此调整） */
 .stylist-note {
-	margin-top: 30rpx; background: #FDF7ED; border-radius: 24rpx; padding: 24rpx;
+	margin-top: 0; background: #FDF7ED; border-radius: 24rpx; padding: 24rpx;
 	border-left: 8rpx solid #9D8B70;
+	font-family: "Didot", serif;
 }
 .note-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; }
-.note-title { font-size: 20rpx; color: #9D8B70; font-weight: 800; text-transform: uppercase; }
+.note-title { font-size: 26rpx; color: #9D8B70; font-weight: 800; text-transform: uppercase; }
 .pin-icon { width: 24rpx; height: 24rpx; opacity: 0.3; }
 .note-content { font-size: 24rpx; color: #5C5C5C; line-height: 1.6; }
 
 .fallback-wrap { margin-top: 16rpx; }
 .fallback-text { font-size: 24rpx; color: #2C2C2E; line-height: 1.6; white-space: pre-wrap; }
 
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* --- 入场动画（每日模块依次向上浮现）--- */
+.ai-fade-block {
+	opacity: 0;
+	animation: aiBlockFade 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes aiBlockFade {
+	from {
+		opacity: 0;
+		transform: translateY(20rpx);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
 </style>
