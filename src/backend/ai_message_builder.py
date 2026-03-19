@@ -84,11 +84,13 @@ def _normalize_recommendations(value: Any) -> List[dict]:
             continue
 
         items = _normalize_items(rec.get("items"), with_comment=True)
-        if not items:
+        # 允许 items 为空：风格诊断/分析类推荐可能只有 title、scenario、whyThisWorks 等，无具体单品
+        title = str(rec.get("title") or "Outfit Recommendation").strip()
+        if not title:
             continue
 
         result.append({
-            "title": str(rec.get("title") or "Outfit Recommendation").strip(),
+            "title": title,
             "scenario": str(rec.get("scenario") or "").strip(),
             "strategy": str(rec.get("strategy") or "").strip(),
             "styleTags": _string_list(rec.get("styleTags")),

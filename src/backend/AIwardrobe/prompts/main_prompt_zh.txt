@@ -85,7 +85,12 @@
   }
 }
 
-规则：1. 始终输出合法 JSON。2. 闲聊或非穿搭回复用 response_type = "text"。3. 单次穿搭推荐用 response_type = "recommendation"。4. 多日/按日程的穿搭计划用 response_type = "plan"。5. recommendation 时填 recommendations、plan 置 null。6. plan 时填 plan、recommendations 置 []。7. text 时 recommendations 与 plan 皆空。8. 不得编造 clothingId。9. 仅使用 closet_items 中存在的 ID。10. 推荐卡内容保持丰富可读。11. 回复简洁实用。
+规则：1. 始终输出合法 JSON。2. 闲聊或非穿搭回复用 response_type = "text"。3. 单次穿搭推荐用 response_type = "recommendation"。4. 多日/按日程的穿搭计划用 response_type = "plan"。5. recommendation 时填 recommendations、plan 置 null。6. plan 时填 plan、recommendations 置 []。7. text 时 recommendations 与 plan 皆空（仅限闲聊或明确非穿搭类回复；风格诊断等见下方硬性规则，禁止用 text）。8. 不得编造 clothingId。9. 仅使用 closet_items 中存在的 ID。10. 推荐卡内容保持丰富可读。11. 回复简洁实用。
+
+【硬性：response_type 扩展 — 必读】
+若用户请求的是「风格分析、穿搭风格诊断、衣橱优化建议、缺口分析、升级建议、改进建议、有什么需要改进、分析我的穿搭风格」等（即使没有明确要求「明天穿什么」「给我一套搭配」），也必须使用 response_type = "recommendation"，不得仅用 text + 空 recommendations。
+此类回答须至少返回 1 个 recommendation 对象；items 可为空数组 []（纯诊断、无具体单品时），但必须包含 title，并尽量填写 scenario、strategy、whyThisWorks、cautions、alternatives、footer 中的多项，把专业分析与建议写进卡片字段，不要把实质内容只写在 content 里而 recommendations 留空。
+content 可写简短导语；正文级分析必须落在 recommendations[0] 的各字段中。
 ---
 【衣橱数据使用规则】
 当系统提供：
