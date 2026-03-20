@@ -222,21 +222,21 @@ const toggleRemember = () => {
 const handleLogin = () => {
 	if (!loginForm.value.username) {
 		uni.showToast({
-			title: '请输入用户名',
+			title: 'Please enter your username',
 			icon: 'none'
 		})
 		return
 	}
 	if (!loginForm.value.password) {
 		uni.showToast({
-			title: '请输入密码',
+			title: 'Please enter your password',
 			icon: 'none'
 		})
 		return
 	}
 	
 	uni.showLoading({
-	        title: '登录中...',
+	        title: 'Logging in...',
 	        mask: true
 	    })
 		
@@ -257,9 +257,9 @@ const handleLogin = () => {
 	            
 	            if (res.statusCode === 200) {
 	                if (res.data && res.data.success === true) {
-						console.log('登录成功，获取到 token')
+						console.log('Login successful, token received')
 	                    uni.showToast({
-	                        title: '登录成功',
+	                        title: 'Login successful',
 	                        icon: 'success',
 	                        duration: 1500
 	                    })
@@ -279,22 +279,22 @@ const handleLogin = () => {
 	                    
 	                    // 跳转到主页
 	                    setTimeout(() => {
-	                                    console.log('准备跳转到首页...')
+	                                    console.log('Preparing to navigate to home page...')
 	                                    
 	                                    // 先尝试 reLaunch 重启应用到首页
 	                                    uni.reLaunch({
 	                                        url: '/pages/index/index',
 	                                        success: () => {
-	                                            console.log('跳转首页成功')
+	                                            console.log('Navigated to home page successfully')
 	                                        },
 	                                        fail: (err) => {
-	                                            console.error('跳转首页失败:', err)
+	                                            console.error('Failed to navigate to home page:', err)
 	                                            
 	                                            // 如果 reLaunch 失败，尝试 switchTab
 	                                            uni.switchTab({
 	                                                url: '/pages/index/index',
 	                                                fail: (err2) => {
-	                                                    console.error('switchTab 也失败:', err2)
+	                                                    console.error('switchTab also failed:', err2)
 	                                                    // 最后尝试 navigateTo
 	                                                    uni.navigateTo({
 	                                                        url: '/pages/index/index'
@@ -306,22 +306,22 @@ const handleLogin = () => {
 	                                }, 1500)
 	                    
 	                } else {
-						console.log('登录失败:', res.data.message)
+						console.log('Login failed:', res.data.message)
 	                    uni.showToast({
-	                        title: res.data.message || '登录失败',
+	                        title: res.data.message || 'Login failed',
 	                        icon: 'none',
 	                        duration: 3000
 	                    })
 	                }
 	            } else if (res.statusCode === 401) {
 	                uni.showToast({
-	                    title: res.data.detail || '用户名或密码错误',
+	                    title: res.data.detail || 'Incorrect username or password',
 	                    icon: 'none',
 	                    duration: 3000
 	                })
 	            } else {
 	                uni.showToast({
-	                    title: `服务器错误: ${res.statusCode}`,
+	                    title: `Server error: ${res.statusCode}`,
 	                    icon: 'none',
 	                    duration: 3000
 	                })
@@ -329,9 +329,9 @@ const handleLogin = () => {
 	        },
 	        fail: (err) => {
 	            uni.hideLoading()
-	            console.error('登录请求失败:', err)
+	            console.error('Login request failed:', err)
 	            uni.showToast({
-	                title: '网络错误，请检查后端服务是否启动',
+	                title: 'Network error. Please check if backend service is running',
 	                icon: 'none',
 	                duration: 3000
 	            })
@@ -342,7 +342,7 @@ const handleLogin = () => {
 
 const handleForgotPassword = () => {
 	uni.showToast({
-		title: '忘记密码功能开发中',
+		title: 'Forgot password feature is under development',
 		icon: 'none'
 	})
 }
@@ -371,7 +371,7 @@ const onPasswordBlur = () => {
 const handleRegister = async () => {
 	if (!registerForm.value.email) {
 		uni.showToast({
-			title: '请输入邮箱地址',
+			title: 'Please enter your email address',
 			icon: 'none'
 		})
 		return
@@ -379,7 +379,7 @@ const handleRegister = async () => {
 	
 	if (!validateEmail(registerForm.value.email)) {
 		uni.showToast({
-			title: '请输入有效的邮箱地址',
+			title: 'Please enter a valid email address',
 			icon: 'none'
 		})
 		return
@@ -387,7 +387,7 @@ const handleRegister = async () => {
 	
 	if (!registerForm.value.username) {
 		uni.showToast({
-			title: '请输入用户名',
+			title: 'Please enter your username',
 			icon: 'none'
 		})
 		return
@@ -395,7 +395,7 @@ const handleRegister = async () => {
 	
 	if (!registerForm.value.password) {
 		uni.showToast({
-			title: '请输入密码',
+			title: 'Please enter your password',
 			icon: 'none'
 		})
 		return
@@ -403,7 +403,7 @@ const handleRegister = async () => {
 	
 	if (registerForm.value.password.length < 6) {
 		uni.showToast({
-			title: '密码长度至少 6 位',
+			title: 'Password must be at least 6 characters',
 			icon: 'none'
 		})
 		return
@@ -411,7 +411,7 @@ const handleRegister = async () => {
 	
 	if (!registerForm.value.confirmPassword) {
 		uni.showToast({
-			title: '请确认密码',
+			title: 'Please confirm your password',
 			icon: 'none'
 		})
 		return
@@ -419,7 +419,7 @@ const handleRegister = async () => {
 	
 	if (registerForm.value.password !== registerForm.value.confirmPassword) {
 		uni.showToast({
-			title: '两次输入的密码不一致',
+			title: 'The two passwords do not match',
 			icon: 'none'
 		})
 		passwordMismatch.value = true
@@ -431,11 +431,11 @@ const handleRegister = async () => {
 	
 	try {
 		uni.showLoading({
-			title: '注册中...',
+			title: 'Registering...',
 			mask: true
 		})
 		
-		console.log('发送注册请求:', {
+		console.log('Sending registration request:', {
 			username: registerForm.value.username,
 			email: registerForm.value.email,
 			password: registerForm.value.password,
@@ -457,9 +457,9 @@ const handleRegister = async () => {
 			timeout: 10000
 		})
 		
-		console.log('注册 API 完整响应:', res)
-		console.log('响应状态码:', res.statusCode)
-		console.log('响应数据:', res.data)
+		console.log('Registration API full response:', res)
+		console.log('Response status code:', res.statusCode)
+		console.log('Response data:', res.data)
 		
 		uni.hideLoading()
 		isLoading.value = false
@@ -467,16 +467,16 @@ const handleRegister = async () => {
 		if (res.statusCode === 200) {
 			if (res.data && res.data.success === true) {
 				uni.showToast({
-					title: '注册成功！请登录',
+					title: 'Registration successful! Please log in',
 					icon: 'success',
 					duration: 2000
 				})
 				
-				// 註冊成功後自動切換到 Login tab，並帶上用戶名
+				// 注册成功后自动切换到 Login tab，并带上用户名
 				loginForm.value.username = registerForm.value.username
 				activeTab.value = 'login'
 			} else {
-				const errorMessage = res.data?.message || '注册失败'
+				const errorMessage = res.data?.message || 'Registration failed'
 				uni.showToast({
 					title: errorMessage,
 					icon: 'none',
@@ -485,14 +485,14 @@ const handleRegister = async () => {
 			}
 		} else if (res.statusCode === 400 || res.statusCode === 409) {
 			const errorDetail = res.data?.message || res.data?.detail || ''
-			let errorMessage = '注册失败'
+			let errorMessage = 'Registration failed'
 			
-			if (errorDetail.includes('用户名') || errorDetail.includes('username')) {
-				errorMessage = '用户名已被注册，请换一个用户名'
-			} else if (errorDetail.includes('邮箱') || errorDetail.includes('email')) {
-				errorMessage = '邮箱已被注册，请使用其他邮箱'
+			if (errorDetail.toLowerCase().includes('username')) {
+				errorMessage = 'Username is already registered. Please use another one'
+			} else if (errorDetail.toLowerCase().includes('email')) {
+				errorMessage = 'Email is already registered. Please use another email'
 			} else {
-				errorMessage = errorDetail || '注册失败，请检查输入信息'
+				errorMessage = errorDetail || 'Registration failed. Please check your input'
 			}
 			
 			uni.showToast({
@@ -502,10 +502,10 @@ const handleRegister = async () => {
 			})
 		} else if (res.statusCode === 500) {
 			const errorDetail = res.data?.message || ''
-			let errorMessage = '服务器错误，请稍后重试'
+			let errorMessage = 'Server error. Please try again later'
 			
 			if (errorDetail.includes('create_user')) {
-				errorMessage = '服务器配置错误，请联系管理员'
+				errorMessage = 'Server configuration error. Please contact the administrator'
 			}
 			
 			uni.showToast({
@@ -516,7 +516,7 @@ const handleRegister = async () => {
 		} else {
 			const errorDetail = res.data?.message || res.data?.detail || ''
 			uni.showToast({
-				title: `注册失败: ${errorDetail || res.statusCode}`,
+				title: `Registration failed: ${errorDetail || res.statusCode}`,
 				icon: 'none',
 				duration: 3000
 			})
@@ -525,15 +525,15 @@ const handleRegister = async () => {
 		uni.hideLoading()
 		isLoading.value = false
 		
-		console.error('注册请求异常:', error)
+		console.error('Registration request exception:', error)
 		
-		let errorMessage = '注册失败，请稍后重试'
+		let errorMessage = 'Registration failed. Please try again later'
 		
 		if (error.errMsg) {
 			if (error.errMsg.includes('timeout')) {
-				errorMessage = '请求超时，请检查网络连接'
+				errorMessage = 'Request timed out. Please check your network connection'
 			} else if (error.errMsg.includes('fail')) {
-				errorMessage = '网络请求失败，请检查后端服务是否启动'
+				errorMessage = 'Network request failed. Please check if backend service is running'
 			}
 		}
 		
@@ -628,7 +628,7 @@ const setTab = (tab) => {
 
 .quote-text {
 	display: block;
-	font-size: 44rpx;          /* 約 22px */
+	font-size: 44rpx;          /* 约 22px */
 	font-weight: 500;
 	letter-spacing: 0.6rpx;
 	color: #FFFFFF;
@@ -639,7 +639,7 @@ const setTab = (tab) => {
 
 .quote-author {
 	display: block;
-	font-size: 28rpx;          /* 約 14px */
+	font-size: 28rpx;          /* 约 14px */
 	color: rgba(255, 255, 255, 0.8);
 	text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.3);
 }
@@ -694,14 +694,14 @@ const setTab = (tab) => {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
-	padding-top: 160rpx;  /* 整體往上提 */
+	padding-top: 160rpx;  /* 整体往上提 */
 	animation: loginCardFadeIn 0.6s ease;
 }
 
 .welcome-text {
 	text-align: center;
 	margin-bottom: 30rpx;
-	height: 220rpx;       /* 標題區略收窄，視覺更上移 */
+	height: 220rpx;       /* 标题区略收窄，视觉更上移 */
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
@@ -728,7 +728,7 @@ const setTab = (tab) => {
 
 /* 切换标签 */
 .tab-wrapper {
-	background-color: #EEE8DE;   /* 外層柔和底色 */
+	background-color: #EEE8DE;   /* 外层柔和底色 */
 	padding: 4rpx;
 	border-radius: 28rpx;
 	margin: 0 auto 40rpx auto;
@@ -860,7 +860,7 @@ const setTab = (tab) => {
 	}
 }
 
-/* 整體表單淡入動畫，提升產品感 */
+/* 整体表单淡入动画，提升产品感 */
 @keyframes loginCardFadeIn {
 	from {
 		opacity: 0;
@@ -873,12 +873,12 @@ const setTab = (tab) => {
 }
 
 .form-item {
-	margin: 0 auto 55rpx auto;   /* Register 等通用欄位：間距較小 */
+	margin: 0 auto 55rpx auto;   /* Register 等通用栏位：间距较小 */
 	width: 80%;
 	position: relative;  /* 让错误提示可以绝对定位而不影响布局 */
 }
 
-/* Login 表單：首個欄位與欄位之間間距更大 */
+/* Login 表单：首个栏位与栏位之间间距更大 */
 .form-item-login-first {
 	margin-top: 80rpx;
 	margin-bottom: 100rpx;
@@ -903,10 +903,10 @@ const setTab = (tab) => {
 
 .input {
 	width: 100%;
-	height: 104rpx;                 /* 約 52px */
+	height: 104rpx;                 /* 约 52px */
 	background-color: #F5F5F5;
-	border-radius: 28rpx;           /* 約 14px */
-	padding: 0 36rpx;               /* 約 18px */
+	border-radius: 28rpx;           /* 约 14px */
+	padding: 0 36rpx;               /* 约 18px */
 	font-size: 28rpx;
 	border: none;
 	transition: all 0.2s ease;
@@ -921,7 +921,7 @@ const setTab = (tab) => {
 .input:focus {
 	background-color: #FFFFFF;
 	outline: none;
-	box-shadow: 0 0 0 6rpx rgba(158, 139, 109, 0.18); /* 3px 等效陰影，略更明顯 */
+	box-shadow: 0 0 0 6rpx rgba(158, 139, 109, 0.18); /* 3px 等效阴影，略更明显 */
 }
 
 .input:focus::placeholder {
@@ -1026,10 +1026,10 @@ const setTab = (tab) => {
 .login-btn {
 	width: 40%;
 	max-width: 360rpx;
-	height: 104rpx;                /* 約 52px */
+	height: 104rpx;                /* 约 52px */
 	background-color: #9E8B6D;
 	color: #FFFFFF;
-	border-radius: 28rpx;          /* 約 14px */
+	border-radius: 28rpx;          /* 约 14px */
 	font-size: 32rpx;
 	font-weight: 600;
 	border: none;

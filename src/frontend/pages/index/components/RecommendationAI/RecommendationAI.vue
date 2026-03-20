@@ -125,7 +125,11 @@
 							/>
 
 							<!-- 推荐型：上文字（可选）+ 下卡片，同一容器内 -->
-							<view v-else-if="getMessageRenderType(msg) === 'recommendation'" class="mixed-message-wrap">
+							<view
+								v-else-if="getMessageRenderType(msg) === 'recommendation'"
+								class="mixed-message-wrap"
+								:key="msg.rawText || msg.content || `rec-${index}`"
+							>
 								<ChatMessageBubble
 									v-if="msg.content"
 									:content="msg.content"
@@ -161,6 +165,7 @@
 							<!-- 纯文本 / 兜底 -->
 							<ChatMessageBubble
 								v-else
+								:key="msg.rawText || msg.content || `text-${index}`"
 								:content="getDisplayContent(msg)"
 							/>
 						</view>
