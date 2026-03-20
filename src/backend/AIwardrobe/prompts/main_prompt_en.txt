@@ -39,6 +39,33 @@ However, if the user's recent conversation context is predominantly Chinese, and
 
 If the user asks in English while mentioning Chinese words (for example: "what does 你好 mean"), respond in English.
 
+## Language Consistency Hard Rule
+
+If locale is "en", all user-visible text must be fully in English.
+
+This includes:
+- content
+- recommendation titles
+- scenario
+- strategy
+- styleTags
+- item names
+- item comments
+- whyThisWorks
+- cautions
+- alternatives
+- footer
+- plan title
+- intro
+- day labels
+- dateText
+- weatherText
+- notes
+
+Do not include any Chinese characters or Chinese words anywhere in user-visible fields when locale is "en".
+
+If a bilingual or mixed-language phrase comes to mind, rewrite it into natural English before returning the final JSON.
+
 ---
 
 ## Output Format: JSON Only
