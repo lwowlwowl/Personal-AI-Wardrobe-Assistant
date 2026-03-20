@@ -110,16 +110,23 @@ const formattedContent = computed(() => {
 }
 
 :deep(.question-block) {
-	background: rgba(157, 139, 112, 0.08);
-	border: 1px solid rgba(157, 139, 112, 0.18);
-	border-radius: 20rpx;
-	padding: 18rpx 22rpx;
+	background: transparent;
+	border: none;
+	border-radius: 0;
+	padding: 4rpx 0 4rpx 24rpx;
+	border-left: 6rpx solid rgba(157, 139, 112, 0.4);
+	color: #1D1D1F;
+	font-weight: 500;
+	margin-top: 16rpx;
 }
 
 :deep(.hint-block) {
-	background: #F7F4EE;
-	border-radius: 18rpx;
-	padding: 18rpx 20rpx;
+	background: transparent;
+	border: none;
+	border-radius: 0;
+	padding: 4rpx 0 4rpx 24rpx;
+	border-left: 6rpx solid rgba(52, 199, 89, 0.4);
+	margin-top: 16rpx;
 }
 
 :deep(.bullet-group) {

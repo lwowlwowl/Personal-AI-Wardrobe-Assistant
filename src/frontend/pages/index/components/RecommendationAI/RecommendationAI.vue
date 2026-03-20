@@ -72,11 +72,6 @@
 					</view>
 				</view>
 
-				<view class="search-tabs">
-					<text class="tab-text" :class="{ active: activeTab === 'wardrobe' }" @click="setActiveTab('wardrobe')">My Wardrobe</text>
-					<view class="tab-divider"></view>
-					<text class="tab-text" :class="{ active: activeTab === 'online' }" @click="setActiveTab('online')">Online Search</text>
-				</view>
 			</view>
 		</scroll-view>
 
@@ -247,11 +242,6 @@
 				</view>
 			</view>
 
-			<view class="search-tabs">
-				<text class="tab-text" :class="{ active: activeTab === 'wardrobe' }" @click="setActiveTab('wardrobe')">My Wardrobe</text>
-				<view class="tab-divider"></view>
-				<text class="tab-text" :class="{ active: activeTab === 'online' }" @click="setActiveTab('online')">Online Search</text>
-			</view>
 		</view>
 	</view>
 </template>
@@ -274,7 +264,6 @@ const props = defineProps({
 
 const emit = defineEmits(['create-conversation', 'update-conversation'])
 
-const activeTab = ref('wardrobe')
 const searchQuery = ref('')
 const hasSearched = ref(false)
 
@@ -585,10 +574,6 @@ watch(
 	},
 	{ immediate: true }
 )
-
-const setActiveTab = (tab) => {
-	activeTab.value = tab
-}
 
 const scrollToBottom = () => {
 	nextTick(() => {
@@ -1260,7 +1245,7 @@ const previewImages = (urls, index = 0) => {
 
 .message-list {
 	width: 100%;
-	padding: 40rpx 40rpx 40rpx 40rpx;
+	padding: 40rpx 40rpx 320rpx 40rpx;
 	display: flex;
 	flex-direction: column;
 	min-height: 100%;
@@ -1273,7 +1258,7 @@ const previewImages = (urls, index = 0) => {
 
 /* 底部占位，为固定输入框 box 留出空间 */
 .spacer {
-	height: 230rpx;
+	height: 320rpx;
 }
 
 /* 对话气泡 - 左右分栏布局 */
@@ -1407,13 +1392,14 @@ const previewImages = (urls, index = 0) => {
 	left: 0;
 	right: 0;
 	width: 100%;
-	padding-top: 40rpx;
-	padding-bottom: 35rpx;
-	background-color: #FDFBF7;
+	padding-top: 50rpx;
+	padding-bottom: 56rpx;
+	background: linear-gradient(180deg, rgba(253, 251, 247, 0) 0%, rgba(253, 251, 247, 0.82) 34%, rgba(253, 251, 247, 1) 100%);
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	z-index: 10;
+	pointer-events: none;
 }
 
 /* 输入框容器 */
@@ -1423,12 +1409,14 @@ const previewImages = (urls, index = 0) => {
 	flex-direction: column;
 	align-items: center;
 	transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+	pointer-events: none;
 }
 
 /* 初始状态：在滚动流内，随问候语同步 */
 .input-container.input-in-flow {
 	flex-shrink: 0;
 	margin-top: 80rpx;
+	pointer-events: auto;
 }
 
 /* 聊天状态：固定在底部（在 input-box-wrapper 内，无需绝对定位） */
@@ -1503,16 +1491,19 @@ const previewImages = (urls, index = 0) => {
 
 /* 搜索条保持原有长度，不随容器变宽；多行时高度可变 */
 .search-bar {
+	pointer-events: auto;
 	width: 1400rpx; 
 	max-width: 90%; 
 	min-height: 100rpx;
-	background-color: #FFFFFF;
+	background: rgba(255, 255, 255, 0.66);
+	backdrop-filter: blur(24px);
+	-webkit-backdrop-filter: blur(24px);
 	border-radius: 50rpx;
 	display: flex;
 	flex-direction: column;
 	align-items: stretch;
-	border: 2rpx solid #1D1D1F; 
-	box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.08); 
+	border: 1px solid rgba(255, 255, 255, 0.88);
+	box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.06), 0 4rpx 12rpx rgba(0, 0, 0, 0.02);
 	transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
@@ -1596,6 +1587,7 @@ const previewImages = (urls, index = 0) => {
 	align-self: center;
 	box-sizing: border-box;
 	vertical-align: middle;
+	transition: height 0.2s ease;
 }
 
 
@@ -1631,37 +1623,4 @@ const previewImages = (urls, index = 0) => {
 	filter: brightness(0) invert(1);
 }
 
-/* 底部标签（初始状态内，位于输入框下方） */
-.search-tabs {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 24rpx;
-	transition: opacity 0.3s ease;
-	flex-shrink: 0;
-	margin-top: 25rpx;
-}
-
-.tab-text {
-	font-size: 26rpx;
-	color: #A0A0A0; /* 未选中时灰色 */
-	cursor: pointer;
-	font-family: "Didot", serif;
-	font-weight: 600;
-	transition: color 0.2s;
-}
-
-.tab-text.active {
-	color: #8C7B60; /* 激活时深灰褐色 */
-	text-decoration: underline;
-	text-decoration-color: #DDD; /* 模拟下划线效果 */
-	text-underline-offset: 4px;
-}
-
-/* 垂直分割线 */
-.tab-divider {
-	width: 1px;
-	height: 24rpx;
-	background-color: #D1D1D1;
-}
 </style>
