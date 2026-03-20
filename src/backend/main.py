@@ -17,6 +17,10 @@ import traceback
 import models, schemas, crud
 from database import engine, get_db
 
+import io
+import base64
+import logging
+
 import os
 import sys
 import time
@@ -41,6 +45,8 @@ from AIwardrobe.services.weather_cache import (
 from AIwardrobe.utils.database_retriever import build_agent_context
 from langchain_core.messages import HumanMessage, SystemMessage
 
+_log = logging.getLogger(__name__)
+
 # ============ 路径配置 ============
 # 项目根目录：.../Personal-AI-Wardrobe-Assistant
 BASE_DIR = PathLib(__file__).resolve().parents[2]
@@ -57,6 +63,20 @@ try:
             dotenv.load_dotenv(_env_path, override=False)
 except Exception:
     pass
+
+# 虚拟试穿：在加载 .env 之后再读 COMFYUI_SERVER（与 yuchen_backend 联调一致）
+try:
+    from comfyui_client import comfyui_client, build_virtual_tryon_workflow
+
+    _comfy_addr = os.environ.get("COMFYUI_SERVER", "http://127.0.0.1:8118").rstrip("/")
+    comfyui_client.server_address = _comfy_addr
+    COMFYUI_AVAILABLE = True
+    _log.info("ComfyUI 虚拟试穿已启用，地址: %s", comfyui_client.server_address)
+except ImportError as _e:
+    comfyui_client = None  # type: ignore
+    build_virtual_tryon_workflow = None  # type: ignore
+    COMFYUI_AVAILABLE = False
+    _log.warning("ComfyUI 虚拟试穿未启用（缺少依赖或 comfyui_client）: %s", _e)
 
 UPLOAD_URL_PREFIX = "/Personal-AI-Wardrobe-Assistant/uploads"
 UPLOAD_DIR = BASE_DIR / "uploads"
@@ -113,7 +133,22 @@ async def root():
 @app.get("/api/health")
 async def health_check():
     """健康检查接口：用于监控服务状态"""
-    return {"status": "healthy", "message": "API is running"}
+    out: Dict[str, Any] = {"status": "healthy", "message": "API is running"}
+    if COMFYUI_AVAILABLE and comfyui_client:
+        out["virtual_tryon"] = {
+            "enabled": True,
+            "comfyui_server": comfyui_client.server_address,
+        }
+        try:
+            import requests as _req
+
+            _r = _req.get(f"{comfyui_client.server_address}/system_stats", timeout=3)
+            out["virtual_tryon"]["comfyui_reachable"] = _r.status_code == 200
+        except Exception:
+            out["virtual_tryon"]["comfyui_reachable"] = False
+    else:
+        out["virtual_tryon"] = {"enabled": False}
+    return out
 
 
 # ============ 天气接口（基于用户经纬度，供前端 RecommendationAI 穿衣建议） ============
@@ -483,6 +518,160 @@ async def verify_token(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"验证token时发生错误: {str(e)}"
+        )
+
+
+# ============ 虚拟试穿（VirtualTryOn，ComfyUI 联调）============
+def _virtual_tryon_clean_token(raw: Optional[str]) -> str:
+    if raw is None:
+        return ""
+    s = str(raw).strip().strip('"').strip("'")
+    return s
+
+
+if COMFYUI_AVAILABLE:
+    @app.post("/api/virtual-try-on/upload-image")
+    async def upload_virtual_tryon_image(
+        file: UploadFile = File(...),
+        token: str = Form(...),
+        image_type: Optional[str] = Form(None),
+        db: Session = Depends(get_db),
+    ):
+        """
+        上传人物/服装图到 ComfyUI；需有效 JWT。
+        image_type 由前端传入（person / clothing），仅作记录，上传逻辑相同。
+        """
+        _ = image_type  # 与 yuchen 联调前端保持一致
+        t = _virtual_tryon_clean_token(token)
+        payload = crud.verify_access_token(t) if t else None
+        if not payload:
+            raise HTTPException(status_code=401, detail="未授权：Token 失效")
+
+        user = crud.get_user_by_id(db, payload.get("user_id"))
+        if not user or not user.is_active:
+            raise HTTPException(status_code=403, detail="账号状态异常")
+
+        try:
+            content = await file.read()
+            res = comfyui_client.upload_image(content, filename=file.filename)
+            if not res:
+                raise HTTPException(
+                    status_code=503,
+                    detail="ComfyUI 未响应，请确认 ComfyUI 已启动且地址正确（可用环境变量 COMFYUI_SERVER 配置）",
+                )
+            name = res.get("name")
+            return {"success": True, "filename": name, "data": {"filename": name}}
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"[virtual-try-on] upload-image 错误: {traceback.format_exc()}")
+            raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
+
+    @app.post("/api/virtual-try-on/generate")
+    async def generate_virtual_tryon(
+        body: schemas.VirtualTryOnGenerateRequest,
+        db: Session = Depends(get_db),
+    ):
+        """
+        提交 ComfyUI 工作流并返回结果图。
+        返回格式与 frontend/yuchen_frontend 的 VirtualTryOn.vue 一致：success + data.result_image（data URL）。
+        """
+        t = _virtual_tryon_clean_token(body.token)
+        if not t:
+            return JSONResponse(
+                status_code=200,
+                content={"success": False, "message": "请先登录"},
+            )
+        payload = crud.verify_access_token(t)
+        if not payload:
+            return JSONResponse(
+                status_code=200,
+                content={"success": False, "message": "未授权：Token 失效"},
+            )
+        user = crud.get_user_by_id(db, payload.get("user_id"))
+        if not user or not user.is_active:
+            return JSONResponse(
+                status_code=200,
+                content={"success": False, "message": "账号状态异常"},
+            )
+
+        try:
+            workflow = build_virtual_tryon_workflow(
+                person_image=body.person_image,
+                clothing_image=body.clothing_image,
+                accessory_image=None,
+                model_type=body.model_type or "2509",
+                prompt_text=body.prompt or "",
+            )
+            prompt_id = comfyui_client.queue_prompt(workflow)
+            if not prompt_id:
+                return JSONResponse(
+                    status_code=200,
+                    content={"success": False, "message": "ComfyUI 队列满或连接失败"},
+                )
+
+            result = comfyui_client.wait_for_completion(prompt_id)
+            output_images = (result or {}).get("outputs", {})
+            if "60" not in output_images:
+                return JSONResponse(
+                    status_code=200,
+                    content={"success": False, "message": "未能生成图片结果（工作流输出节点 60 无数据）"},
+                )
+
+            images = output_images["60"].get("images", [])
+            if not images:
+                return JSONResponse(
+                    status_code=200,
+                    content={"success": False, "message": "未能生成图片结果"},
+                )
+
+            img_info = images[0]
+            img_bytes = comfyui_client.get_image(
+                filename=img_info["filename"],
+                subfolder=img_info.get("subfolder", ""),
+                folder_type=img_info.get("type", "output"),
+            )
+            if not img_bytes:
+                return JSONResponse(
+                    status_code=200,
+                    content={"success": False, "message": "无法读取生成图片"},
+                )
+
+            b64 = base64.b64encode(img_bytes).decode("ascii")
+            data_url = f"data:image/png;base64,{b64}"
+            return {
+                "success": True,
+                "data": {"result_image": data_url},
+            }
+        except HTTPException as he:
+            return JSONResponse(
+                status_code=200,
+                content={"success": False, "message": str(he.detail)},
+            )
+        except Exception as e:
+            print(f"[virtual-try-on] generate 错误: {traceback.format_exc()}")
+            return JSONResponse(
+                status_code=200,
+                content={"success": False, "message": f"生成失败: {str(e)}"},
+            )
+
+else:
+
+    @app.post("/api/virtual-try-on/upload-image")
+    async def upload_virtual_tryon_disabled():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "success": False,
+                "message": "虚拟试穿未启用：请确认 backend 目录下存在 comfyui_client.py 与 qwen_edit_v1.json",
+            },
+        )
+
+    @app.post("/api/virtual-try-on/generate")
+    async def generate_virtual_tryon_disabled():
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "message": "虚拟试穿未启用"},
         )
 
 
