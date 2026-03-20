@@ -143,6 +143,9 @@
 												:locale="msg.locale || 'en'"
 												@regenerate="handleRegenerate(index)"
 												@preview-images="previewImages"
+												@virtual-try-on="handleRecommendationVirtualTryOn"
+												@add-to-calendar="handleAddRecommendationToCalendar"
+												@full-outfit-try-on="handleFullOutfitTryOn"
 											/>
 										</swiper-item>
 									</swiper>
@@ -153,6 +156,9 @@
 										:locale="msg.locale || 'en'"
 										@regenerate="handleRegenerate(index)"
 										@preview-images="previewImages"
+										@virtual-try-on="handleRecommendationVirtualTryOn"
+										@add-to-calendar="handleAddRecommendationToCalendar"
+										@full-outfit-try-on="handleFullOutfitTryOn"
 									/>
 								</view>
 							</view>
@@ -253,7 +259,9 @@ import ChatMessageBubble from './ChatMessageBubble.vue'
 import PlanScheduleCard from './PlanScheduleCard.vue'
 import { LOADING_STEPS, normalizeChatResponse } from './chatContentAdapter.js'
 import { chatRecommendation, getWeatherNow } from '@/api/recommendationApi.js'
-import { getClothingList, API_BASE_URL } from '@/api/wardrobe.js'
+import { getClothingList, getPrimaryModelPhoto, API_BASE_URL } from '@/api/wardrobe.js'
+import { getCalendarOutfits, saveCalendarOutfits } from '@/api/calendarApi.js'
+import { getOutfitTryOnSortIndex, buildOutfitTryOnStepLabel } from './recommendationOutfitOrder.js'
 
 const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false },
@@ -262,7 +270,156 @@ const props = defineProps({
 	currentConversation: { type: Object, default: null }
 })
 
-const emit = defineEmits(['create-conversation', 'update-conversation'])
+const emit = defineEmits(['create-conversation', 'update-conversation', 'switch-to-tryon', 'switch-to-full-outfit-tryon', 'calendar-updated'])
+
+const handleRecommendationVirtualTryOn = async (item) => {
+	if (!item?.image) {
+		uni.showToast({ title: 'No image for this item — try-on needs a photo.', icon: 'none' })
+		return
+	}
+	const defaultPersonImage = await fetchPrimaryModelImageUrl()
+	emit('switch-to-tryon', item, defaultPersonImage)
+}
+
+function recItemTryOnImageUrl(item) {
+	if (!item || typeof item !== 'object') return ''
+	if (item.image) return String(item.image)
+	const arr = item.images
+	if (Array.isArray(arr) && arr[0]) return String(arr[0])
+	return ''
+}
+
+const handleFullOutfitTryOn = async (recommendation) => {
+	if (!props.isLoggedIn) {
+		uni.showToast({ title: 'Please log in first', icon: 'none' })
+		return
+	}
+	const items = recommendation?.items
+	if (!Array.isArray(items) || items.length === 0) {
+		uni.showToast({ title: 'No items in this look', icon: 'none' })
+		return
+	}
+	const decorated = items
+		.map((it, idx) => ({ it, idx, url: recItemTryOnImageUrl(it) }))
+		.filter((x) => x.url)
+	if (decorated.length === 0) {
+		uni.showToast({ title: 'No images in this look', icon: 'none' })
+		return
+	}
+	decorated.sort((a, b) => {
+		const d = getOutfitTryOnSortIndex(a.it.type) - getOutfitTryOnSortIndex(b.it.type)
+		if (d !== 0) return d
+		return a.idx - b.idx
+	})
+	const outfitQueue = decorated.map((x) => ({
+		image: x.url,
+		label: buildOutfitTryOnStepLabel(x.it)
+	}))
+	const personImage = await fetchPrimaryModelImageUrl()
+	emit('switch-to-full-outfit-tryon', { personImage, outfitQueue })
+}
+
+function toTodayDateKey() {
+	const d = new Date()
+	const y = d.getFullYear()
+	const m = String(d.getMonth() + 1).padStart(2, '0')
+	const day = String(d.getDate()).padStart(2, '0')
+	return `${y}-${m}-${day}`
+}
+
+function resolveRecItemClothingId(item) {
+	let id = item?.clothingId ?? item?.clothing_id
+	if ((id == null || id === '') && typeof item?.name === 'string') {
+		const m = item.name.match(/[\(（]\s*id\s*[:：]\s*(\d+)\s*[\)）]/i)
+		if (m) id = Number(m[1])
+	}
+	if (id == null || id === '') return null
+	const n = Number(id)
+	return Number.isFinite(n) ? n : null
+}
+
+async function handleAddRecommendationToCalendar(recommendation) {
+	if (!props.isLoggedIn) {
+		uni.showToast({ title: 'Please log in first', icon: 'none' })
+		return
+	}
+	const token = getAuthToken()
+	if (!token) {
+		uni.showToast({ title: 'Please log in first', icon: 'none' })
+		return
+	}
+	const recItems = recommendation?.items
+	if (!Array.isArray(recItems) || recItems.length === 0) {
+		uni.showToast({ title: 'No items in this look', icon: 'none' })
+		return
+	}
+	await fetchMyWardrobe()
+
+	const newById = new Map()
+	for (const item of recItems) {
+		const cid = resolveRecItemClothingId(item)
+		if (cid == null || newById.has(cid)) continue
+		const cloth = myWardrobeList.value.find(c => Number(c?.id) === cid)
+		const rawName = cloth?.name || item.name || 'Item'
+		const name = String(rawName).replace(/\s*[\(（]\s*id\s*[:：]\s*[A-Za-z0-9_]+\s*[\)）]\s*/gi, '').trim() || 'Item'
+		let image = cloth?.image || item.image || ''
+		if (image && typeof image === 'string' && image.startsWith('/') && !image.startsWith('//')) {
+			image = `${API_BASE_URL}${image}`
+		}
+		newById.set(cid, {
+			id: cid,
+			name,
+			image,
+			accentColor: '#8d6e63'
+		})
+	}
+	if (newById.size === 0) {
+		uni.showToast({ title: 'No wardrobe-linked items in this recommendation', icon: 'none' })
+		return
+	}
+
+	const today = new Date()
+	const dateKey = toTodayDateKey()
+	const year = today.getFullYear()
+	const month = today.getMonth() + 1
+
+	try {
+		const res = await getCalendarOutfits({ token, year, month })
+		const merged = new Map()
+		if (res.statusCode === 200 && res.data?.success && res.data.data?.outfits) {
+			const existing = res.data.data.outfits[dateKey] || []
+			for (const e of existing) {
+				if (e.id == null) continue
+				const id = Number(e.id)
+				if (!Number.isFinite(id)) continue
+				let img = e.image || ''
+				if (img && typeof img === 'string' && img.startsWith('/') && !img.startsWith('//')) {
+					img = `${API_BASE_URL}${img}`
+				}
+				merged.set(id, {
+					id,
+					name: e.name || '',
+					image: img,
+					accentColor: e.accentColor || '#8d6e63'
+				})
+			}
+		}
+		for (const [id, entry] of newById) {
+			merged.set(id, entry)
+		}
+		const payload = [...merged.values()]
+		const saveRes = await saveCalendarOutfits({ token, date: dateKey, items: payload })
+		if (saveRes.statusCode === 200 && saveRes.data?.success) {
+			uni.showToast({ title: 'Added to today on calendar', icon: 'success' })
+			emit('calendar-updated')
+		} else {
+			const msg = saveRes.data?.detail || saveRes.data?.message || 'Could not save calendar'
+			uni.showToast({ title: typeof msg === 'string' ? msg : 'Could not save calendar', icon: 'none' })
+		}
+	} catch (e) {
+		uni.showToast({ title: 'Could not save calendar', icon: 'none' })
+	}
+}
 
 const searchQuery = ref('')
 const hasSearched = ref(false)
@@ -300,7 +457,7 @@ async function fetchWeatherForCoords(lat, lon) {
 		}
 		setWeatherReady()
 	} catch (err) {
-		console.warn('[RecommendationAI] 天气请求失败', err?.message || err)
+		console.warn('[RecommendationAI] Weather request failed', err?.message || err)
 		setWeatherReady()
 	}
 }
@@ -357,6 +514,21 @@ function buildImageUrl(imageUrl) {
 	return `${API_BASE_URL}/${imageUrl}`
 }
 
+async function fetchPrimaryModelImageUrl() {
+	const token = getAuthToken()
+	if (!token) return null
+	try {
+		const res = await getPrimaryModelPhoto(token)
+		if (res?.statusCode !== 200 || !res.data?.success || !res.data?.data) return null
+		const photo = res.data.data
+		const raw = photo.image_url || photo.imageUrl || ''
+		const url = buildImageUrl(raw)
+		return url || null
+	} catch {
+		return null
+	}
+}
+
 async function fetchMyWardrobe() {
 	if (!props.isLoggedIn) {
 		myWardrobeList.value = []
@@ -388,7 +560,7 @@ async function fetchMyWardrobe() {
 			}))
 		}
 	} catch (err) {
-		console.warn('[RecommendationAI] 拉取衣櫥資料失敗', err?.message || err)
+		console.warn('[RecommendationAI] Failed to load wardrobe data', err?.message || err)
 	}
 }
 
@@ -427,12 +599,12 @@ function attachImagesToAiMessage(msg) {
 			if (id == null || id === '') continue
 			const needle = Number(id)
 			if (!Number.isFinite(needle)) continue
+			item.clothingId = needle
 			const cloth = myWardrobeList.value.find(c => Number(c?.id) === needle)
-			if (!cloth || !cloth.image) continue
-
-			// 精準 ID 命中：直接覆寫圖片字段
-			item.image = cloth.image
-			item.images = [cloth.image]
+			if (cloth?.image) {
+				item.image = cloth.image
+				item.images = [cloth.image]
+			}
 		}
 	}
 
@@ -605,7 +777,7 @@ const handleSearch = async () => {
 	chatHistory.value.push(userMsg)
 
 	if (isNewSession || isPendingSession) {
-		const title = (query || '新对话').slice(0, 36)
+		const title = (query || 'New chat').slice(0, 36)
 		const payload = { title, firstMessage: userMsg }
 		if (isPendingSession) payload.id = props.currentConversationId
 		emit('create-conversation', payload)
@@ -714,7 +886,7 @@ const handleSearch = async () => {
 			const cid = props.currentConversationId
 			if (cid) {
 				const payload = { id: cid, messages: [...chatHistory.value] }
-				if (isFirstMessageInConversation) payload.title = (query || '新对话').slice(0, 36)
+				if (isFirstMessageInConversation) payload.title = (query || 'New chat').slice(0, 36)
 				emit('update-conversation', payload)
 			}
 			scrollToBottom()
@@ -736,9 +908,9 @@ const handleSearch = async () => {
 	} catch (err) {
 		finishLoading({
 			role: 'ai',
-			content: '请求失败：' + (err && err.message ? err.message : '网络错误')
+			content: 'Request failed: ' + (err && err.message ? err.message : 'Network error')
 		})
-		uni.showToast({ title: '推荐请求失败', icon: 'none' })
+		uni.showToast({ title: 'Recommendation request failed', icon: 'none' })
 	}
 }
 
@@ -764,7 +936,7 @@ const handleDropImage = (e) => {
 
 	const remain = MAX_UPLOAD_IMAGES - uploadedImages.value.length
 	if (remain <= 0) {
-		uni.showToast({ title: `最多只能上传 ${MAX_UPLOAD_IMAGES} 张图片`, icon: 'none' })
+		uni.showToast({ title: `You can upload at most ${MAX_UPLOAD_IMAGES} images`, icon: 'none' })
 		return
 	}
 
@@ -773,7 +945,7 @@ const handleDropImage = (e) => {
 		.slice(0, remain)
 
 	if (files.length === 0) {
-		uni.showToast({ title: '请拖入图片文件', icon: 'none' })
+		uni.showToast({ title: 'Please drop image files', icon: 'none' })
 		return
 	}
 
@@ -786,7 +958,7 @@ const handleAdd = () => {
 	const remain = MAX_UPLOAD_IMAGES - uploadedImages.value.length
 	if (remain <= 0) {
 		uni.showToast({
-			title: `最多只能上传 ${MAX_UPLOAD_IMAGES} 张图片`,
+			title: `You can upload at most ${MAX_UPLOAD_IMAGES} images`,
 			icon: 'none',
 			duration: 2000
 		})
@@ -804,14 +976,14 @@ const handleAdd = () => {
 
 			if (selectedCount > remain) {
 				uni.showToast({
-					title: `最多只能上传 ${MAX_UPLOAD_IMAGES} 张图片，已自动添加 ${remain} 张`,
+					title: `You can upload at most ${MAX_UPLOAD_IMAGES} images; added ${remain}`,
 					icon: 'none',
 					duration: 2500
 				})
 			}
 		},
 		fail: (err) => {
-			console.error('选择图片失败:', err)
+			console.error('[RecommendationAI] chooseImage failed:', err)
 		}
 	})
 }

@@ -96,7 +96,7 @@
 									<view class="user-menu-avatar-wrap" @click="handleChooseAvatar">
 										<image v-if="userProfile?.avatar_url" :src="userAvatarUrl(userProfile.avatar_url)" mode="aspectFill" class="user-menu-avatar-img"></image>
 										<image v-else src="/static/icons/icon-user.svg" mode="aspectFit" class="user-menu-avatar-icon"></image>
-										<text v-if="uploadingAvatar" class="user-menu-avatar-loading">上傳中…</text>
+										<text v-if="uploadingAvatar" class="user-menu-avatar-loading">Uploading…</text>
 									</view>
 									<text class="user-menu-username">{{ userProfile?.username || displayUserName }}</text>
 								</view>
@@ -142,14 +142,18 @@
 						:current-conversation="conversationState.currentConversation"
 						@create-conversation="(e) => conversationSidebarRef?.handleCreateConversation(e)"
 						@update-conversation="(e) => conversationSidebarRef?.handleUpdateConversation(e)"
+						@switch-to-tryon="handleSwitchToTryon"
+						@switch-to-full-outfit-tryon="handleSwitchToFullOutfitTryon"
+						@calendar-updated="() => myCalendarRef?.refetch?.()"
 					/>
 					<VirtualTryOn
 					v-else-if="activeMenu === 'tryon'"
-					:key="'tryon-' + (initialClothingForTryon || '') + '-' + (initialPersonImageForTryon || '')"
+					:key="'tryon-' + tryonMountKey"
 					:is-logged-in="isLoggedIn"
 					:main-content-ref="mainContentRef"
 					:initial-clothing-image="initialClothingForTryon || null"
 					:initial-person-image="initialPersonImageForTryon || null"
+					:initial-outfit-queue="initialOutfitQueueForTryon || []"
 				/>
 					<WardrobeView
 						v-else-if="activeMenu === 'wardrobe'"
@@ -190,6 +194,9 @@ const mainContentRef = ref(null)
 const conversationSidebarRef = ref(null)
 const initialClothingForTryon = ref(null)
 const initialPersonImageForTryon = ref(null)
+/** Full outfit try-on: chain each garment; each result becomes the next "person" image */
+const initialOutfitQueueForTryon = ref(null)
+const tryonMountKey = ref(0)
 
 // 由 ConversationSidebar 同步过来，仅用于传给 RecommendationAI
 const conversationState = ref({
@@ -204,7 +211,7 @@ const isLoggedIn = ref(false)
 // 当前用户资料（登录后由 getUsersMe 拉取，含头像、邮箱）
 const userProfile = ref(null)
 
-// 供子组件（如 WardrobeView）在 checkAuthStatus 后同步登入状态
+// 供子组件（如 WardrobeView）在 checkAuthStatus 后同步登录状态
 const updateAuthState = (loggedIn, username) => {
 	isLoggedIn.value = !!loggedIn
 	displayUserName.value = loggedIn && username ? username : 'Guest User'
@@ -348,6 +355,7 @@ const setActiveMenu = (menu) => {
 	if (menu !== 'tryon') {
 		initialClothingForTryon.value = null
 		initialPersonImageForTryon.value = null
+		initialOutfitQueueForTryon.value = null
 	}
 	if (menu === 'calendar') {
 		nextTick(() => {
@@ -361,8 +369,38 @@ const toggleSidebar = () => {
 }
 
 const handleSwitchToTryon = (item, defaultModelImage) => {
+	initialOutfitQueueForTryon.value = null
 	initialClothingForTryon.value = item?.image ?? null
 	initialPersonImageForTryon.value = defaultModelImage ?? null
+	tryonMountKey.value += 1
+	nextTick(() => {
+		activeMenu.value = 'tryon'
+	})
+}
+
+const normalizeOutfitQueuePayload = (payload) => {
+	const q = payload?.outfitQueue
+	if (Array.isArray(q) && q.length > 0) {
+		return q
+			.map((e, i) => {
+				if (typeof e === 'string') return { image: e, label: `Garment ${i + 1}` }
+				const image = e?.image || e?.url || ''
+				const label = String(e?.label || '').trim() || `Step ${i + 1}`
+				return image ? { image, label } : null
+			})
+			.filter(Boolean)
+	}
+	const urls = Array.isArray(payload?.clothingUrls) ? payload.clothingUrls.filter(Boolean) : []
+	if (urls.length === 0) return null
+	return urls.map((url, i) => ({ image: url, label: `Garment ${i + 1}` }))
+}
+
+const handleSwitchToFullOutfitTryon = (payload) => {
+	const normalized = normalizeOutfitQueuePayload(payload)
+	initialClothingForTryon.value = null
+	initialPersonImageForTryon.value = payload?.personImage ?? null
+	initialOutfitQueueForTryon.value = normalized && normalized.length > 0 ? normalized : null
+	tryonMountKey.value += 1
 	nextTick(() => {
 		activeMenu.value = 'tryon'
 	})
@@ -535,7 +573,7 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	width: 20px;
 	height: 20px;
 }
-/* 底部左側頭像：圓圈大小只改這裡 .avatar-circle 的 width/height 即可 */
+/* 底部左侧头像：圆圈大小只改这里 .avatar-circle 的 width/height 即可 */
 .footer-avatar-wrap {
 	width: 80rpx;
 	height: 80rpx;
@@ -645,7 +683,7 @@ const handleSwitchToTryon = (item, defaultModelImage) => {
 	overflow: hidden;
 	z-index: 100;
 }
-/* 摺疊時彈層只顯示圖示，保持足夠寬度不擠在一起 */
+/* 折叠时弹层只显示图示，保持足够宽度不挤在一起 */
 .user-menu-popup--collapsed {
 	min-width: 125rpx;
 	left: 50%;

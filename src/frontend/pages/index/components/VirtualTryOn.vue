@@ -68,7 +68,46 @@
     </view>
    </view>
 
+   <view v-if="parsedOutfitQueue.length > 0" class="outfit-order-panel">
+    <text class="outfit-order-title">Try-on order</text>
+    <text class="outfit-order-sub">Garments are applied one at a time; each result becomes the model for the next step.</text>
+    <view class="outfit-order-list">
+     <view
+      v-for="(step, si) in parsedOutfitQueue"
+      :key="si"
+      class="outfit-order-row"
+      :class="{
+       'is-done': outfitStepState(si).done,
+       'is-current': outfitStepState(si).current,
+       'is-pending': outfitStepState(si).pending
+      }"
+     >
+      <text class="outfit-order-idx">{{ si + 1 }}</text>
+      <view class="outfit-order-thumb-wrap">
+       <image
+        v-if="step.image"
+        :src="step.image"
+        mode="aspectFill"
+        class="outfit-order-thumb"
+       />
+       <view v-else class="outfit-order-thumb outfit-order-thumb--empty">
+        <text class="outfit-order-thumb-ph">—</text>
+       </view>
+      </view>
+      <view class="outfit-order-main">
+       <text class="outfit-order-label">{{ step.label }}</text>
+       <text v-if="outfitStepState(si).current" class="outfit-order-badge">In progress</text>
+      </view>
+      <text v-if="outfitStepState(si).done" class="outfit-order-check">✓</text>
+      <text v-else-if="outfitStepState(si).pending" class="outfit-order-pending">···</text>
+     </view>
+    </view>
+   </view>
+
    <view class="action-section">
+    <view v-if="outfitProgressText" class="pipeline-hint">
+     <text class="pipeline-hint-text">{{ outfitProgressText }}</text>
+    </view>
     <button
      class="generate-btn"
      :disabled="!canGenerate"
@@ -106,7 +145,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import { API_BASE_URL } from '@/api/wardrobe.js'
 
 const props = defineProps({
@@ -122,6 +161,11 @@ const props = defineProps({
   initialPersonImage: {
    type: String,
    default: null
+  },
+  /** 多件衣服：依序試穿，上一張結果作為下一張的 person（後端仍為單次 person+cloth） */
+  initialOutfitQueue: {
+   type: Array,
+   default: () => []
   }
 })
 
@@ -158,6 +202,47 @@ const draggingTarget = ref(null) // 用于控制拖拽时的 UI 高亮
 const showResult = ref(false) // 控制结果区域的显示/隐藏
 const isLoading = ref(false) // 控制加载状态
 const resultZoneRef = ref(null) // 结果区域的引用
+const outfitProgressText = ref('')
+const isPipelineRunning = ref(false)
+/** -1 = idle; 0..n-1 = current step; n = all steps finished (show all ✓) */
+const outfitPipelineStepIndex = ref(-1)
+
+function parseOutfitQueueProp(raw) {
+  if (!Array.isArray(raw) || raw.length === 0) return []
+  return raw
+   .map((e, i) => {
+    if (typeof e === 'string') {
+     return { image: e, label: `Garment ${i + 1}` }
+    }
+    const image = e?.image || e?.url || ''
+    const label = String(e?.label || '').trim() || `Step ${i + 1}`
+    return image ? { image, label } : null
+   })
+   .filter(Boolean)
+}
+
+const parsedOutfitQueue = computed(() => parseOutfitQueueProp(props.initialOutfitQueue))
+
+function outfitStepState(si) {
+  const n = parsedOutfitQueue.value.length
+  const idx = outfitPipelineStepIndex.value
+  if (n === 0) return { done: false, current: false, pending: true }
+  if (idx < 0) return { done: false, current: false, pending: true }
+  if (idx >= n) return { done: true, current: false, pending: false }
+  if (si < idx) return { done: true, current: false, pending: false }
+  if (si === idx && isPipelineRunning.value) return { done: false, current: true, pending: false }
+  return { done: false, current: false, pending: true }
+}
+
+watch(
+  () => props.initialOutfitQueue,
+  () => {
+   if (parseOutfitQueueProp(props.initialOutfitQueue).length === 0) {
+    outfitPipelineStepIndex.value = -1
+   }
+  },
+  { deep: true }
+)
 
 // --- 核心：Token 获取与清洗 ---
 // 解决 "Not enough segments" 的关键：去除可能存在的双引号和空格
@@ -252,7 +337,7 @@ const scrollToBottom = (element) => {
 }
 
 const canGenerate = computed(() => {
-  return personImg.value && clothingImg.value
+  return !!(personImg.value && clothingImg.value && !isPipelineRunning.value)
 })
 
 const uploadImage = (type) => {
@@ -317,6 +402,51 @@ const removeImage = (type) => {
   }
 }
 
+function dataUrlToBlobUrl(dataUrl) {
+  if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+   throw new Error('Invalid data URL')
+  }
+  const comma = dataUrl.indexOf(',')
+  const header = dataUrl.slice(0, comma)
+  const b64 = dataUrl.slice(comma + 1)
+  const mimeMatch = header.match(/data:(.*?);/)
+  const mime = mimeMatch ? mimeMatch[1] : 'image/png'
+  const binary = atob(b64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const blob = new Blob([bytes], { type: mime })
+  return URL.createObjectURL(blob)
+}
+
+function ensureUploadablePath(src, revokeList) {
+  if (!src) throw new Error('Missing image')
+  if (typeof src === 'string' && src.startsWith('data:')) {
+   const u = dataUrlToBlobUrl(src)
+   if (Array.isArray(revokeList)) revokeList.push(u)
+   return u
+  }
+  return src
+}
+
+function requestGenerateVirtualTryon(body) {
+  return new Promise((resolve, reject) => {
+   uni.request({
+    url: `${API_BASE_URL}/api/virtual-try-on/generate`,
+    method: 'POST',
+    header: { 'content-type': 'application/json' },
+    data: body,
+    success: (res) => {
+     if (res.statusCode === 200 && res.data?.success && res.data?.data?.result_image) {
+      resolve(res.data.data.result_image)
+     } else {
+      reject(new Error(res.data?.message || 'Generation failed'))
+     }
+    },
+    fail: (err) => reject(err || new Error('Network error'))
+   })
+  })
+}
+
 // --- 核心：修改后的上传逻辑 ---
 const uploadImageToComfyUI = (filePath, type) => {
   return new Promise((resolve, reject) => {
@@ -358,9 +488,113 @@ const uploadImageToComfyUI = (filePath, type) => {
   })
 }
 
+async function runOutfitPipeline() {
+  const q = parsedOutfitQueue.value
+  if (!q.length) return
+  if (isPipelineRunning.value) return
+  if (!props.isLoggedIn) return
+
+  isPipelineRunning.value = true
+  outfitProgressText.value = ''
+  outfitPipelineStepIndex.value = 0
+  enableScrollAndScrollToBottom()
+
+  const token = getCleanToken()
+  if (!token) {
+   uni.showToast({ title: 'Please log in first', icon: 'none' })
+   isPipelineRunning.value = false
+   outfitPipelineStepIndex.value = -1
+   return
+  }
+
+  let personSrc = props.initialPersonImage || personImg.value
+  if (!personSrc) {
+   uni.showToast({ title: 'Set a default model in My Wardrobe or upload a person photo', icon: 'none' })
+   isPipelineRunning.value = false
+   outfitPipelineStepIndex.value = -1
+   return
+  }
+
+  showResult.value = true
+  isLoading.value = true
+  resultImg.value = ''
+
+  const blobUrlsToRevoke = []
+
+  try {
+   for (let i = 0; i < q.length; i++) {
+    outfitPipelineStepIndex.value = i
+    const step = q[i]
+    outfitProgressText.value = `Step ${i + 1} of ${q.length}: ${step.label}`
+
+    const clothSrc = step.image
+    if (!clothSrc) continue
+
+    personImg.value = personSrc
+    clothingImg.value = clothSrc
+    personImgName.value = ''
+    clothingImgName.value = ''
+
+    await nextTick()
+
+    const personPath = ensureUploadablePath(personSrc, blobUrlsToRevoke)
+    const clothPath = ensureUploadablePath(clothSrc, blobUrlsToRevoke)
+
+    const personName = await uploadImageToComfyUI(personPath, 'person')
+    const clothName = await uploadImageToComfyUI(clothPath, 'clothing')
+
+    const resultDataUrl = await requestGenerateVirtualTryon({
+     person_image: personName,
+     clothing_image: clothName,
+     token,
+     model_type: '2509'
+    })
+
+    resultImg.value = resultDataUrl
+    personSrc = resultDataUrl
+   }
+
+   personImg.value = personSrc
+   clothingImg.value = ''
+   personImgName.value = ''
+   clothingImgName.value = ''
+
+   outfitPipelineStepIndex.value = q.length
+   uni.showToast({ title: 'Full outfit complete!', icon: 'success' })
+  } catch (e) {
+   console.error('[VirtualTryOn] outfit pipeline', e)
+   uni.showToast({ title: e?.message || 'Outfit try-on failed', icon: 'none' })
+   outfitPipelineStepIndex.value = -1
+  } finally {
+   blobUrlsToRevoke.forEach((u) => {
+    try { URL.revokeObjectURL(u) } catch (_) {}
+   })
+   isLoading.value = false
+   outfitProgressText.value = ''
+   isPipelineRunning.value = false
+  }
+}
+
+watch(
+  () => [props.initialOutfitQueue, props.initialPersonImage, props.isLoggedIn],
+  () => {
+   if (parsedOutfitQueue.value.length === 0) return
+   if (!props.isLoggedIn) return
+   nextTick(() => runOutfitPipeline())
+  },
+  { immediate: true, deep: true }
+)
+
+onBeforeUnmount(() => {
+  outfitProgressText.value = ''
+  isPipelineRunning.value = false
+  outfitPipelineStepIndex.value = -1
+})
+
 // --- 核心：修改后的生成逻辑 ---
 const handleGenerate = async () => {
   if (requireLogin()) return
+  if (isPipelineRunning.value) return
   if (!canGenerate.value) {
    return
   }
@@ -602,11 +836,175 @@ uni.request({
   background-color: rgba(0,0,0,0.8);
 }
 
+.outfit-order-panel {
+  width: 100%;
+  max-width: 100%;
+  padding: 32rpx 40rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(157, 139, 112, 0.2);
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+}
+
+.outfit-order-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1D1D1F;
+  font-family: "Didot", serif;
+  margin-bottom: 12rpx;
+}
+
+.outfit-order-sub {
+  display: block;
+  font-size: 24rpx;
+  color: #6B6B6B;
+  line-height: 1.5;
+  margin-bottom: 28rpx;
+}
+
+.outfit-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.outfit-order-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 20rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #FAFAF8;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.outfit-order-row.is-pending {
+  opacity: 0.65;
+}
+
+.outfit-order-row.is-current {
+  background: rgba(157, 139, 112, 0.12);
+  border-color: rgba(157, 139, 112, 0.45);
+  opacity: 1;
+}
+
+.outfit-order-row.is-done {
+  background: rgba(76, 175, 80, 0.06);
+  border-color: rgba(76, 175, 80, 0.25);
+  opacity: 1;
+}
+
+.outfit-order-idx {
+  flex-shrink: 0;
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #5a4b35;
+  background: rgba(157, 139, 112, 0.15);
+  border-radius: 50%;
+}
+
+.outfit-order-thumb-wrap {
+  flex-shrink: 0;
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 16rpx;
+  overflow: hidden;
+  background: #F0EEEA;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.outfit-order-thumb {
+  width: 112rpx;
+  height: 112rpx;
+  display: block;
+}
+
+.outfit-order-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.outfit-order-thumb-ph {
+  font-size: 28rpx;
+  color: #C4C4C4;
+}
+
+.outfit-order-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.outfit-order-label {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #2C2C2E;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.outfit-order-badge {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #9D8B70;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.outfit-order-check {
+  flex-shrink: 0;
+  font-size: 32rpx;
+  color: #2e7d32;
+  font-weight: 700;
+  width: 40rpx;
+  text-align: center;
+}
+
+.outfit-order-pending {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: #C4C4C4;
+  width: 40rpx;
+  text-align: center;
+  letter-spacing: 2rpx;
+}
+
 .action-section {
   width: 100%;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 24rpx;
   padding: 10rpx 0;
+}
+
+.pipeline-hint {
+  width: 100%;
+  max-width: 720rpx;
+  text-align: center;
+  padding: 16rpx 24rpx;
+  border-radius: 16rpx;
+  background: rgba(157, 139, 112, 0.12);
+  border: 1px solid rgba(157, 139, 112, 0.25);
+}
+
+.pipeline-hint-text {
+  font-size: 28rpx;
+  color: #5a4b35;
+  font-weight: 600;
 }
 
 .generate-btn {

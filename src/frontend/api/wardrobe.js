@@ -183,6 +183,17 @@ export function getModelPhotos(params) {
 }
 
 /**
+ * 获取当前用户的主要模特照片（虚拟试穿默认人像）
+ * @param {string} token
+ * @returns {Promise<{ statusCode, data }>}
+ */
+export function getPrimaryModelPhoto(token) {
+  const qs = new URLSearchParams()
+  if (token) qs.set('token', token)
+  return request({ url: `/api/model-photos/primary?${qs.toString()}`, method: 'GET' })
+}
+
+/**
  * 上传模特照片
  * @param {Object} opts
  * @param {string} opts.token

@@ -81,6 +81,17 @@
 						</view>
 					</view>
 
+					<view class="item-tryon-wrap" @click.stop>
+						<view
+							class="btn-item-tryon"
+							:class="{ 'btn-item-tryon--muted': !tryOnImageUrl(item) }"
+							@click="onVirtualTryOn(item)"
+						>
+							<image src="/static/icons/icon-tryon.svg" mode="aspectFit" class="btn-item-tryon-icon" />
+							<text class="btn-item-tryon-text">Virtual Try-On</text>
+						</view>
+					</view>
+
 					<text v-if="item.details" class="item-expand-icon">{{ expanded[itemIndex] ? '▲' : '▼' }}</text>
 				</view>
 
@@ -118,9 +129,19 @@
 			<text>{{ recommendation.footer }}</text>
 		</view>
 
-		<view v-if="showRegenerate" class="regenerate-row ai-fade-block" style="animation-delay: 0.6s">
-			<view class="btn-regenerate" @click="$emit('regenerate')">
-				<text class="btn-regenerate-text">Regenerate Look</text>
+		<view class="card-footer-actions ai-fade-block" style="animation-delay: 0.6s">
+			<view class="footer-actions-left">
+				<view class="btn-footer-secondary" @click.stop="emit('add-to-calendar', recommendation)">
+					<text class="btn-footer-text">Add to Calendar</text>
+				</view>
+				<view class="btn-footer-secondary" @click.stop="emit('full-outfit-try-on', recommendation)">
+					<text class="btn-footer-text">Full Outfit Try-On</text>
+				</view>
+			</view>
+			<view v-if="showRegenerate" class="footer-actions-right">
+				<view class="btn-regenerate" @click.stop="emit('regenerate')">
+					<text class="btn-regenerate-text">Regenerate Look</text>
+				</view>
 			</view>
 		</view>
 	</view>
@@ -140,8 +161,6 @@ const props = defineProps({
 	locale: { type: String, default: 'en' }
 })
 
-defineEmits(['regenerate', 'preview-images'])
-
 const expanded = reactive({})
 
 const displayTags = computed(() => {
@@ -152,6 +171,25 @@ const displayTags = computed(() => {
 	if (r.temperature) set.add(r.temperature)
 	return [...set]
 })
+
+const emit = defineEmits(['regenerate', 'preview-images', 'virtual-try-on', 'add-to-calendar', 'full-outfit-try-on'])
+
+const tryOnImageUrl = (item) => {
+	if (!item || typeof item !== 'object') return ''
+	if (item.image) return String(item.image)
+	const arr = item.images
+	if (Array.isArray(arr) && arr[0]) return String(arr[0])
+	return ''
+}
+
+const onVirtualTryOn = (item) => {
+	const url = tryOnImageUrl(item)
+	if (!url) {
+		uni.showToast({ title: 'No image for this item — try-on needs a photo.', icon: 'none' })
+		return
+	}
+	emit('virtual-try-on', { ...item, image: url })
+}
 
 const toggleExpand = (itemIndex) => {
 	expanded[itemIndex] = !expanded[itemIndex]
@@ -531,6 +569,51 @@ watch(
 	border-radius: 20rpx;
 }
 
+.item-tryon-wrap {
+	flex-shrink: 0;
+	align-self: flex-start;
+	margin-top: 4rpx;
+}
+
+.btn-item-tryon {
+	display: flex;
+	align-items: center;
+	gap: 8rpx;
+	padding: 12rpx 20rpx;
+	border-radius: 999rpx;
+	background: #F0E6D8;
+	border: 1rpx solid rgba(157, 139, 112, 0.25);
+	transition: opacity 0.18s ease, transform 0.18s ease;
+	/* H5：<text> 默认可选字，光标会变成直线 I；按钮应为手形且不可选字 */
+	cursor: pointer;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.btn-item-tryon:active {
+	opacity: 0.88;
+	transform: scale(0.97);
+}
+
+.btn-item-tryon--muted {
+	opacity: 0.45;
+}
+
+.btn-item-tryon-icon {
+	width: 28rpx;
+	height: 28rpx;
+	flex-shrink: 0;
+}
+
+.btn-item-tryon-text {
+	font-size: 22rpx;
+	font-weight: 600;
+	color: #5a4b35;
+	white-space: nowrap;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
 .item-expand-icon {
 	font-size: 20rpx;
 	color: #D1C8B8;
@@ -642,15 +725,58 @@ watch(
 	font-family: serif;
 }
 
-/* --- 按钮 --- */
-.regenerate-row {
+/* --- Footer actions: Add to Calendar | Full Outfit Try-On | Regenerate --- */
+.card-footer-actions {
 	margin-top: 48rpx;
 	display: flex;
-	justify-content: center;
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 20rpx;
+}
+
+.footer-actions-left {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 16rpx;
+	flex: 1;
+	min-width: 0;
+}
+
+.footer-actions-right {
+	flex-shrink: 0;
+	margin-left: auto;
+}
+
+.btn-footer-secondary {
+	padding: 20rpx 32rpx;
+	background: #FAF8F4;
+	border: 1px solid rgba(157, 139, 112, 0.4);
+	border-radius: 50rpx;
+	text-align: center;
+	cursor: pointer;
+	transition: opacity 0.2s ease, transform 0.2s ease;
+	box-shadow: 0 4rpx 12rpx rgba(157, 139, 112, 0.06);
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.btn-footer-secondary:active {
+	opacity: 0.88;
+	transform: scale(0.98);
+}
+
+.btn-footer-text {
+	font-size: 24rpx;
+	color: #5a4b35;
+	font-weight: 600;
+	letter-spacing: 0.02em;
 }
 
 .btn-regenerate {
-	padding: 24rpx 64rpx;
+	padding: 24rpx 48rpx;
 	background: #FFFFFF;
 	border: 1px solid #9D8B70;
 	border-radius: 50rpx;
