@@ -3,7 +3,7 @@
 		<view class="card-header">
 			<view class="header-left">
 				<view class="title-icon">✨</view>
-				<text class="title-text">{{ recommendation.title || 'Outfit Recommendation' }}</text>
+				<text class="title-text">{{ formatRecommendationDisplay(recommendation.title) || 'Outfit Recommendation' }}</text>
 			</view>
 		</view>
 
@@ -24,8 +24,8 @@
 
 		<view v-if="recommendation.content" class="message-text rich-text ai-fade-block" v-html="formattedContent"></view>
 
-		<view v-if="recommendation.scenario" class="scenario-line ai-fade-block">{{ recommendation.scenario }}</view>
-		<view v-if="recommendation.strategy" class="strategy-line ai-fade-block">{{ recommendation.strategy }}</view>
+		<view v-if="recommendation.scenario" class="scenario-line ai-fade-block">{{ formatRecommendationDisplay(recommendation.scenario) }}</view>
+		<view v-if="recommendation.strategy" class="strategy-line ai-fade-block">{{ formatRecommendationDisplay(recommendation.strategy) }}</view>
 
 		<view v-if="displayTags.length > 0" class="tag-row ai-fade-block" style="animation-delay: 0.15s">
 			<text
@@ -45,7 +45,7 @@
 		>
 			<view v-for="(caution, ci) in recommendation.cautions" :key="ci" class="caution-chip">
 				<text class="caution-icon">!</text>
-				<text class="caution-text">{{ caution }}</text>
+				<text class="caution-text">{{ formatRecommendationDisplay(caution) }}</text>
 			</view>
 		</view>
 
@@ -74,10 +74,10 @@
 							<text class="item-category">{{ getEnglishCategory(item.type) }}</text>
 							<text class="item-name">{{ cleanName(item.name) }}</text>
 						</view>
-						<text v-if="item.subtitle" class="item-subtitle">{{ item.subtitle }}</text>
-						<text v-if="item.reason || item.comment" class="item-desc">{{ item.reason || item.comment }}</text>
+						<text v-if="item.subtitle" class="item-subtitle">{{ formatRecommendationDisplay(item.subtitle) }}</text>
+						<text v-if="item.reason || item.comment" class="item-desc">{{ formatRecommendationDisplay(item.reason || item.comment) }}</text>
 						<view v-if="item.tags && item.tags.length" class="item-tags">
-							<text v-for="(t, ti) in item.tags" :key="ti" class="item-tag">{{ t }}</text>
+							<text v-for="(t, ti) in item.tags" :key="ti" class="item-tag">{{ formatRecommendationDisplay(t) }}</text>
 						</view>
 					</view>
 
@@ -96,7 +96,7 @@
 				</view>
 
 				<view v-if="item.details && expanded[itemIndex]" class="item-details">
-					<text class="item-details-text">{{ item.details }}</text>
+					<text class="item-details-text">{{ formatRecommendationDisplay(item.details) }}</text>
 				</view>
 			</view>
 		</view>
@@ -109,7 +109,7 @@
 			<text class="why-title">Why this works</text>
 			<view v-for="(line, wi) in recommendation.whyThisWorks" :key="wi" class="why-item">
 				<text class="why-bullet">•</text>
-				<text class="why-text">{{ line }}</text>
+				<text class="why-text">{{ formatRecommendationDisplay(line) }}</text>
 			</view>
 		</view>
 
@@ -126,11 +126,15 @@
 		</view>
 
 		<view v-if="recommendation.footer" class="card-footer-text ai-fade-block" style="animation-delay: 0.65s">
-			<text>{{ recommendation.footer }}</text>
+			<text>{{ formatRecommendationDisplay(recommendation.footer) }}</text>
 		</view>
 
-		<view class="card-footer-actions ai-fade-block" style="animation-delay: 0.6s">
-			<view class="footer-actions-left">
+		<view
+			v-if="hasOutfitItems || showRegenerate"
+			class="card-footer-actions ai-fade-block"
+			style="animation-delay: 0.6s"
+		>
+			<view v-if="hasOutfitItems" class="footer-actions-left">
 				<view class="btn-footer-secondary" @click.stop="emit('add-to-calendar', recommendation)">
 					<text class="btn-footer-text">Add to Calendar</text>
 				</view>
@@ -149,6 +153,7 @@
 
 <script setup>
 import { reactive, computed, watch } from 'vue'
+import { formatRecommendationDisplay } from '../utils/recommendationTextDisplay.js'
 
 const props = defineProps({
 	recommendation: {
@@ -166,11 +171,16 @@ const expanded = reactive({})
 const displayTags = computed(() => {
 	const r = props.recommendation || {}
 	const set = new Set()
-	if (r.title) set.add(r.title)
-	;(r.styleTags || []).forEach(t => set.add(t))
-	if (r.temperature) set.add(r.temperature)
-	return [...set]
+	if (r.title) set.add(formatRecommendationDisplay(r.title))
+	;(r.styleTags || []).forEach(t => set.add(formatRecommendationDisplay(t)))
+	if (r.temperature) set.add(formatRecommendationDisplay(r.temperature))
+	return [...set].filter(Boolean)
 })
+
+/** 诊断/纯文字卡无 items 时不显示日历与全身试穿，避免误触 */
+const hasOutfitItems = computed(() =>
+	Array.isArray(props.recommendation?.items) && props.recommendation.items.length > 0
+)
 
 const emit = defineEmits(['regenerate', 'preview-images', 'virtual-try-on', 'add-to-calendar', 'full-outfit-try-on'])
 
@@ -197,19 +207,21 @@ const toggleExpand = (itemIndex) => {
 
 const cleanName = (name) => {
 	if (!name) return ''
-	return String(name)
+	const n = String(name)
 		.replace(/[（(][^）)]+[）)]/g, '')
 		.replace(/\s*\+\s*/g, ' + ')
 		.replace(/\s{2,}/g, ' ')
 		.trim()
+	return formatRecommendationDisplay(n)
 }
 
 const cleanAltText = (s) => {
 	if (!s || typeof s !== 'string') return ''
-	return s
+	const n = s
 		.replace(/^[-*]\s*/, '')
 		.replace(/\s*[\(（]\s*id\s*[:：]\s*\d+\s*[\)）]/gi, '')
 		.trim()
+	return formatRecommendationDisplay(n)
 }
 
 const getEnglishCategory = (type) => {
@@ -229,6 +241,7 @@ const formattedContent = computed(() => {
 	let text = props.recommendation?.content
 	if (!text || typeof text !== 'string') return ''
 
+	text = formatRecommendationDisplay(text)
 	text = text
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')

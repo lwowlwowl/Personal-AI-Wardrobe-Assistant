@@ -6,17 +6,24 @@
 
 <script setup>
 import { computed } from 'vue'
+import { formatRecommendationDisplay } from '../utils/recommendationTextDisplay.js'
 
 const props = defineProps({
-	content: { type: String, default: '' }
+	content: { type: String, default: '' },
+	/** 与推荐卡片一致：去 # 编号 + 中英边界加两格 */
+	stripWardrobeHashIds: { type: Boolean, default: false }
 })
 
 const normalizedText = computed(() => {
 	if (!props.content || typeof props.content !== 'string') return ''
-	return props.content
+	let t = props.content
 		.replace(/\r\n/g, '\n')
 		.replace(/\n{3,}/g, '\n\n')
 		.trim()
+	if (props.stripWardrobeHashIds) {
+		t = formatRecommendationDisplay(t)
+	}
+	return t
 })
 
 function escapeHtml(text) {

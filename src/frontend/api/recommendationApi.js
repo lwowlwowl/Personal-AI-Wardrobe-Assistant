@@ -65,7 +65,10 @@ export function chatRecommendation(query, history = []) {
     }
 
     if (finalMessage) return finalMessage
-    const trimmed = fullContent.trim()
+    let trimmed = fullContent.trim()
+    if (trimmed.startsWith('```')) {
+      trimmed = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/m, '').trim()
+    }
     // 若未收到 final 事件但累积内容是 JSON（含 recommendations/plan），解析后返回结构化消息，供前端按结构优先渲染
     if (trimmed.startsWith('{')) {
       try {

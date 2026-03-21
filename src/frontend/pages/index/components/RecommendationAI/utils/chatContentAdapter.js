@@ -569,35 +569,76 @@ function createBaseMessage() {
  *         2) 再按 renderType（后端已修正为结构优先，此处双重保险）
  *         3) 旧数据兼容（从 rawText 解析）  4) 纯文本 fallback
  */
+
+/**
+ * 当顶层未带 recommendations（或为空）但 rawText 是完整协议 JSON 时，从 rawText 合并结构。
+ * 避免流式/持久化链路只保留 content+renderType 导致界面只剩「AI Analysis」引言、无卡片。
+ */
+function mergeStructuredFieldsFromRawText(apiResponse) {
+	if (!apiResponse || typeof apiResponse !== 'object') return apiResponse
+	const raw = String(apiResponse.rawText || apiResponse.raw_text || '').trim()
+	if (!raw.startsWith('{')) return apiResponse
+	let p
+	try {
+		p = JSON.parse(raw)
+	} catch (_) {
+		return apiResponse
+	}
+	if (!p || typeof p !== 'object') return apiResponse
+
+	const hasRecs = Array.isArray(apiResponse.recommendations) && apiResponse.recommendations.length > 0
+	const parsedRecs = Array.isArray(p.recommendations) && p.recommendations.length > 0
+	const noPlan =
+		!apiResponse.plan || !Array.isArray(apiResponse.plan?.days) || apiResponse.plan.days.length === 0
+	const parsedPlan = p.plan && Array.isArray(p.plan.days) && p.plan.days.length > 0
+
+	if (!hasRecs && parsedRecs) {
+		const next = { ...apiResponse, recommendations: p.recommendations }
+		if ((apiResponse.content == null || apiResponse.content === '') && p.content) next.content = p.content
+		if (!apiResponse.locale && p.locale) next.locale = p.locale
+		if (noPlan && parsedPlan) next.plan = p.plan
+		return next
+	}
+	if (noPlan && parsedPlan) {
+		const next = { ...apiResponse, plan: p.plan }
+		if ((apiResponse.content == null || apiResponse.content === '') && p.content) next.content = p.content
+		if (!apiResponse.locale && p.locale) next.locale = p.locale
+		return next
+	}
+	return apiResponse
+}
+
 export function normalizeChatResponse(apiResponse) {
 	if (!apiResponse || typeof apiResponse !== 'object') {
 		return buildTextMessage('', '')
 	}
 
-	const role = apiResponse.role || 'ai'
+	const merged = mergeStructuredFieldsFromRawText(apiResponse)
+
+	const role = merged.role || 'ai'
 	const rawText =
-		apiResponse.rawText ||
-		apiResponse.raw_text ||
-		apiResponse.content ||
+		merged.rawText ||
+		merged.raw_text ||
+		merged.content ||
 		''
-	const locale = apiResponse.locale || 'en'
-	const renderType = apiResponse.renderType || ''
+	const locale = merged.locale || 'en'
+	const renderType = merged.renderType || ''
 
 	// 1. 结构优先：有 plan.days 即按 plan 渲染（不依赖 renderType，防止后端/历史数据声明错误）
 	if (
 		role === 'ai' &&
-		apiResponse.plan &&
-		Array.isArray(apiResponse.plan.days) &&
-		apiResponse.plan.days.length > 0
+		merged.plan &&
+		Array.isArray(merged.plan.days) &&
+		merged.plan.days.length > 0
 	) {
 		return {
 			...createBaseMessage(),
 			role: 'ai',
 			renderType: 'plan',
 			rawText,
-			content: apiResponse.content || apiResponse.plan.intro || '',
+			content: merged.content || merged.plan.intro || '',
 			recommendations: [],
-			plan: apiResponse.plan,
+			plan: merged.plan,
 			locale
 		}
 	}
@@ -605,16 +646,16 @@ export function normalizeChatResponse(apiResponse) {
 	// 2. 结构优先：有 recommendations 即按 recommendation 渲染（不依赖 renderType）
 	if (
 		role === 'ai' &&
-		Array.isArray(apiResponse.recommendations) &&
-		apiResponse.recommendations.length > 0
+		Array.isArray(merged.recommendations) &&
+		merged.recommendations.length > 0
 	) {
 		return {
 			...createBaseMessage(),
 			role: 'ai',
 			renderType: 'recommendation',
 			rawText,
-			content: apiResponse.content || '',
-			recommendations: apiResponse.recommendations,
+			content: merged.content || '',
+			recommendations: merged.recommendations,
 			plan: null,
 			locale
 		}
@@ -627,7 +668,7 @@ export function normalizeChatResponse(apiResponse) {
 			role: 'ai',
 			renderType: 'text',
 			rawText,
-			content: apiResponse.content || rawText || '',
+			content: merged.content || rawText || '',
 			recommendations: [],
 			plan: null,
 			locale
@@ -644,7 +685,7 @@ export function normalizeChatResponse(apiResponse) {
 					role: 'ai',
 					renderType: 'plan',
 					rawText,
-					content: apiResponse.content || plan.intro || '',
+					content: merged.content || plan.intro || '',
 					recommendations: [],
 					plan,
 					locale
@@ -659,7 +700,7 @@ export function normalizeChatResponse(apiResponse) {
 				role: 'ai',
 				renderType: 'recommendation',
 				rawText,
-				content: apiResponse.content || intro || '',
+				content: merged.content || intro || '',
 				recommendations,
 				plan: null,
 				locale
@@ -673,7 +714,7 @@ export function normalizeChatResponse(apiResponse) {
 		role: 'ai',
 		renderType: 'text',
 		rawText,
-		content: apiResponse.content || rawText || '',
+		content: merged.content || rawText || '',
 		recommendations: [],
 		plan: null,
 		locale

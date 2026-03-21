@@ -128,6 +128,7 @@
 								<ChatMessageBubble
 									v-if="msg.content"
 									:content="msg.content"
+									strip-wardrobe-hash-ids
 								/>
 								<view class="cards-area">
 									<swiper
@@ -139,7 +140,7 @@
 										<swiper-item v-for="(rec, ri) in getRecommendations(msg)" :key="ri">
 											<RecommendationCard
 												:recommendation="rec"
-												:show-regenerate="ri === 0"
+												:show-regenerate="shouldShowRegenerateOnRecommendation(msg, ri)"
 												:locale="msg.locale || 'en'"
 												@regenerate="handleRegenerate(index)"
 												@preview-images="previewImages"
@@ -624,9 +625,38 @@ function normalizeHistoryMessage(msg) {
 	return msg
 }
 
+/**
+ * 多张 recommendation 时：Regenerate 显示在「有单品」的那一张（取最后一张有 items 的，通常即具体搭配），
+ * 避免诊断-only 卡（items: []）占用 Regenerate；若都没有单品则退回第一张。
+ */
+const shouldShowRegenerateOnRecommendation = (msg, ri) => {
+	const recs = getRecommendations(msg)
+	if (recs.length <= 1) return true
+	let lastWithItems = -1
+	for (let i = recs.length - 1; i >= 0; i--) {
+		if (Array.isArray(recs[i]?.items) && recs[i].items.length > 0) {
+			lastWithItems = i
+			break
+		}
+	}
+	if (lastWithItems >= 0) return ri === lastWithItems
+	return ri === 0
+}
+
 const getRecommendations = (msg) => {
 	if (Array.isArray(msg?.recommendations) && msg.recommendations.length > 0) {
 		return msg.recommendations
+	}
+
+	// 与 normalizeChatResponse 的 rawText 合并呼应：历史里若只存了 rawText 未展开 recommendations，仍用于渲染卡片
+	const raw = msg?.rawText
+	if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+		try {
+			const p = JSON.parse(raw.trim())
+			if (Array.isArray(p.recommendations) && p.recommendations.length > 0) {
+				return p.recommendations
+			}
+		} catch (_) {}
 	}
 
 	const items = (msg?.outfitItems || []).map(it => ({
@@ -658,32 +688,18 @@ const getRecommendations = (msg) => {
 }
 
 const getMessageRenderType = (msg) => {
-	if (msg?.renderType) return msg.renderType
-
+	// 勿优先信任 renderType：若仅有 renderType=recommendation 而无 recommendations，会只剩「AI Analysis」引言、无卡片
 	if (msg?.plan && Array.isArray(msg.plan.days) && msg.plan.days.length > 0) return 'plan'
 
 	const recs = getRecommendations(msg)
 	if (recs.length > 0) return 'recommendation'
+
 	return 'text'
 }
 
 // 优先显示已解析的 content（后端 JSON 协议下 rawText 为原始 JSON 字符串，不应直接展示）
 const getDisplayContent = (msg) => {
 	return msg?.content ?? msg?.rawText ?? ''
-}
-
-const handleRegenerate = (msgIdx) => {
-	const msg = chatHistory.value[msgIdx]
-	if (msg?.role !== 'ai') return
-
-	chatHistory.value[msgIdx] = { role: 'loading', content: '' }
-
-	setTimeout(() => {
-		chatHistory.value[msgIdx] = { ...msg }
-		const cid = props.currentConversationId
-		if (cid) emit('update-conversation', { id: cid, messages: [...chatHistory.value] })
-		scrollToBottom()
-	}, 2000)
 }
 
 watch(
@@ -720,6 +736,158 @@ const scrollToBottom = () => {
 	})
 }
 
+/** 长对话中 Regenerate 时高度骤变会导致视口「错位」看到下面消息；锚定到该则 message-row 保持视线在同一条上 */
+const scrollToMessageIndex = (idx) => {
+	if (idx == null || idx < 0) return
+	nextTick(() => {
+		scrollTarget.value = 'msg-' + idx
+		setTimeout(() => {
+			scrollTarget.value = ''
+		}, 150)
+	})
+}
+
+/**
+ * 流式结束后：等小窗动画、解析 JSON、规范化、用 AI 消息替换 loading（与 handleSearch / regenerate 共用）
+ * @param {{ scrollAfter?: boolean, anchorMsgIdx?: number, replaceAtIndex?: number }} [options] — 必传 replaceAtIndex 可避免多个 loading 时误替换第一条
+ */
+async function replaceLoadingWithAiMessage(aiMessage, options = {}) {
+	const { scrollAfter = true, anchorMsgIdx, replaceAtIndex } = options
+	const panel = loadingPanelRef.value
+	if (panel && typeof panel.complete === 'function') {
+		await panel.complete()
+	} else {
+		await new Promise((r) => setTimeout(r, 300))
+	}
+
+	let toNormalize = aiMessage
+	const hasStructure = (Array.isArray(aiMessage?.recommendations) && aiMessage.recommendations.length > 0) ||
+		(aiMessage?.plan?.days && aiMessage.plan.days.length > 0)
+	if (!hasStructure && aiMessage?.content && typeof aiMessage.content === 'string' && aiMessage.content.trim().startsWith('{')) {
+		try {
+			const parsed = JSON.parse(aiMessage.content.trim())
+			if (parsed && typeof parsed === 'object') {
+				toNormalize = {
+					role: 'ai',
+					rawText: aiMessage.content.trim(),
+					content: parsed.content ?? '',
+					recommendations: parsed.recommendations ?? [],
+					plan: parsed.plan ?? null,
+					locale: parsed.locale ?? 'en'
+				}
+			}
+		} catch (_) {}
+	}
+	let normalized = normalizeChatResponse(toNormalize)
+	normalized = attachImagesToAiMessage(normalized)
+
+	let loadingIdx = -1
+	if (replaceAtIndex != null && chatHistory.value[replaceAtIndex]?.role === 'loading') {
+		loadingIdx = replaceAtIndex
+	} else {
+		for (let i = chatHistory.value.length - 1; i >= 0; i--) {
+			if (chatHistory.value[i].role === 'loading') {
+				loadingIdx = i
+				break
+			}
+		}
+	}
+	if (loadingIdx !== -1) {
+		chatHistory.value.splice(loadingIdx, 1, normalized)
+	} else {
+		chatHistory.value.push(normalized)
+	}
+	if (scrollAfter) {
+		scrollToBottom()
+	} else if (anchorMsgIdx != null) {
+		scrollToMessageIndex(anchorMsgIdx)
+	}
+}
+
+/** Regenerate 仅附一句中性说明；具体要分析还是要搭配由「同一则 user 原文 query」决定，前端不猜意图。 */
+function getRegenerateSuffix(isZh) {
+	return isZh
+		? '\n\n（请对同一条用户问题重新生成一版回答：换角度或补充细节，避免机械重复；篇幅与展开程度应与平时完整回答相当，勿刻意缩短。）'
+		: '\n\n(Regenerate a full new answer to the same user question: a different angle or more detail; do not merely repeat. Match your usual depth and length—do not intentionally shorten.)'
+}
+
+const handleRegenerate = async (msgIdx) => {
+	if (!props.isLoggedIn) {
+		uni.showToast({ title: 'Please log in first', icon: 'none' })
+		return
+	}
+	const prevAi = chatHistory.value[msgIdx]
+	if (prevAi?.role !== 'ai') return
+
+	let userIdx = msgIdx - 1
+	while (userIdx >= 0 && chatHistory.value[userIdx].role !== 'user') {
+		userIdx -= 1
+	}
+	if (userIdx < 0) {
+		uni.showToast({ title: 'Cannot find the question for this reply', icon: 'none' })
+		return
+	}
+
+	const userMsg = chatHistory.value[userIdx]
+	const locale = prevAi?.locale
+	const isZh = locale === 'zh' || locale === 'zh-CN' || locale === 'zh_CN'
+	const userText = (userMsg.content || '').trim()
+	const regHint = getRegenerateSuffix(isZh)
+
+	let query = userText
+	if (!query) {
+		query = (isZh ? '请继续根据对话上下文回答。' : 'Please continue based on the conversation context.') + regHint
+	} else {
+		query = query + regHint
+	}
+
+	chatHistory.value[msgIdx] = { role: 'loading', content: '' }
+	scrollToMessageIndex(msgIdx)
+
+	const history = chatHistory.value
+		.slice(0, userIdx)
+		.filter(m => m.role === 'user' || m.role === 'ai')
+		.map(m => ({
+			role: m.role,
+			content: (m.rawText || m.content || '').trim()
+		}))
+		.filter(m => m.content)
+
+	// 让后端看到「上一版助手全文」，避免模型看不到参考而输出过短；prevAi 仍指向被替换前的对象
+	const prevBody = (prevAi.rawText || prevAi.content || '').trim()
+	if (prevBody) {
+		const cap = 20000
+		history.push({
+			role: 'ai',
+			content: prevBody.length > cap ? prevBody.slice(0, cap) + '\n…(truncated)' : prevBody
+		})
+	}
+
+	const finishRegenerate = async (aiMessage) => {
+		await replaceLoadingWithAiMessage(aiMessage, {
+			scrollAfter: false,
+			anchorMsgIdx: msgIdx,
+			replaceAtIndex: msgIdx
+		})
+		justCreatedConversation.value = false
+		const cid = props.currentConversationId
+		if (cid) {
+			emit('update-conversation', { id: cid, messages: [...chatHistory.value] })
+		}
+	}
+
+	try {
+		const res = await chatRecommendation(query, history)
+		await finishRegenerate(res)
+	} catch (err) {
+		await finishRegenerate({
+			role: 'ai',
+			content: 'Request failed: ' + (err && err.message ? err.message : 'Network error')
+		})
+		uni.showToast({ title: 'Regenerate failed', icon: 'none' })
+	}
+}
+
 const handleSearch = async () => {
 	if (!props.isLoggedIn) {
 		uni.showToast({ title: 'Please log in first', icon: 'none' })
@@ -753,46 +921,12 @@ const handleSearch = async () => {
 	scrollToBottom()
 
 	chatHistory.value.push({ role: 'loading', content: '' })
+	const loadingRowIndex = chatHistory.value.length - 1
 	scrollToBottom()
 
 	// 调接口后一定用 final 结构化消息整体替换占位消息（修改.md：替换不是 append）
 	const finishLoading = async (aiMessage) => {
-		const panel = loadingPanelRef.value
-		if (panel && typeof panel.complete === 'function') {
-			await panel.complete()
-		} else {
-			await new Promise((r) => setTimeout(r, 300))
-		}
-
-		// 若接口只返回了 content（未收到 final 或 buffer 未解析），且 content 为 JSON，解析后按结构渲染
-		let toNormalize = aiMessage
-		const hasStructure = (Array.isArray(aiMessage?.recommendations) && aiMessage.recommendations.length > 0) ||
-			(aiMessage?.plan?.days && aiMessage.plan.days.length > 0)
-		if (!hasStructure && aiMessage?.content && typeof aiMessage.content === 'string' && aiMessage.content.trim().startsWith('{')) {
-			try {
-				const parsed = JSON.parse(aiMessage.content.trim())
-				if (parsed && typeof parsed === 'object') {
-					toNormalize = {
-						role: 'ai',
-						rawText: aiMessage.content.trim(),
-						content: parsed.content ?? '',
-						recommendations: parsed.recommendations ?? [],
-						plan: parsed.plan ?? null,
-						locale: parsed.locale ?? 'en'
-					}
-				}
-			} catch (_) {}
-		}
-		let normalized = normalizeChatResponse(toNormalize)
-		normalized = attachImagesToAiMessage(normalized)
-
-		// 用 AI 消息替换 loading 消息，避免“先删再加”导致视觉断层
-		const loadingIdx = chatHistory.value.findIndex(msg => msg.role === 'loading')
-		if (loadingIdx !== -1) {
-			chatHistory.value.splice(loadingIdx, 1, normalized)
-		} else {
-			chatHistory.value.push(normalized)
-		}
+		await replaceLoadingWithAiMessage(aiMessage, { replaceAtIndex: loadingRowIndex })
 
 		justCreatedConversation.value = false
 
