@@ -14,7 +14,7 @@
 
 			<view class="card summary-card">
 				<text class="summary-stat">{{ stats.idle_items ?? unwornCount }}</text>
-				<text class="summary-desc">unworn items out of {{ stats.total_items || DEFAULT_TOTAL_ITEMS_DISPLAY }} total ({{ idleRate }}% idle rate)</text>
+				<text class="summary-desc">unworn items out of {{ stats.total_items || 0 }} total ({{ idleRate }}% idle rate)</text>
 			</view>
 
 			<view class="card list-card">
@@ -100,8 +100,6 @@ import { TransitionGroup } from 'vue'
 import { COLOR_HEX_BY_CODE, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
 import { getIdleRate, getIdleItemsDetail, getToken, API_BASE_URL } from '@/api/analysisApi.js'
 import { getCalendarOutfits, saveCalendarOutfits } from '@/api/calendarApi.js'
-import { DEFAULT_TOTAL_ITEMS_DISPLAY } from './mockData.js'
-
 const props = defineProps({
 	unwornCount: { type: Number, default: 3 }
 })

@@ -151,7 +151,7 @@ const props = defineProps({
 		type: Object,
 		default: () => ({})
 	},
-	/** 全部衣物列表，用于计算同分类的 Similar Tags */
+	/** Full clothing list; used to compute same-category Similar Tags */
 	allClothes: {
 		type: Array,
 		default: () => []
@@ -174,7 +174,7 @@ const editSeasons = ref([])
 const editFavourite = ref(0)
 const openField = ref(null)
 
-/** 支持后端返回的数组（如 season）或逗号分隔字符串，统一为字符串数组 */
+/** Normalize backend season (array or comma/slash string) to string[] */
 function parseMulti (val) {
 	if (val == null) return []
 	if (Array.isArray(val)) return val.map((s) => String(s).trim()).filter(Boolean)
@@ -185,7 +185,7 @@ function parseMulti (val) {
 const categoryDisplayText = computed(() => editCategory.value ? (TYPE_LABEL_BY_CODE[editCategory.value] || editCategory.value) : '—')
 const seasonDisplayText = computed(() => codesToLabels(editSeasons.value, SEASON_LABEL_BY_CODE))
 
-/** 解析单件衣物的 tags 为字符串数组 */
+/** Parse one item's tags into string[] */
 function getTagsFromItem(cloth) {
 	const val = cloth?.tags
 	if (!val) return []
@@ -199,10 +199,10 @@ function getTagsFromItem(cloth) {
 	return []
 }
 
-/** 解析 tags 为数组，用于 pill 展示 */
+/** Tags as array for pill UI */
 const tagsList = computed(() => getTagsFromItem(props.item))
 
-/** 拥有与当前衣物相似 tags 的其他衣物（同分类且至少有一个共同 tag），按共同 tag 数量排序，取前 N 个 */
+/** Other items in same category with ≥1 shared tag; sorted by shared count, top 8 */
 const similarItems = computed(() => {
 	const cur = props.item
 	const curId = cur?.id
@@ -225,15 +225,20 @@ function openSimilarItem(item) {
 	emit('open-item', item)
 }
 
+function applyItemToEditors(src) {
+	if (!src) return
+	editName.value = src.name || ''
+	editCategory.value = src.type || ''
+	editSubcategory.value = src.subcategory || ''
+	editColor.value = src.color || ''
+	editSeasons.value = parseMulti(src.season)
+	const f = src.favourite
+	editFavourite.value = typeof f === 'number' && f >= 0 && f <= 3 ? f : 0
+}
+
 watch(() => props.item, (val) => {
 	if (!val) return
-	editName.value = val.name || ''
-	editCategory.value = val.type || ''
-	editSubcategory.value = val.subcategory || ''
-	editColor.value = val.color || ''
-	editSeasons.value = parseMulti(val.season)
-	const f = val.favourite
-	editFavourite.value = typeof f === 'number' && f >= 0 && f <= 3 ? f : 0
+	applyItemToEditors(val)
 	openField.value = null
 }, { immediate: true, deep: true })
 
@@ -242,13 +247,7 @@ watch(() => props.visible, (v) => {
 		isLeave.value = false
 		nextTick(() => {
 			isEnter.value = true
-			editName.value = props.item?.name || ''
-			editCategory.value = props.item?.type || ''
-			editSubcategory.value = props.item?.subcategory || ''
-			editColor.value = props.item?.color || ''
-			editSeasons.value = parseMulti(props.item?.season)
-			const f = props.item?.favourite
-			editFavourite.value = typeof f === 'number' && f >= 0 && f <= 3 ? f : 0
+			applyItemToEditors(props.item)
 		})
 	} else {
 		isEnter.value = false
@@ -313,7 +312,7 @@ const handleTryOn = () => {
 }
 
 const handleDelete = () => {
-  emit('delete', props.item.id)
+	emit('delete', props.item.id)
 }
 </script>
 

@@ -211,7 +211,7 @@ function parsePlanFromRawText(rawText) {
 	const intro = firstIdx > 0 ? text.slice(0, firstIdx).trim().slice(0, 800) : ''
 
 	return {
-		title: '穿搭计划',
+		title: 'Outfit plan',
 		intro: intro || undefined,
 		days
 	}
@@ -487,7 +487,7 @@ function parseSchemeBlock(block) {
 	}
 
 	return {
-		title: title || '穿搭方案',
+		title: title || 'Recommended look',
 		temperature,
 		styleTags: title ? [title] : [],
 		content: content || undefined,

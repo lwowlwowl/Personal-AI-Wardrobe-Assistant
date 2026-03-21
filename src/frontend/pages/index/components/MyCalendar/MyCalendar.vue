@@ -9,16 +9,16 @@
 
 			<view class="scatter-bg-container" :class="{ 'panel-open': selectedDateKey }" aria-hidden="true">
 				<transition-group name="scatter-polaroid" tag="view" class="scatter-transition-group">
-					<view
-						v-for="(item, index) in backgroundScatterItems"
+				<view
+					v-for="(item, index) in backgroundScatterItems"
 						:key="'scatter-' + monthKey + '-' + (item.id != null ? item.id : 'i' + index)"
-						class="scatter-card"
-						:style="item.style"
-					>
-						<view class="scatter-thumb-wrap">
-							<image :src="item.image" mode="aspectFill" class="scatter-img" />
-						</view>
+					class="scatter-card"
+					:style="item.style"
+				>
+					<view class="scatter-thumb-wrap">
+						<image :src="item.image" mode="aspectFill" class="scatter-img" />
 					</view>
+				</view>
 				</transition-group>
 			</view>
 

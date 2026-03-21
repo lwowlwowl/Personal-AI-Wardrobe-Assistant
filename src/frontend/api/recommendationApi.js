@@ -165,7 +165,7 @@ export function getWeatherNow(lat, lon) {
  * 推荐 AI 对话持久化（Your conversations）：需登录后使用
  */
 
-function getAuthToken() {
+export function getAuthToken() {
   return uni.getStorageSync('auth_token') || ''
 }
 

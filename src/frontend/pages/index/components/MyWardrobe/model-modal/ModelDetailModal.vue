@@ -92,11 +92,16 @@ const isLeave = ref(false)
 const editName = ref('')
 const editFavourite = ref(0)
 
+function applyItemToEditors(src) {
+	if (!src) return
+	editName.value = src.posture || src.name || ''
+	const f = src.favourite
+	editFavourite.value = typeof f === 'number' && f >= 0 && f <= 3 ? f : 0
+}
+
 watch(() => props.item, (val) => {
 	if (!val) return
-	editName.value = val.posture || val.name || ''
-	const f = val.favourite
-	editFavourite.value = typeof f === 'number' && f >= 0 && f <= 3 ? f : 0
+	applyItemToEditors(val)
 }, { immediate: true, deep: true })
 
 watch(() => props.visible, (v) => {
@@ -104,9 +109,7 @@ watch(() => props.visible, (v) => {
 		isLeave.value = false
 		nextTick(() => {
 			isEnter.value = true
-			editName.value = props.item?.posture || props.item?.name || ''
-			const f = props.item?.favourite
-			editFavourite.value = typeof f === 'number' && f >= 0 && f <= 3 ? f : 0
+			applyItemToEditors(props.item)
 		})
 	} else {
 		isEnter.value = false

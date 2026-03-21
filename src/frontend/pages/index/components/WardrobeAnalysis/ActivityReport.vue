@@ -71,24 +71,25 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { MOCK_WEEK_DATA, MOCK_CATEGORY_ACTIVITY } from './mockData.js'
+
+const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const EMPTY_WEEK_BARS = WEEKDAY_LABELS.map((label) => ({ label, wears: 0 }))
 
 const props = defineProps({
 	/** 本周总穿戴次数（来自 API 或父组件） */
 	totalWears: { type: Number, default: null },
 	trendValue: { type: Number, default: 8 },
 	isIncrease: { type: Boolean, default: false },
-	/** 本周每日穿戴分布（API 返回）；无则用 mock */
+	/** 本周每日穿戴分布（API 返回）；无则展示 7 天 0 */
 	weekData: { type: Array, default: null },
-	/** 按分类的穿戴次数（API 返回）；无则用 mock */
+	/** 按分类的穿戴次数（API 返回）；无则空列表 */
 	categoryActivity: { type: Array, default: null }
 })
 
 const emit = defineEmits(['back'])
 
-/** 💡 修复 1：只要有真实数据传来（哪怕是空数组），就不使用 Mock */
 const effectiveCategoryActivity = computed(() =>
-	props.categoryActivity != null ? props.categoryActivity : MOCK_CATEGORY_ACTIVITY
+	props.categoryActivity != null ? props.categoryActivity : []
 )
 
 const totalWears = computed(() => {
@@ -103,15 +104,13 @@ const categoryActivityWithPercent = computed(() =>
 	}))
 )
 
-/** 💡 修复 2：若周数据为空数组，为柱状图手动补齐 7 天 0 数据 */
+/** 若周数据为空数组或未传入，展示 7 天 0 */
 const weekData = computed(() => {
 	if (props.weekData != null) {
-		if (props.weekData.length === 0) {
-			return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => ({ label: day, wears: 0 }))
-		}
+		if (props.weekData.length === 0) return EMPTY_WEEK_BARS
 		return props.weekData
 	}
-	return MOCK_WEEK_DATA
+	return EMPTY_WEEK_BARS
 })
 
 const maxWears = computed(() => Math.max(...weekData.value.map((d) => d.wears), 1))

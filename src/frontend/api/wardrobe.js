@@ -254,3 +254,10 @@ export function updateModelPhoto(token, photoId, updateData) {
     header: { 'Content-Type': 'application/x-www-form-urlencoded' }
   })
 }
+
+// Image URL normalization + H5 probe (Wardrobe UI)
+export {
+  resolveWardrobeImageUrl,
+  applyClothingImageUrlFixes,
+  isClothingDeleteNotFoundResponse
+} from './wardrobeMedia.js'

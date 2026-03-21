@@ -3,7 +3,7 @@
 		<view class="modal-box modal-box-enter" @click.stop>
 			<view class="modal-header">
 				<view class="modal-header-inner">
-					<text class="modal-title">Upload Model Photo</text>
+					<text class="modal-title">Upload item</text>
 					<text class="close-btn" @click="close">×</text>
 				</view>
 				<view class="modal-title-divider"></view>
@@ -11,44 +11,116 @@
 
 			<view class="modal-content" @click.stop @touchstart.stop>
 				<view class="form-group">
-					<text class="form-label">Model photo name</text>
+					<text class="form-label">Item name</text>
 					<input
 						type="text"
 						class="form-input"
-						v-model="photoName"
-						placeholder="Enter model photo name"
+						v-model="form.name"
+						placeholder="Enter item name"
 						:adjust-position="true"
 					/>
 				</view>
 
 				<view class="form-group">
-					<text class="form-label">Description (optional)</text>
+					<text class="form-label">Category</text>
+					<view class="category-options">
+						<view
+							v-for="opt in typeOptions"
+							:key="opt.value"
+							class="category-option"
+							:class="{ active: form.category === opt.value }"
+							@click="form.category = opt.value"
+						>
+							<text>{{ opt.label }}</text>
+						</view>
+					</view>
+				</view>
+
+				<view class="form-group">
+					<text class="form-label">SubCategory</text>
+					<input
+						type="text"
+						class="form-input"
+						v-model="form.subcategory"
+						placeholder="e.g. T-shirt, jeans"
+						:adjust-position="true"
+					/>
+				</view>
+
+				<view class="form-group">
+					<text class="form-label">Color</text>
+					<input
+						type="text"
+						class="form-input"
+						v-model="form.color"
+						placeholder="e.g. red, navy blue"
+						:adjust-position="true"
+					/>
+				</view>
+
+				<view class="form-group">
+					<text class="form-label">Season</text>
+					<view class="season-options">
+						<view
+							v-for="opt in seasonOptions"
+							:key="opt.value"
+							class="season-option"
+							:class="{ active: form.season === opt.value }"
+							@click="form.season = opt.value"
+						>
+							<text>{{ opt.label }}</text>
+						</view>
+					</view>
+				</view>
+
+				<view class="form-group">
+					<text class="form-label">Brand</text>
+					<input
+						type="text"
+						class="form-input"
+						v-model="form.brand"
+						placeholder="Enter brand"
+						:adjust-position="true"
+					/>
+				</view>
+
+				<view class="form-group">
+					<text class="form-label">Tags (comma-separated)</text>
+					<input
+						type="text"
+						class="form-input"
+						v-model="form.tags"
+						placeholder="e.g. casual, work"
+						:adjust-position="true"
+					/>
+				</view>
+
+				<view class="form-group">
+					<text class="form-label">Price</text>
+					<input
+						type="number"
+						class="form-input"
+						v-model="form.price"
+						placeholder="Enter price"
+						:adjust-position="true"
+					/>
+				</view>
+
+				<view class="form-group form-group-optional">
+					<text class="form-label">Description</text>
 					<textarea
 						class="form-textarea"
-						v-model="description"
-						:placeholder="descriptionPlaceholder"
+						v-model="form.description"
+						placeholder="Enter description..."
 						maxlength="200"
 						:adjust-position="true"
 					/>
-				</view>
-
-				<view class="form-group">
-					<view class="switch-row">
-						<text class="switch-label">Set as default model</text>
-						<switch
-							class="model-switch"
-							:checked="isPrimary"
-							@change="onSwitchChange"
-							color="#8c7355"
-						/>
-					</view>
-					<text class="form-hint">This model will be used for virtual try-on by default</text>
 				</view>
 			</view>
 
 			<view class="modal-actions">
 				<view class="btn-cancel" @click="close">Cancel</view>
-				<view class="btn-confirm" @click="submit">Upload Photo</view>
+				<view class="btn-confirm" @click="submit">Save</view>
 			</view>
 		</view>
 	</view>
@@ -61,24 +133,49 @@ const props = defineProps({
 	visible: {
 		type: Boolean,
 		default: false
+	},
+	itemId: {
+		type: [Number, String],
+		default: null
+	},
+	initialFormData: {
+		type: Object,
+		default: () => ({
+			name: '',
+			category: '',
+			subcategory: '',
+			color: '',
+			season: '',
+			brand: '',
+			tags: '',
+			description: '',
+			price: ''
+		})
+	},
+	typeOptions: {
+		type: Array,
+		default: () => []
+	},
+	seasonOptions: {
+		type: Array,
+		default: () => []
 	}
 })
 
 const emit = defineEmits(['update:visible', 'confirm'])
 
-const photoName = ref('')
-const description = ref('')
-const isPrimary = ref(false)
+function formFromInitial(src) {
+	return Object.fromEntries(
+		Object.entries(src || {}).map(([k, val]) => [k, val ?? ''])
+	)
+}
 
-const descriptionPlaceholder = 'Describe this model photo...\ne.g. standing pose, front view'
+const form = ref(formFromInitial(props.initialFormData))
 
 watch(() => props.visible, (v) => {
-	if (v) {
-		photoName.value = ''
-		description.value = ''
-		isPrimary.value = false
-	}
-})
+	if (!v) return
+	form.value = formFromInitial(props.initialFormData)
+}, { immediate: true })
 
 function handleOverlayClick() {
 	emit('update:visible', false)
@@ -88,20 +185,34 @@ function close() {
 	emit('update:visible', false)
 }
 
-function onSwitchChange(e) {
-	isPrimary.value = e.detail.value
-}
-
 function submit() {
-	const name = (photoName.value || '').trim()
-	if (!name) {
-		uni.showToast({ title: 'Please enter model photo name', icon: 'none' })
+	if (props.itemId == null) {
+		close()
 		return
 	}
+	if (!form.value.category) {
+		uni.showToast({ title: 'Please select category', icon: 'none' })
+		return
+	}
+	if (!form.value.name || !String(form.value.name).trim()) {
+		uni.showToast({ title: 'Please enter item name', icon: 'none' })
+		return
+	}
+	const seasonVal = form.value.season
+	const seasonPayload = seasonVal ? JSON.stringify(Array.isArray(seasonVal) ? seasonVal : [seasonVal]) : undefined
 	emit('confirm', {
-		photo_name: name,
-		description: (description.value || '').trim(),
-		is_primary: isPrimary.value
+		itemId: props.itemId,
+		payload: {
+			name: String(form.value.name).trim(),
+			category: form.value.category,
+			subcategory: form.value.subcategory || undefined,
+			color: form.value.color || undefined,
+			season: seasonPayload,
+			brand: form.value.brand || undefined,
+			tags: form.value.tags || undefined,
+			description: form.value.description || undefined,
+			price: form.value.price !== '' && form.value.price != null ? form.value.price : undefined
+		}
 	})
 	emit('update:visible', false)
 }
@@ -146,6 +257,7 @@ function submit() {
 	z-index: 10001;
 	width: 90%;
 	max-width: 480px;
+	max-height: 85vh;
 	background: #fff;
 	border-radius: 18px;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
@@ -197,6 +309,8 @@ function submit() {
 .modal-content {
 	padding: 20px;
 	flex: 1;
+	overflow-y: auto;
+	max-height: calc(85vh - 160px);
 	background-color: #f8f8f8;
 	margin: 0 20px;
 	border-radius: 12px;
@@ -247,7 +361,7 @@ function submit() {
 
 .form-input::placeholder,
 .form-input::-webkit-input-placeholder {
-	font-weight: 20;
+	font-weight: 400;
 	color: #999;
 }
 
@@ -284,32 +398,57 @@ function submit() {
 	color: #999;
 }
 
-.switch-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
+.category-options {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
 	gap: 12px;
 }
 
-.switch-label {
-	font-size: 14px;
-	color: #1d1d1f;
-	font-weight: 500;
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-}
-
-.model-switch {
-	transform: scale(0.9);
-	transition: transform 0.2s ease;
-}
-
-.form-hint {
-	display: block;
+.category-option {
+	padding: 12px 8px;
+	border: 1px solid #e1e1e1;
+	border-radius: 10px;
+	text-align: center;
+	cursor: pointer;
+	transition: all 0.2s ease;
 	font-size: 13px;
-	font-weight: 400;
-	color: #6c6c6c;
-	margin-top: 8px;
+	background-color: #f7f7f7;
+	color: #4f4f4f;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+}
+
+.category-option.active {
+	background: #fff9f1;
+	border-color: #b89c7a;
+	color: #8c7355;
+	font-weight: 600;
+	box-shadow: 0 0 0 2px rgba(184, 156, 122, 0.2);
+}
+
+.season-options {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.season-option {
+	padding: 10px 16px;
+	border: 1px solid #e1e1e1;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	font-size: 13px;
+	background-color: #f7f7f7;
+	color: #4f4f4f;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+}
+
+.season-option.active {
+	background: #fff9f1;
+	border-color: #b89c7a;
+	color: #8c7355;
+	font-weight: 600;
+	box-shadow: 0 0 0 2px rgba(184, 156, 122, 0.2);
 }
 
 .modal-actions {

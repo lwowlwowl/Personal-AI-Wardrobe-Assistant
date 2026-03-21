@@ -97,7 +97,7 @@ const props = defineProps({
 })
 
 const days = computed(() => (Array.isArray(props.plan?.days) ? props.plan.days : []))
-const planTitle = computed(() => props.plan?.title || '穿搭计划')
+const planTitle = computed(() => props.plan?.title || 'Outfit plan')
 const planIntro = computed(() => props.plan?.intro || '')
 const expanded = reactive({ 0: true })
 
@@ -112,9 +112,14 @@ const formatDayNum = (t) => {
 	return m ? m[1] : '•'
 }
 
+const MONTH_SHORT_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
 const formatMonth = (t) => {
 	const m = t?.match(/(\d+)\.\d+/)
-	return m ? m[1] + '月' : 'March'
+	if (!m) return 'Mar'
+	const mi = parseInt(m[1], 10)
+	if (mi >= 1 && mi <= 12) return MONTH_SHORT_EN[mi - 1]
+	return m[1]
 }
 
 const extractKeyword = (notes) => {

@@ -497,15 +497,14 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, inject } from 'vue'
-import ClothDetailModal from './ClothDetailModal.vue'
-import ModelDetailModal from './ModelDetailModal.vue'
-import ModelUploadModal from './ModelUploadModal.vue'
-import ClothUploadModal from './ClothUploadModal.vue'
+import ClothDetailModal from './cloth-modal/ClothDetailModal.vue'
+import ModelDetailModal from './model-modal/ModelDetailModal.vue'
+import ModelUploadModal from './model-modal/ModelUploadModal.vue'
+import ClothUploadModal from './cloth-modal/ClothUploadModal.vue'
 import DeleteConfirmModal from './DeleteConfirmModal.vue'
 import { TYPE_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
 import { authVerify } from '@/api/userApi.js'
 import {
-  API_BASE_URL,
   getClothingList,
   uploadClothing,
   deleteClothing,
@@ -514,7 +513,10 @@ import {
   uploadModelPhoto,
   deleteModelPhoto,
   setModelPhotoPrimary,
-  updateModelPhoto
+  updateModelPhoto,
+  resolveWardrobeImageUrl,
+  applyClothingImageUrlFixes,
+  isClothingDeleteNotFoundResponse
 } from '@/api/wardrobe.js'
 
 const emit = defineEmits(['switch-to-tryon'])
@@ -536,22 +538,53 @@ const isInitialLoadingModel = ref(true)
 const uploadLoading = ref(false)
 const uploadError = ref('')
 const showCategoryModal = ref(false)
-const selectedImageFile = ref(null)
 /** 上传并打标成功后要编辑的衣物 id，确认时走 update 而非再次上传 */
 const createdItemIdForEdit = ref(null)
 
-const uploadFormData = ref({
-  name: '',
-  category: '',   // 后端 9 个主分类之一
-  subcategory: '', // 用户可自由输入的子分类
-  color: '',
-  season: '',
-  brand: '',
-  tags: '',
-  description: '',
-  price: '',
-  purchase_date: ''
-})
+function createEmptyClothingUploadForm() {
+  return {
+    name: '',
+    category: '', // 后端 9 个主分类之一
+    subcategory: '', // 用户可自由输入的子分类
+    color: '',
+    season: '',
+    brand: '',
+    tags: '',
+    description: '',
+    price: '',
+    purchase_date: ''
+  }
+}
+
+const uploadFormData = ref(createEmptyClothingUploadForm())
+
+/** Successful upload+tagging: fill form and open category modal */
+function openClothTaggingModalFromUploadData(data) {
+  const al = data.auto_label
+  const raw =
+    al && typeof al === 'object' && al._raw && typeof al._raw === 'object'
+      ? al._raw
+      : al || {}
+  const tagsFromApi = data.tags
+  const tagsStr =
+    Array.isArray(tagsFromApi) && tagsFromApi.length
+      ? tagsFromApi.map(String).filter(Boolean).join(', ')
+      : [raw.subcategory, raw.style, raw.occasion, raw.pattern].filter(Boolean).map(String).join(', ')
+  uploadFormData.value = {
+    name: data.name || raw.subcategory || raw.category || 'Unnamed',
+    category: raw.category || data.category || '',
+    subcategory: raw.subcategory || '',
+    color: typeof raw.color === 'string' ? raw.color : (raw.color || ''),
+    season: Array.isArray(raw.season) ? (raw.season[0] || '') : (raw.season || ''),
+    brand: raw.brand || '',
+    tags: tagsStr,
+    description: raw.description || '',
+    price: uploadFormData.value.price || '',
+    purchase_date: uploadFormData.value.purchase_date || ''
+  }
+  createdItemIdForEdit.value = data.id
+  showCategoryModal.value = true
+}
 
 // ============ 认证相关方法 ============
 
@@ -590,7 +623,7 @@ async function checkAuthStatus() {
       return false
     }
   } catch (error) {
-    console.error('验证token失败:', error)
+    console.error('authVerify failed:', error)
     // 网络错误时保持现有状态，但标记为检查中
     return false
   } finally {
@@ -612,112 +645,66 @@ function clearAuthData() {
   updateAuthState?.(false)
 }
 
-const testSimpleUpload = async () => {
+const MAX_LOCAL_IMAGE_BYTES = 10 * 1024 * 1024
+
+/** Album/camera: require login + max file size; returns temp path or null (toast already shown). */
+async function pickLocalImageUnderMaxSize() {
+  if (!isLoggedIn.value) {
+    uni.showToast({ title: 'Please log in first', icon: 'none' })
+    return null
+  }
   try {
-    console.log('开始衣物上传...')
-    
-    // 1. 检查登录状态
-    if (!isLoggedIn.value) {
-      uni.showToast({
-        title: 'Please log in first',
-        icon: 'none'
-      })
-      return
-    }
-    
-    console.log('用户已登录，token:', userToken.value.substring(0, 20) + '...')
-    
-    // 2. 选择图片
     const chooseResult = await uni.chooseImage({
       count: 1,
       sizeType: ['compressed'],
       sourceType: ['album', 'camera']
     })
-    
-    console.log('选择的图片:', chooseResult)
-    
     if (!chooseResult.tempFilePaths || chooseResult.tempFilePaths.length === 0) {
       uni.showToast({ title: 'No image selected', icon: 'none' })
-      return
+      return null
     }
-    
     const tempFilePath = chooseResult.tempFilePaths[0]
-    console.log('临时文件路径:', tempFilePath)
-    
-    // 3. 获取文件信息
-    const fileInfo = await uni.getFileInfo({
-      filePath: tempFilePath
-    })
-    console.log('文件信息:', fileInfo)
-    
-    // 检查文件大小（后端限制10MB）
-    if (fileInfo.size > 10 * 1024 * 1024) {
-      uni.showToast({
-        title: 'File size must be under 10MB',
-        icon: 'none'
-      })
-      return
+    const fileInfo = await uni.getFileInfo({ filePath: tempFilePath })
+    if (fileInfo.size > MAX_LOCAL_IMAGE_BYTES) {
+      uni.showToast({ title: 'File size must be under 10MB', icon: 'none' })
+      return null
     }
-    
-    // 4. 立即上传并让后端打标，显示加载中（使用 uni 原生 loading 确保用户可见）
-    uploadLoading.value = true
-    createdItemIdForEdit.value = null
-    uni.showLoading({ title: 'Uploading & tagging...', mask: true })
-    try {
-      const result = await uploadClothing({
-        token: userToken.value,
-        filePath: tempFilePath,
-        formData: {
-          name: '',
-          category: '',
-          subcategory: '',
-          color: '',
-          season: '',
-          brand: '',
-          tags: '',
-          description: '',
-          price: '',
-          purchase_date: ''
-        }
-      })
-      if (result.statusCode !== 200 || !result.data?.success) {
-        throw new Error(result.data?.message || result.data?.detail || 'Upload failed')
-      }
-      const data = result.data?.data || result.data
-      const raw = data.auto_label || {}
-      // 优先使用后端返回的 tags 数组，否则用 auto_label 的 style/occasion/pattern/subcategory 拼成
-      const tagsFromApi = data.tags
-      const tagsStr = Array.isArray(tagsFromApi) && tagsFromApi.length
-        ? tagsFromApi.map(String).filter(Boolean).join(', ')
-        : [raw.subcategory, raw.style, raw.occasion, raw.pattern].filter(Boolean).map(String).join(', ')
-      uploadFormData.value = {
-        name: data.name || raw.subcategory || raw.category || 'Unnamed',
-        category: raw.category || data.category || '',
-        subcategory: raw.subcategory || '',
-        color: typeof raw.color === 'string' ? raw.color : (raw.color || ''),
-        season: Array.isArray(raw.season) ? (raw.season[0] || '') : (raw.season || ''),
-        brand: raw.brand || '',
-        tags: tagsStr,
-        description: raw.description || '',
-        price: uploadFormData.value.price || '',
-        purchase_date: uploadFormData.value.purchase_date || ''
-      }
-      createdItemIdForEdit.value = data.id
-      showCategoryModal.value = true
-    } catch (err) {
-      const msg = err.message || err.errMsg || 'Upload failed'
-      uni.showToast({ title: msg, icon: 'none' })
-    } finally {
-      uploadLoading.value = false
-      uni.hideLoading()
-    }
-    
+    return tempFilePath
   } catch (error) {
-    console.error('选择图片异常:', error)
-    uni.showToast({
-      title: 'Failed to select image',
-      icon: 'none'
+    console.error('pickLocalImageUnderMaxSize:', error)
+    uni.showToast({ title: 'Failed to select image', icon: 'none' })
+    return null
+  }
+}
+
+const testSimpleUpload = async () => {
+  console.log('clothing upload start...')
+  const tempFilePath = await pickLocalImageUnderMaxSize()
+  if (!tempFilePath) return
+
+  console.log('logged in, token:', userToken.value.substring(0, 20) + '...')
+  console.log('temp file path:', tempFilePath)
+
+  uploadLoading.value = true
+  createdItemIdForEdit.value = null
+  uni.showLoading({ title: 'Uploading & tagging...', mask: true })
+  try {
+    const result = await uploadClothing({
+      token: userToken.value,
+      filePath: tempFilePath,
+      formData: createEmptyClothingUploadForm()
     })
+    if (result.statusCode !== 200 || !result.data?.success) {
+      throw new Error(result.data?.message || result.data?.detail || 'Upload failed')
+    }
+    const data = result.data?.data || result.data
+    openClothTaggingModalFromUploadData(data)
+  } catch (err) {
+    const msg = err.message || err.errMsg || 'Upload failed'
+    uni.showToast({ title: msg, icon: 'none' })
+  } finally {
+    uploadLoading.value = false
+    uni.hideLoading()
   }
 }
 
@@ -746,24 +733,12 @@ async function handleClothUploadConfirm({ itemId, payload }) {
 
 // 重置上传表单
 const resetUploadForm = () => {
-  uploadFormData.value = {
-    name: '',
-    category: '',
-    subcategory: '',
-    color: '',
-    season: '',
-    brand: '',
-    tags: '',
-    description: '',
-    price: '',
-    purchase_date: ''
-  }
+  uploadFormData.value = createEmptyClothingUploadForm()
 }
 
 // 关闭模态框
 const closeCategoryModal = () => {
   showCategoryModal.value = false
-  selectedImageFile.value = null
   createdItemIdForEdit.value = null
   resetUploadForm()
 }
@@ -779,53 +754,23 @@ const loadClothingData = async (options = {}) => {
       return
     }
     if (showSkeleton) isInitialLoadingCloth.value = true
-    const queryParams = {
-      token: userToken.value,
-      // 后端分页只用于限制最大返回数量，这里一次拉取尽量多的数据，前端再做分页
-      page: 1,
-      page_size: 100,
-      order_by: 'created_at',
-      order_desc: true
-    }
-    
-    
-    console.log('=== 加载衣物数据（带自动修复）===')
+    console.log('=== loadClothingData (with image URL fix) ===')
     
     const response = await getClothingList({
       token: userToken.value,
-      page: queryParams.page,
-      page_size: queryParams.page_size,
+      page: 1,
+      page_size: 100,
       order_by: 'created_at',
       order_desc: true
     })
     
     if (response.statusCode === 200 && response.data.success) {
       const items = response.data.data.items || []
-      console.log(`获取到 ${items.length} 件衣物`)
+      console.log(`Fetched ${items.length} clothing items`)
       
       // 第一步：构建初始数据
       const initialItems = items.map(item => {
-        // 构建图片URL - 关键：对相对路径添加API基础URL
-        let imageUrl = ''
-        
-        if (item.image_url) {
-          if (item.image_url.startsWith('/')) {
-            // 相对路径：添加API基础URL
-            imageUrl = `${API_BASE_URL}${item.image_url}`
-            console.log(`衣物 ${item.id}: 相对路径 -> ${imageUrl}`)
-          } else if (item.image_url.startsWith('http')) {
-            // 完整URL
-            imageUrl = item.image_url
-            console.log(`衣物 ${item.id}: 完整URL -> ${imageUrl}`)
-          } else {
-            // 其他格式
-            imageUrl = `${API_BASE_URL}/${item.image_url}`
-            console.log(`衣物 ${item.id}: 其他格式 -> ${imageUrl}`)
-          }
-        } else {
-          // 没有图片URL
-          imageUrl = 'https://placehold.co/400x500/f5f0e6/8c7b60?text=No+Image'
-        }
+        const imageUrl = resolveWardrobeImageUrl(item.image_url)
         
         // 后端 season 为数组 ["autumn","winter"]，前端筛选/详情用逗号分隔字符串，此处统一成字符串
         const seasonVal = item.season
@@ -855,231 +800,16 @@ const loadClothingData = async (options = {}) => {
       })
       
       // 第二步：应用修复（如果需要）
-      clothes.value = await applyImageUrlFixes(initialItems)
+      clothes.value = await applyClothingImageUrlFixes(initialItems)
       
-      console.log(`✅ 数据加载完成，共 ${clothes.value.length} 件衣物`)
-      
-      // 第三步：验证修复结果
-      await verifyImageLoads()
-      
+      console.log(`Done: ${clothes.value.length} items in wardrobe`)
     }
     
   } catch (error) {
-    console.error('加载衣物数据失败:', error)
+    console.error('loadClothingData failed:', error)
   } finally {
     isInitialLoadingCloth.value = false
   }
-}
-
-// 应用URL修复
-const applyImageUrlFixes = async (items) => {
-  console.log('应用图片URL修复...')
-  
-  const fixedItems = []
-  
-  for (const item of items) {
-    // 复制item
-    const fixedItem = { ...item }
-    
-    // 如果标记为需要修复，或者当前URL可能是相对路径
-    if (item._needsFix || item.image.startsWith('/')) {
-      console.log(`检查衣物 ${item.id} 的图片URL: ${item.image}`)
-      
-      // 尝试修复
-      const fixedUrl = await getWorkingImageUrl(item)
-      
-      if (fixedUrl !== item.image) {
-        console.log(`  修复: ${item.image} -> ${fixedUrl}`)
-        fixedItem.image = fixedUrl
-        fixedItem._wasFixed = true
-        fixedItem._originalImage = item.image
-      }
-    }
-    
-    fixedItems.push(fixedItem)
-  }
-  
-  console.log(`修复完成: ${fixedItems.filter(item => item._wasFixed).length} 个URL被修复`)
-  return fixedItems
-}
-
-// 获取可工作的图片URL
-const getWorkingImageUrl = async (item) => {
-  const candidates = []
-  
-  // 候选方案1：当前URL
-  candidates.push(item.image)
-  
-  // 候选方案2：添加API基础URL（如果当前是相对路径）
-  if (item.image.startsWith('/')) {
-    candidates.push(`${API_BASE_URL}${item.image}`)
-  }
-  
-  // 候选方案3：使用原始路径（如果不同）
-  if (item._rawImageUrl && item._rawImageUrl !== item.image) {
-    candidates.push(item._rawImageUrl)
-    // 如果是相对路径，也尝试添加API基础URL
-    if (item._rawImageUrl.startsWith('/')) {
-      candidates.push(`${API_BASE_URL}${item._rawImageUrl}`)
-    }
-  }
-  
-  // 候选方案4：添加缓存破坏
-  if (item.image.includes('?')) {
-    candidates.push(`${item.image.split('?')[0]}?t=${Date.now()}`)
-  } else {
-    candidates.push(`${item.image}?t=${Date.now()}`)
-  }
-  
-  console.log(`为衣物 ${item.id} 测试候选URL:`, candidates)
-  
-  // 测试每个候选URL
-  for (const candidate of candidates) {
-    const isWorking = await testImageUrlAsync(candidate)
-    if (isWorking) {
-      console.log(`  ✅ 找到可用的URL: ${candidate}`)
-      return candidate
-    }
-  }
-  
-  // 所有候选都失败，返回原始URL
-  console.log(`  ❌ 所有候选URL都失败，使用原始URL`)
-  return item.image
-}
-
-// 验证图片加载
-const verifyImageLoads = async () => {
-  console.log('验证图片加载...')
-  
-  const results = []
-  
-  for (const item of clothes.value) {
-    const isAccessible = await testImageUrlAsync(item.image)
-    results.push({
-      id: item.id,
-      name: item.name,
-      url: item.image,
-      accessible: isAccessible,
-      wasFixed: item._wasFixed || false
-    })
-  }
-  
-  const accessibleCount = results.filter(r => r.accessible).length
-  const inaccessibleCount = results.filter(r => !r.accessible).length
-  const fixedCount = results.filter(r => r.wasFixed).length
-  
-  console.log(`验证结果: ${accessibleCount} 张可访问, ${inaccessibleCount} 张不可访问`)
-  console.log(`其中 ${fixedCount} 张经过修复`)
-  
-  // 显示不可访问的图片
-  if (inaccessibleCount > 0) {
-    console.log('不可访问的图片:')
-    results.filter(r => !r.accessible).forEach(r => {
-      console.log(`  ID: ${r.id}, 名称: ${r.name}`)
-      console.log(`  URL: ${r.url}`)
-    })
-  }
-  
-  return results
-}
-
-// 修改为可重用的修复函数
-const fixImageUrlForItem = (item) => {
-  console.log(`尝试修复衣物 ${item.id} 的图片URL...`)
-  console.log('原始URL:', item.image)
-  console.log('原始raw URL:', item._rawImageUrl)
-  
-  const original = item._rawImageUrl || item.image
-  let fixedUrl = item.image
-  
-  // 方案1：如果原始路径是相对路径，添加API基础URL
-  if (original && original.startsWith('/') && !original.startsWith('http')) {
-    const fullUrl = `${API_BASE_URL}${original}`
-    console.log(`方案1: 添加API基础URL -> ${fullUrl}`)
-    
-    // 测试这个URL
-    const testResult = testImageUrl(fullUrl)
-    if (testResult) {
-      fixedUrl = fullUrl
-      console.log(`✅ 方案1成功！`)
-    } else {
-      console.log(`❌ 方案1失败`)
-    }
-  }
-  
-  // 方案2：如果已经是http URL但无法访问，尝试其他修复
-  if (fixedUrl === item.image && original && original.startsWith('http')) {
-    // 尝试添加缓存破坏
-    const cacheBusterUrl = `${original}?t=${Date.now()}`
-    console.log(`方案2: 添加缓存破坏 -> ${cacheBusterUrl}`)
-    
-    const testResult = testImageUrl(cacheBusterUrl)
-    if (testResult) {
-      fixedUrl = cacheBusterUrl
-      console.log(`✅ 方案2成功！`)
-    }
-  }
-
-  
-  // 如果URL有变化，返回修复后的URL
-  if (fixedUrl !== item.image) {
-    console.log(`修复成功: ${item.image} -> ${fixedUrl}`)
-    return fixedUrl
-  }
-  
-  console.log(`无法修复，保持原URL: ${item.image}`)
-  return item.image
-}
-
-// 测试单个URL的函数
-const testImageUrl = (url) => {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => {
-      console.log(`  ✅ URL可访问: ${url}`)
-      resolve(true)
-    }
-    img.onerror = () => {
-      console.log(`  ❌ URL不可访问: ${url}`)
-      resolve(false)
-    }
-    img.src = url
-    // 设置超时
-    setTimeout(() => {
-      if (!img.complete) {
-        console.log(`  ⏱️ URL测试超时: ${url}`)
-        resolve(false)
-      }
-    }, 3000)
-  })
-}
-
-// 异步测试URL
-const testImageUrlAsync = (url) => {
-  return new Promise((resolve) => {
-    const img = new Image()
-    
-    // 设置超时
-    const timeout = setTimeout(() => {
-      img.onload = img.onerror = null
-      console.log(`  ⏱️ 测试超时: ${url}`)
-      resolve(false)
-    }, 5000)
-    
-    img.onload = () => {
-      clearTimeout(timeout)
-      console.log(`  ✅ 可访问: ${url} (${img.width}x${img.height})`)
-      resolve(true)
-    }
-    
-    img.onerror = () => {
-      clearTimeout(timeout)
-      console.log(`  ❌ 不可访问: ${url}`)
-      resolve(false)
-    }
-    
-    img.src = url
-  })
 }
 
 const handleDeleteItem = (id) => {
@@ -1089,15 +819,11 @@ const handleDeleteItem = (id) => {
 
 const doDeleteClothing = async (id) => {
   try {
-    console.log('=== 开始删除衣物 ===', id)
+    console.log('=== delete clothing ===', id)
     uni.showLoading({ title: 'Deleting...', mask: true })
     const response = await deleteClothing(userToken.value, id)
     uni.hideLoading()
-    const notFound = response.statusCode === 404 ||
-      (response.data && (
-        String(response.data.detail || '').includes('不存在') ||
-        String(response.data.message || '').includes('不存在')
-      ))
+    const notFound = isClothingDeleteNotFoundResponse(response, null)
     if (response.statusCode === 200 && response.data && response.data.success) {
       clothes.value = clothes.value.filter((c) => c.id !== id)
       uni.showToast({ title: 'Deleted', icon: 'success', duration: 2000 })
@@ -1124,9 +850,8 @@ const doDeleteClothing = async (id) => {
     }
   } catch (error) {
     uni.hideLoading()
-    console.error('删除衣物失败:', error)
-    const errMsg = String(error?.message || error?.errMsg || error?.detail || '')
-    const isNotFound = error?.statusCode === 404 || errMsg.includes('不存在')
+    console.error('delete clothing failed:', error)
+    const isNotFound = isClothingDeleteNotFoundResponse(null, error)
     if (isNotFound) {
       clothes.value = clothes.value.filter((c) => c.id !== id)
       if (selectedItem.value && selectedItem.value.id === id) {
@@ -1179,17 +904,7 @@ const loadModelPhotos = async (options = {}) => {
       return
     }
     if (showSkeleton) isInitialLoadingModel.value = true
-    const queryParams = {
-      token: userToken.value,
-      page: modelCurrentPage.value,
-      page_size: PAGE_SIZE,
-      order_by: 'created_at',
-      order_desc: true,
-      is_active: true
-    }
-    
-    
-    console.log('=== 加载模特照片数据 ===')
+    console.log('=== loadModelPhotos ===')
     
     const response = await getModelPhotos({
       token: userToken.value,
@@ -1202,28 +917,11 @@ const loadModelPhotos = async (options = {}) => {
     
     if (response.statusCode === 200 && response.data.success) {
       const photos = response.data.data.photos || []
-      console.log(`获取到 ${photos.length} 张模特照片`)
+      console.log(`Fetched ${photos.length} model photos`)
       
       // 转换数据格式
       models.value = photos.map(photo => {
-        // 构建图片URL
-        let imageUrl = ''
-        
-        if (photo.image_url) {
-          if (photo.image_url.startsWith('/')) {
-            // 相对路径：添加API基础URL
-            imageUrl = `${API_BASE_URL}${photo.image_url}`
-          } else if (photo.image_url.startsWith('http')) {
-            // 完整URL
-            imageUrl = photo.image_url
-          } else {
-            // 其他格式
-            imageUrl = `${API_BASE_URL}/${photo.image_url}`
-          }
-        } else {
-          // 没有图片URL
-          imageUrl = 'https://placehold.co/400x500/f5f0e6/8c7b60?text=No+Image'
-        }
+        const imageUrl = resolveWardrobeImageUrl(photo.image_url)
         
         return {
           id: photo.id,
@@ -1244,14 +942,14 @@ const loadModelPhotos = async (options = {}) => {
       const primaryModel = models.value.find(model => model.is_primary)
       defaultModelId.value = primaryModel ? primaryModel.id : null
       
-      console.log(`✅ 模特照片加载完成，共 ${models.value.length} 张，默认ID: ${defaultModelId.value}`)
+      console.log(`Model photos loaded: ${models.value.length}, defaultId: ${defaultModelId.value}`)
       
     } else {
-      console.error('加载模特照片失败:', response.data?.message)
+      console.error('loadModelPhotos failed:', response.data?.message)
     }
     
   } catch (error) {
-    console.error('加载模特照片数据失败:', error)
+    console.error('loadModelPhotos error:', error)
   } finally {
     isInitialLoadingModel.value = false
   }
@@ -1261,65 +959,12 @@ const loadModelPhotos = async (options = {}) => {
  * 打开模特照片上传模态框
  */
 const openModelUpload = async () => {
-  try {
-    console.log('开始模特照片上传...')
-    
-    // 1. 检查登录状态
-    if (!isLoggedIn.value) {
-      uni.showToast({
-        title: 'Please log in first',
-        icon: 'none'
-      })
-      return
-    }
-    
-    // 2. 选择图片
-    const chooseResult = await uni.chooseImage({
-      count: 1,
-      sizeType: ['compressed'],
-      sourceType: ['album', 'camera']
-    })
-    
-    console.log('选择的模特图片:', chooseResult)
-    
-    if (!chooseResult.tempFilePaths || chooseResult.tempFilePaths.length === 0) {
-      uni.showToast({ title: 'No image selected', icon: 'none' })
-      return
-    }
-    
-    const tempFilePath = chooseResult.tempFilePaths[0]
-    console.log('临时文件路径:', tempFilePath)
-    
-    // 3. 获取文件信息
-    const fileInfo = await uni.getFileInfo({
-      filePath: tempFilePath
-    })
-    console.log('文件信息:', fileInfo)
-    
-    // 检查文件大小（后端限制10MB）
-    if (fileInfo.size > 10 * 1024 * 1024) {
-      uni.showToast({
-        title: 'File size must be under 10MB',
-        icon: 'none'
-      })
-      return
-    }
-    
-    // 4. 存储图片文件路径
-    selectedModelImageFile.value = tempFilePath
-    
-    // 5. 打开弹窗（表单由 ModelUploadModal 内部在 visible 时重置）
-    
-    // 6. 显示模特照片上传模态框
-    showModelUploadModal.value = true
-    
-  } catch (error) {
-    console.error('选择模特图片异常:', error)
-    uni.showToast({
-      title: 'Failed to select image',
-      icon: 'none'
-    })
-  }
+  console.log('model photo upload start...')
+  const tempFilePath = await pickLocalImageUnderMaxSize()
+  if (!tempFilePath) return
+  console.log('temp file path:', tempFilePath)
+  selectedModelImageFile.value = tempFilePath
+  showModelUploadModal.value = true
 }
 
 /**
@@ -1337,7 +982,7 @@ const handleModelUploadConfirm = async (formData) => {
     closeModelUploadModal()
     loadModelPhotos({ showSkeleton: false })
   } catch (error) {
-    console.error('上传模特照片失败:', error)
+    console.error('uploadModelPhoto failed:', error)
     uni.showToast({ title: 'Upload failed', icon: 'none' })
   } finally {
     uni.hideLoading()
@@ -1378,7 +1023,7 @@ const handleModelDelete = (id) => {
 
 const doDeleteModel = async (id) => {
   try {
-    console.log('=== 开始删除模特照片 ===', id)
+    console.log('=== delete model photo ===', id)
     uni.showLoading({ title: 'Deleting...', mask: true })
     const response = await deleteModelPhoto(userToken.value, id, false)
     uni.hideLoading()
@@ -1400,7 +1045,7 @@ const doDeleteModel = async (id) => {
     }
   } catch (error) {
     uni.hideLoading()
-    console.error('删除模特照片失败:', error)
+    console.error('delete model photo failed:', error)
     uni.showToast({ title: 'Delete failed: network error', icon: 'none', duration: 3000 })
   }
 }
@@ -1410,7 +1055,7 @@ const doDeleteModel = async (id) => {
  */
 const handleSetDefaultModel = async (id) => {
   try {
-    console.log('设置默认模特照片:', id)
+    console.log('set default model photo:', id)
     
     // 显示加载提示
     uni.showLoading({
@@ -1448,7 +1093,7 @@ const handleSetDefaultModel = async (id) => {
     
   } catch (error) {
     uni.hideLoading()
-    console.error('设置默认模特照片失败:', error)
+    console.error('setModelPhotoPrimary failed:', error)
     uni.showToast({
       title: 'Set failed: network error',
       icon: 'none',
@@ -1462,7 +1107,7 @@ const handleSetDefaultModel = async (id) => {
  */
 const handleModelUpdate = async ({ id, field, value }) => {
   try {
-    console.log('更新模特照片:', { id, field, value })
+    console.log('update model photo:', { id, field, value })
     
     // 如果是is_primary字段，使用专门的API
     if (field === 'is_primary' && value === true) {
@@ -1508,7 +1153,7 @@ const handleModelUpdate = async ({ id, field, value }) => {
     
   } catch (error) {
     uni.hideLoading()
-    console.error('更新模特照片失败:', error)
+    console.error('updateModelPhoto failed:', error)
     uni.showToast({
       title: 'Update failed: network error',
       icon: 'none',
@@ -1983,10 +1628,7 @@ const handleUploadDrop = async (event) => {
 			result = await uploadClothing({
 				token: userToken.value,
 				file,
-				formData: {
-					name: '', category: '', subcategory: '', color: '', season: '',
-					brand: '', tags: '', description: '', price: '', purchase_date: ''
-				}
+				formData: createEmptyClothingUploadForm()
 			})
 		} catch (e1) {
 			// 若 fetch 失败（如 CORS），尝试用 blob URL 走 uni.uploadFile
@@ -1994,35 +1636,14 @@ const handleUploadDrop = async (event) => {
 			result = await uploadClothing({
 				token: userToken.value,
 				filePath: blobUrl,
-				formData: {
-					name: '', category: '', subcategory: '', color: '', season: '',
-					brand: '', tags: '', description: '', price: '', purchase_date: ''
-				}
+				formData: createEmptyClothingUploadForm()
 			})
 		}
 		if (!result || result.statusCode !== 200 || !result.data?.success) {
 			throw new Error(result?.data?.message || result?.data?.detail || 'Upload failed')
 		}
 		const data = result.data?.data || result.data
-		const raw = (data.auto_label && data.auto_label._raw) || data.auto_label || {}
-		const tagsFromApi = data.tags
-		const tagsStr = Array.isArray(tagsFromApi) && tagsFromApi.length
-			? tagsFromApi.map(String).filter(Boolean).join(', ')
-			: [raw.subcategory, raw.style, raw.occasion, raw.pattern].filter(Boolean).map(String).join(', ')
-		uploadFormData.value = {
-			name: data.name || raw.subcategory || raw.category || 'Unnamed',
-			category: raw.category || data.category || '',
-			subcategory: raw.subcategory || '',
-			color: typeof raw.color === 'string' ? raw.color : (raw.color || ''),
-			season: Array.isArray(raw.season) ? (raw.season[0] || '') : (raw.season || ''),
-			brand: raw.brand || '',
-			tags: tagsStr,
-			description: raw.description || '',
-			price: uploadFormData.value.price || '',
-			purchase_date: uploadFormData.value.purchase_date || ''
-		}
-		createdItemIdForEdit.value = data.id
-		showCategoryModal.value = true
+		openClothTaggingModalFromUploadData(data)
 	} catch (err) {
 		const msg = err?.message || err?.errMsg || 'Upload failed'
 		uni.showToast({ title: msg, icon: 'none' })
@@ -2031,38 +1652,6 @@ const handleUploadDrop = async (event) => {
 		uploadLoading.value = false
 		uni.hideLoading()
 	}
-}
-
-const handleUpload = () => {
-	uni.chooseImage({
-		count: 1,
-		sizeType: ['compressed'],
-		sourceType: ['album', 'camera'],
-		success: (res) => {
-			const tempFilePath = res.tempFilePaths[0]
-			if (viewMode.value === 'Model') {
-				models.value.unshift({
-					id: Date.now(),
-					posture: 'New Model',
-					date: new Date().toISOString().slice(0, 10),
-					favourite: 0,
-					image: tempFilePath,
-				})
-			} else {
-				clothes.value.unshift({
-					id: Date.now(),
-					name: 'New Item',
-					type: 'top',
-					subcategory: '',
-					date: new Date().toISOString().slice(0, 10),
-					color: '',
-					season: '',
-					favourite: 0,
-					image: tempFilePath,
-				})
-			}
-		},
-	})
 }
 
 </script>

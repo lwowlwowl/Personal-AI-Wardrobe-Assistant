@@ -1,18 +1,18 @@
 <template>
-  <view v-if="visible" class="modal-overlay" @click.self="handleCancel">
+  <view v-if="visible" class="modal-overlay" @click.self="emit('cancel')">
     <view class="modal">
       <text class="title">{{ title }}</text>
       <text class="content">{{ content }}</text>
       <view class="actions">
-        <view class="btn cancel-btn" @click="handleCancel">Cancel</view>
-        <view class="btn danger" @click="handleConfirm">Delete</view>
+        <view class="btn cancel-btn" @click="emit('cancel')">Cancel</view>
+        <view class="btn danger" @click="emit('confirm')">Delete</view>
       </view>
     </view>
   </view>
 </template>
 
 <script setup>
-const props = defineProps({
+defineProps({
   visible: {
     type: Boolean,
     default: false
@@ -28,14 +28,6 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['confirm', 'cancel'])
-
-function handleConfirm() {
-  emit('confirm')
-}
-
-function handleCancel() {
-  emit('cancel')
-}
 </script>
 
 <style scoped>

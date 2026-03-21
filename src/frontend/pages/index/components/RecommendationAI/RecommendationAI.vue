@@ -176,25 +176,7 @@
 						<view class="ai-avatar">
 							<image src="/static/icons/icon-robot.svg" mode="aspectFit" class="icon-robot-avatar"></image>
 						</view>
-						<view class="loading-premium-card">
-							<view class="shimmer-layer"></view>
-							<view class="loading-content-center">
-								<view class="aura-ring"></view>
-								<text class="loading-step-text editorial-text">{{ LOADING_STEPS[loadingStep] }}</text>
-								<text class="loading-sub-text">Scanning your wardrobe assets...</text>
-							</view>
-							<view class="loading-progress-wrap">
-								<view class="loading-progress-track">
-									<view class="loading-progress-fill" :style="{ width: loadingProgress + '%' }"></view>
-								</view>
-								<text class="loading-progress-label">{{ loadingProgressPercent }}%</text>
-							</view>
-							<view class="skeleton-lines">
-								<view class="skeleton-line short"></view>
-								<view class="skeleton-line long"></view>
-								<view class="skeleton-line medium"></view>
-							</view>
-						</view>
+						<LoadingPanel :ref="setLoadingPanelRef" />
 					</view>
 				</view>
 
@@ -254,14 +236,16 @@
 
 <script setup>
 import { ref, watch, nextTick, onMounted, computed } from 'vue'
-import RecommendationCard from './RecommendationCard.vue'
-import ChatMessageBubble from './ChatMessageBubble.vue'
-import PlanScheduleCard from './PlanScheduleCard.vue'
-import { LOADING_STEPS, normalizeChatResponse } from './chatContentAdapter.js'
-import { chatRecommendation, getWeatherNow } from '@/api/recommendationApi.js'
-import { getClothingList, getPrimaryModelPhoto, API_BASE_URL } from '@/api/wardrobe.js'
+import RecommendationCard from './chat-content/RecommendationCard.vue'
+import ChatMessageBubble from './chat-content/ChatMessageBubble.vue'
+import PlanScheduleCard from './chat-content/PlanScheduleCard.vue'
+import { normalizeChatResponse } from './utils/chatContentAdapter.js'
+import LoadingPanel from './chat-content/LoadingPanel.vue'
+import { chatRecommendation, getWeatherNow, getAuthToken } from '@/api/recommendationApi.js'
+import { getClothingList, getPrimaryModelPhoto } from '@/api/wardrobe.js'
+import { resolveWardrobeImageUrl } from '@/api/wardrobeMedia.js'
 import { getCalendarOutfits, saveCalendarOutfits } from '@/api/calendarApi.js'
-import { getOutfitTryOnSortIndex, buildOutfitTryOnStepLabel } from './recommendationOutfitOrder.js'
+import { getOutfitTryOnSortIndex, buildOutfitTryOnStepLabel } from './utils/recommendationOutfitOrder.js'
 
 const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false },
@@ -339,12 +323,8 @@ function resolveRecItemClothingId(item) {
 }
 
 async function handleAddRecommendationToCalendar(recommendation) {
-	if (!props.isLoggedIn) {
-		uni.showToast({ title: 'Please log in first', icon: 'none' })
-		return
-	}
 	const token = getAuthToken()
-	if (!token) {
+	if (!props.isLoggedIn || !token) {
 		uni.showToast({ title: 'Please log in first', icon: 'none' })
 		return
 	}
@@ -363,9 +343,7 @@ async function handleAddRecommendationToCalendar(recommendation) {
 		const rawName = cloth?.name || item.name || 'Item'
 		const name = String(rawName).replace(/\s*[\(（]\s*id\s*[:：]\s*[A-Za-z0-9_]+\s*[\)）]\s*/gi, '').trim() || 'Item'
 		let image = cloth?.image || item.image || ''
-		if (image && typeof image === 'string' && image.startsWith('/') && !image.startsWith('//')) {
-			image = `${API_BASE_URL}${image}`
-		}
+		if (image) image = resolveWardrobeImageUrl(image)
 		newById.set(cid, {
 			id: cid,
 			name,
@@ -393,9 +371,7 @@ async function handleAddRecommendationToCalendar(recommendation) {
 				const id = Number(e.id)
 				if (!Number.isFinite(id)) continue
 				let img = e.image || ''
-				if (img && typeof img === 'string' && img.startsWith('/') && !img.startsWith('//')) {
-					img = `${API_BASE_URL}${img}`
-				}
+				if (img) img = resolveWardrobeImageUrl(img)
 				merged.set(id, {
 					id,
 					name: e.name || '',
@@ -494,24 +470,18 @@ watch(() => props.isLoggedIn, (loggedIn) => {
 const chatHistory = ref([])
 const scrollTarget = ref('')
 const justCreatedConversation = ref(false)
-const loadingStep = ref(0)
-const loadingProgress = ref(0)
-const loadingProgressPercent = computed(() => Math.floor(loadingProgress.value))
-let progressTimer = null
+const loadingPanelRef = ref(null)
+
+function setLoadingPanelRef(el) {
+	loadingPanelRef.value = el
+}
 
 // --- AI 单品 ID -> 衣橱真实图片 对应（仅依靠 clothingId 精准匹配）---
 const myWardrobeList = ref([])
 
-function getAuthToken() {
-	// 与 MyWardrobe/WardrobeView.vue 对齐
-	return uni.getStorageSync('auth_token') || ''
-}
-
 function buildImageUrl(imageUrl) {
-	if (!imageUrl) return ''
-	if (imageUrl.startsWith('http')) return imageUrl
-	if (imageUrl.startsWith('/')) return `${API_BASE_URL}${imageUrl}`
-	return `${API_BASE_URL}/${imageUrl}`
+	if (imageUrl == null || imageUrl === '') return ''
+	return resolveWardrobeImageUrl(imageUrl)
 }
 
 async function fetchPrimaryModelImageUrl() {
@@ -707,14 +677,8 @@ const handleRegenerate = (msgIdx) => {
 	if (msg?.role !== 'ai') return
 
 	chatHistory.value[msgIdx] = { role: 'loading', content: '' }
-	loadingStep.value = 0
-
-	const stepInterval = setInterval(() => {
-		loadingStep.value = (loadingStep.value + 1) % LOADING_STEPS.length
-	}, 500)
 
 	setTimeout(() => {
-		clearInterval(stepInterval)
 		chatHistory.value[msgIdx] = { ...msg }
 		const cid = props.currentConversationId
 		if (cid) emit('update-conversation', { id: cid, messages: [...chatHistory.value] })
@@ -789,108 +753,56 @@ const handleSearch = async () => {
 	scrollToBottom()
 
 	chatHistory.value.push({ role: 'loading', content: '' })
-	loadingStep.value = 0
-	loadingProgress.value = 0
 	scrollToBottom()
 
-	const stepInterval = setInterval(() => {
-		loadingStep.value = (loadingStep.value + 1) % LOADING_STEPS.length
-	}, 800)
-
-	const progressStartAt = Date.now()
-	progressTimer = setInterval(() => {
-		const elapsed = Date.now() - progressStartAt
-
-		// 分段“假进度”节奏：前期快、中期卡一会、后期慢慢逼近 95
-		let cap = 95
-		let factor = 0.08
-		let stallChance = 0
-
-		if (elapsed < 650) {
-			// 0-0.65s：先“起步犹豫”一小下（更像真实）
-			cap = 22
-			factor = 0.16
-			stallChance = 0.25
-		} else if (elapsed < 1400) {
-			// 0.65-1.4s：快速拉升到 ~60
-			cap = 60
-			factor = 0.26
-			stallChance = 0.08
-		} else if (elapsed < 2400) {
-			// 1.4-2.4s：早期再轻微卡一下（停在 60-68）
-			cap = 68
-			factor = 0.06
-			stallChance = 0.18
-		} else if (elapsed < 5200) {
-			// 1.2-5.2s：中段放缓，停留在 75-88 区间更久
-			cap = 88
-			factor = 0.035
-			stallChance = 0.12
-		} else {
-			// 5.2s+：最后非常缓慢逼近 95
-			cap = 95
-			factor = 0.018
-			stallChance = 0.06
-		}
-
-		const remaining = cap - loadingProgress.value
-		if (remaining > 0.2) {
-			// 让进度“非匀速”：用轻微波动 + 偶发停顿制造真实感（且保持单调递增）
-			if (stallChance > 0 && Math.random() < stallChance) return
-			const wobble = 0.75 + 0.25 * Math.sin(elapsed / 230)
-			loadingProgress.value += remaining * factor * wobble
-			if (loadingProgress.value > cap) loadingProgress.value = cap
-		}
-	}, 150)
-
 	// 调接口后一定用 final 结构化消息整体替换占位消息（修改.md：替换不是 append）
-	const finishLoading = (aiMessage) => {
-		clearInterval(stepInterval)
-		clearInterval(progressTimer)
-		progressTimer = null
-		loadingProgress.value = 100
+	const finishLoading = async (aiMessage) => {
+		const panel = loadingPanelRef.value
+		if (panel && typeof panel.complete === 'function') {
+			await panel.complete()
+		} else {
+			await new Promise((r) => setTimeout(r, 300))
+		}
 
-		setTimeout(() => {
-			// 若接口只返回了 content（未收到 final 或 buffer 未解析），且 content 为 JSON，解析后按结构渲染
-			let toNormalize = aiMessage
-			const hasStructure = (Array.isArray(aiMessage?.recommendations) && aiMessage.recommendations.length > 0) ||
-				(aiMessage?.plan?.days && aiMessage.plan.days.length > 0)
-			if (!hasStructure && aiMessage?.content && typeof aiMessage.content === 'string' && aiMessage.content.trim().startsWith('{')) {
-				try {
-					const parsed = JSON.parse(aiMessage.content.trim())
-					if (parsed && typeof parsed === 'object') {
-						toNormalize = {
-							role: 'ai',
-							rawText: aiMessage.content.trim(),
-							content: parsed.content ?? '',
-							recommendations: parsed.recommendations ?? [],
-							plan: parsed.plan ?? null,
-							locale: parsed.locale ?? 'en'
-						}
+		// 若接口只返回了 content（未收到 final 或 buffer 未解析），且 content 为 JSON，解析后按结构渲染
+		let toNormalize = aiMessage
+		const hasStructure = (Array.isArray(aiMessage?.recommendations) && aiMessage.recommendations.length > 0) ||
+			(aiMessage?.plan?.days && aiMessage.plan.days.length > 0)
+		if (!hasStructure && aiMessage?.content && typeof aiMessage.content === 'string' && aiMessage.content.trim().startsWith('{')) {
+			try {
+				const parsed = JSON.parse(aiMessage.content.trim())
+				if (parsed && typeof parsed === 'object') {
+					toNormalize = {
+						role: 'ai',
+						rawText: aiMessage.content.trim(),
+						content: parsed.content ?? '',
+						recommendations: parsed.recommendations ?? [],
+						plan: parsed.plan ?? null,
+						locale: parsed.locale ?? 'en'
 					}
-				} catch (_) {}
-			}
-			let normalized = normalizeChatResponse(toNormalize)
-			normalized = attachImagesToAiMessage(normalized)
+				}
+			} catch (_) {}
+		}
+		let normalized = normalizeChatResponse(toNormalize)
+		normalized = attachImagesToAiMessage(normalized)
 
-			// 用 AI 消息替换 loading 消息，避免“先删再加”导致视觉断层
-			const loadingIdx = chatHistory.value.findIndex(msg => msg.role === 'loading')
-			if (loadingIdx !== -1) {
-				chatHistory.value.splice(loadingIdx, 1, normalized)
-			} else {
-				chatHistory.value.push(normalized)
-			}
+		// 用 AI 消息替换 loading 消息，避免“先删再加”导致视觉断层
+		const loadingIdx = chatHistory.value.findIndex(msg => msg.role === 'loading')
+		if (loadingIdx !== -1) {
+			chatHistory.value.splice(loadingIdx, 1, normalized)
+		} else {
+			chatHistory.value.push(normalized)
+		}
 
-			justCreatedConversation.value = false
+		justCreatedConversation.value = false
 
-			const cid = props.currentConversationId
-			if (cid) {
-				const payload = { id: cid, messages: [...chatHistory.value] }
-				if (isFirstMessageInConversation) payload.title = (query || 'New chat').slice(0, 36)
-				emit('update-conversation', payload)
-			}
-			scrollToBottom()
-		}, 300)
+		const cid = props.currentConversationId
+		if (cid) {
+			const payload = { id: cid, messages: [...chatHistory.value] }
+			if (isFirstMessageInConversation) payload.title = (query || 'New chat').slice(0, 36)
+			emit('update-conversation', payload)
+		}
+		scrollToBottom()
 	}
 
 	const history = chatHistory.value
@@ -904,9 +816,9 @@ const handleSearch = async () => {
 
 	try {
 		const res = await chatRecommendation(query, history)
-		finishLoading(res)
+		await finishLoading(res)
 	} catch (err) {
-		finishLoading({
+		await finishLoading({
 			role: 'ai',
 			content: 'Request failed: ' + (err && err.message ? err.message : 'Network error')
 		})
@@ -1233,176 +1145,6 @@ const previewImages = (urls, index = 0) => {
 	color: #AAA; 
 	margin: 0 15rpx; /* 控制 | 左右的间隔大小 */
 	position: relative;
-}
-
-/* 高级毛玻璃 Loading 卡片 */
-.loading-premium-card {
-	position: relative;
-	width: 100%;
-	min-height: 400rpx;
-	background: rgba(255, 255, 255, 0.4);
-	backdrop-filter: blur(20px);
-	-webkit-backdrop-filter: blur(20px);
-	border-radius: 40rpx;
-	border: 1px solid rgba(255, 255, 255, 0.8);
-	overflow: hidden;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	box-shadow: 0 16rpx 60rpx rgba(0, 0, 0, 0.03);
-}
-
-/* 核心：极其细腻的斜向流光扫过卡片 */
-.shimmer-layer {
-	position: absolute;
-	inset: 0;
-	background: linear-gradient(
-		120deg,
-		rgba(255, 255, 255, 0) 0%,
-		rgba(255, 255, 255, 0.8) 50%,
-		rgba(255, 255, 255, 0) 100%
-	);
-	background-size: 200% 100%;
-	animation: premiumShimmer 2.5s infinite linear;
-	z-index: 1;
-}
-
-@keyframes premiumShimmer {
-	0% { background-position: -200% 0; }
-	100% { background-position: 200% 0; }
-}
-
-/* 内部文字布局 */
-.loading-content-center {
-	position: relative;
-	z-index: 2;
-	text-align: center;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 16rpx;
-}
-
-/* 光晕环：柔和呼吸光圈 */
-.aura-ring {
-	width: 80rpx;
-	height: 80rpx;
-	border-radius: 50%;
-	background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.3) 50%, transparent 70%);
-	animation: auraPulse 2.5s ease-in-out infinite;
-}
-
-@keyframes auraPulse {
-	0%, 100% { transform: scale(1); opacity: 0.6; }
-	50% { transform: scale(1.15); opacity: 1; }
-}
-
-/* 衬线体排版，增加呼吸感 */
-.editorial-text {
-	font-family: "Didot", "Times New Roman", "PingFang SC", serif;
-	font-size: 36rpx;
-	color: #1D1D1F;
-	letter-spacing: 0.05em;
-	animation: textBreath 3s ease-in-out infinite;
-}
-
-.loading-step-text {
-	font-size: 28rpx;
-	color: #9D8B70;
-	font-family: "Didot", "Times New Roman", "PingFang SC", serif;
-	font-weight: 400;
-	letter-spacing: 0.04em;
-}
-
-.loading-sub-text {
-	font-size: 24rpx;
-	color: #9D8B70;
-	letter-spacing: 0.1em;
-	text-transform: uppercase;
-	opacity: 0.7;
-}
-
-@keyframes textBreath {
-	0%, 100% { transform: scale(1); opacity: 0.8; letter-spacing: 0.05em; }
-	50% { transform: scale(1.02); opacity: 1; letter-spacing: 0.08em; }
-}
-
-/* 底部骨架屏：增加真实感 */
-.skeleton-lines {
-	position: absolute;
-	bottom: 60rpx;
-	left: 60rpx;
-	right: 60rpx;
-	display: flex;
-	flex-direction: column;
-	gap: 20rpx;
-	opacity: 0.3;
-	z-index: 2;
-}
-
-.skeleton-line {
-	height: 12rpx;
-	background: #EAE5D9;
-	border-radius: 10rpx;
-}
-
-.skeleton-line.short { width: 30%; }
-.skeleton-line.long { width: 80%; }
-.skeleton-line.medium { width: 60%; }
-
-/* 实时进度条：渐进式阻尼 + 能量光效 */
-.loading-progress-wrap {
-	position: relative;
-	z-index: 2;
-	width: 100%;
-	padding: 0 60rpx;
-	box-sizing: border-box;
-	display: flex;
-	align-items: center;
-	gap: 24rpx;
-	margin-top: 32rpx;
-}
-.loading-progress-track {
-	flex: 1;
-	height: 6rpx;
-	background: rgba(157, 139, 112, 0.15);
-	border-radius: 6rpx;
-	overflow: hidden;
-	position: relative;
-}
-.loading-progress-fill {
-	height: 100%;
-	background: linear-gradient(90deg, #9D8B70 0%, #C4B59D 50%, #9D8B70 100%);
-	background-size: 200% 100%;
-	border-radius: 6rpx;
-	transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-	animation: gradientFlow 2s linear infinite;
-	position: relative;
-}
-.loading-progress-fill::after {
-	content: '';
-	position: absolute;
-	right: 0;
-	top: -2rpx;
-	bottom: -2rpx;
-	width: 20rpx;
-	background: #FFF;
-	box-shadow: 0 0 10rpx 4rpx rgba(255, 255, 255, 0.8);
-	border-radius: 50%;
-	filter: blur(2px);
-}
-@keyframes gradientFlow {
-	0% { background-position: 100% 0; }
-	100% { background-position: -100% 0; }
-}
-.loading-progress-label {
-	font-size: 20rpx;
-	color: #9D8B70;
-	font-variant-numeric: tabular-nums;
-	min-width: 56rpx;
-	text-align: right;
-	font-weight: 500;
 }
 
 /* 聊天状态：scroll-view 区域 */

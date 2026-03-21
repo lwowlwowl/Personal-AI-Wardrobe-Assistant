@@ -18,7 +18,7 @@
 			<view class="card bento-activity">
 				<text class="card-label">Wardrobe Activity</text>
 				<view v-if="loadingActivity" class="loading-state">
-					<text class="loading-text">加载中...</text>
+					<text class="loading-text">Loading...</text>
 				</view>
 				<template v-else>
 				<view class="big-metric">
@@ -56,7 +56,7 @@
 							<text class="loading-text">Please log in first</text>
 						</view>
 						<view v-else-if="loadingTrend" class="loading-state">
-							<text class="loading-text">加载趋势数据...</text>
+							<text class="loading-text">Loading trend data...</text>
 						</view>
 						<template v-else>
 							<template v-if="isSinglePointTrend">
@@ -99,8 +99,8 @@
 									<text v-for="year in lineYears" :key="year" class="chart-label">{{ year }}</text>
 								</view>
 								<view class="chart-stats" v-if="totalStats && (totalStats.growth_rate != null || totalStats.projection)">
-									<text class="stat-item" v-if="totalStats.growth_rate">增长率: {{ totalStats.growth_rate }}%</text>
-									<text class="stat-item" v-if="totalStats.projection">预测{{ totalStats.projection_year }}: {{ totalStats.projection }}</text>
+									<text class="stat-item" v-if="totalStats.growth_rate">Growth rate: {{ totalStats.growth_rate }}%</text>
+									<text class="stat-item" v-if="totalStats.projection">Forecast {{ totalStats.projection_year }}: {{ totalStats.projection }}</text>
 								</view>
 							</template>
 						</template>
@@ -123,7 +123,7 @@
 						<text class="loading-text">Please log in first</text>
 					</view>
 					<view v-else-if="loadingWorn" class="loading-state">
-						<text class="loading-text">加载中...</text>
+						<text class="loading-text">Loading...</text>
 					</view>
 					<template v-else>
 					<view v-for="item in mostWornWithDot" :key="item.name" class="list-item">
@@ -139,12 +139,12 @@
 			<view class="bento-stats">
 				<view class="mini-card">
 					<text class="card-label-small">Top color</text>
-					<text class="mini-value">{{ topColorName || 'Brown' }}</text>
+					<text class="mini-value">{{ topColorName || '—' }}</text>
 					<text class="mini-sub">{{ topColorPercent }}%</text>
 				</view>
 				<view class="mini-card">
 					<text class="card-label-small">Top style</text>
-					<text class="mini-value">{{ topStyleName || 'Sporty' }}</text>
+					<text class="mini-value">{{ topStyleName || '—' }}</text>
 					<text class="mini-sub">{{ topStylePercent }}%</text>
 				</view>
 			</view>
@@ -205,7 +205,16 @@
 						<text>Type</text>
 					</view>
 				</view>
-				<view class="donut-container">
+				<view v-if="!isLoggedIn" class="loading-state donut-empty-state">
+					<text class="loading-text">Please log in first</text>
+				</view>
+				<view v-else-if="loadingCategory" class="loading-state donut-empty-state">
+					<text class="loading-text">Loading...</text>
+				</view>
+				<view v-else-if="!hasCategoryDonutData" class="loading-state donut-empty-state">
+					<text class="loading-text">No category data yet</text>
+				</view>
+				<view v-else class="donut-container">
 					<svg viewBox="-100 -100 200 200" class="donut-svg" aria-hidden="true" @mouseleave="hoveredSegmentIndex = null">
 						<path
 							v-for="{ seg, originalIndex } in donutSegmentsForDraw"
@@ -260,15 +269,19 @@ import ActivityReport from './ActivityReport.vue'
 import IdleItemsView from './IdleItemsView.vue'
 import { COLOR_HEX_BY_CODE } from '@/utils/wardrobeEnums.js'
 import * as analysisApi from '@/api/analysisApi.js'
-import {
-	getMockTrendData,
-	getMockWornData,
-	DEFAULT_TOP_COLOR_NAME,
-	DEFAULT_TOP_STYLE_NAME,
-	MOCK_WEEKLY_TOTAL_WEARS
-} from './mockData.js'
-
 const SUGGESTED_CACHE_KEY = 'wardrobe_suggested_additions'
+
+/** 趨勢圖無資料或 API 失敗時的佔位（不使用假數據） */
+function resetTrendToEmpty() {
+	lineYears.value = []
+	lineData.value = []
+	totalItemsCount.value = 0
+	totalStats.value = null
+}
+
+function clearMostWorn() {
+	mostWorn.value = []
+}
 
 function loadSuggestedCacheFromStorage() {
 	try {
@@ -316,7 +329,7 @@ const activityPercentTarget = computed(() => {
 /** 本周活跃度 API 返回（null 表示未拉取或失败，用 mock） */
 const weeklyActivityData = ref(null)
 /** 本周总穿戴次数（来自 API 或 mock） */
-const currentWears = ref(MOCK_WEEKLY_TOTAL_WEARS)
+const currentWears = ref(0)
 const activityPercent = ref(0)
 const idlePercent = ref(0)
 const topColorPercent = ref(0)
@@ -326,14 +339,13 @@ const loadingWorn = ref(true)
 const loadingSuggested = ref(true)
 const loadingActivity = ref(true)
 
-const initialTrend = getMockTrendData('weekly')
-const lineYears = ref(initialTrend.labels)
-const lineData = ref(initialTrend.values)
-const totalItemsCount = ref(initialTrend.total_count)
+const lineYears = ref([])
+const lineData = ref([])
+const totalItemsCount = ref(0)
 const totalStats = ref(null)
 const idleCount = ref(0)
-const topColorName = ref(DEFAULT_TOP_COLOR_NAME)
-const topStyleName = ref(DEFAULT_TOP_STYLE_NAME)
+const topColorName = ref('')
+const topStyleName = ref('')
 
 function animateCountUp(refVal, targetRef, duration = 800, delay = 0) {
 	const startVal = 0
@@ -438,21 +450,25 @@ function getSvgPath(data, width, height, isArea) {
 	return d
 }
 
-const categoryData = ref([
-	{ label: 'Top', value: 35, color: '#FCD568' },
-	{ label: 'Bottom', value: 25, color: '#68C5FA' },
-	{ label: 'Footwear', value: 10, color: '#A694F5' },
-	{ label: 'Outerwear', value: 15, color: '#FF69B4' },
-	{ label: 'Accessories', value: 15, color: '#E57373' }
-])
+/** 分類圓環：僅來自 GET /api/analysis/total-items/category-distribution，無硬編碼假資料 */
+const categoryData = ref([])
+const loadingCategory = ref(false)
 
 /**
  * 圆环图（Category Breakdown）每个扇形的路径与标签位置
  * 坐标系：SVG viewBox="-100 -100 200 200"，圆心 (0,0)，单位与 viewBox 一致
  */
+const categoryChartTotal = computed(() =>
+	categoryData.value.reduce((sum, d) => sum + (Number(d.value) || 0), 0)
+)
+const hasCategoryDonutData = computed(
+	() => categoryData.value.length > 0 && categoryChartTotal.value > 0
+)
+
 const donutSegments = computed(() => {
 	let startAngle = 0
-	const total = categoryData.value.reduce((a, b) => a + b.value, 0)
+	const total = categoryChartTotal.value
+	if (total <= 0 || !categoryData.value.length) return []
 
 	// ---------- 圆环几何（扇形本身）----------
 	const r1 = 52 // 圆环「内半径」：空心内圈的半径
@@ -519,13 +535,7 @@ const hoveredSegment = computed(() => {
 	return donutSegments.value[i] ?? null
 })
 
-const mostWorn = ref([
-	{ name: 'White Cotton T-shirt', wears: 35, color: 'white' },
-	{ name: 'Classic Denim Jacket', wears: 28, color: 'blue' },
-	{ name: 'Black Knit Top', wears: 27, color: 'black' },
-	{ name: 'Khaki Chino Pants', wears: 24, color: 'brown' },
-	{ name: 'Navy Striped Tee', wears: 22, color: 'navy' }
-])
+const mostWorn = ref([])
 /** 从「red, light green, white, orange」这类多色字符串中取第一个颜色 code，用于小圆点 */
 function firstColorCode(colorStr) {
 	if (!colorStr || typeof colorStr !== 'string') return 'gray'
@@ -629,13 +639,6 @@ function refreshSuggestedAdditions() {
 	fetchSuggestedAdditions()
 }
 
-function setMockTrendData() {
-	const mock = getMockTrendData(viewByTotal.value)
-	lineYears.value = mock.labels
-	lineData.value = mock.values
-	totalItemsCount.value = mock.total_count
-}
-
 async function fetchTrendData() {
 	loadingTrend.value = true
 	try {
@@ -648,13 +651,13 @@ async function fetchTrendData() {
 				totalItemsCount.value = data.total_count
 				totalStats.value = data.statistics
 			} else {
-				setMockTrendData()
+				resetTrendToEmpty()
 			}
 		} else {
-			setMockTrendData()
+			resetTrendToEmpty()
 		}
 	} catch (e) {
-		setMockTrendData()
+		resetTrendToEmpty()
 	} finally {
 		loadingTrend.value = false
 	}
@@ -698,12 +701,24 @@ async function fetchSummaryData() {
 }
 
 async function fetchCategoryDistribution() {
+	if (!analysisApi.isLoggedIn()) {
+		categoryData.value = []
+		return
+	}
+	loadingCategory.value = true
 	try {
 		const response = await analysisApi.getCategoryDistribution()
-		if (response && response.success && response.data) {
-			categoryData.value = response.data
+		if (response && response.success && Array.isArray(response.data)) {
+			categoryData.value = response.data.filter((d) => d && (Number(d.value) || 0) > 0)
+		} else {
+			categoryData.value = []
 		}
-	} catch (e) {}
+	} catch (e) {
+		categoryData.value = []
+	} finally {
+		loadingCategory.value = false
+		hoveredSegmentIndex.value = null
+	}
 }
 
 async function fetchIdleRate() {
@@ -722,30 +737,43 @@ async function fetchIdleRate() {
 	}
 }
 
+function normalizeTopPercent(raw) {
+	if (raw == null || raw === '') return 0
+	const n = Number(raw)
+	if (Number.isNaN(n) || !Number.isFinite(n)) return 0
+	return Math.max(0, Math.min(100, Math.round(n)))
+}
+
 async function fetchTopColor() {
 	try {
 		const response = await analysisApi.getTopColor()
-		if (response && response.success && response.data) {
-			const data = response.data
-			topColorName.value = data.top_color.color_name
-			animateCountUp(topColorPercent, data.top_color.percentage, 800)
+		if (response && response.success && response.data?.top_color) {
+			const tc = response.data.top_color
+			topColorName.value = tc.color_name || '—'
+			animateCountUp(topColorPercent, normalizeTopPercent(tc.percentage), 800)
+			return
 		}
-	} catch (e) {}
+	} catch (e) {
+		if (analysisApi.isLoggedIn()) console.error('[WardrobeAnalysis] top-color:', e)
+	}
+	topColorName.value = 'No data'
+	animateCountUp(topColorPercent, 0, 800)
 }
 
 async function fetchTopStyle() {
 	try {
 		const response = await analysisApi.getTopStyle()
-		if (response && response.success && response.data) {
-			const data = response.data
-			topStyleName.value = data.top_style.style_name
-			animateCountUp(topStylePercent, data.top_style.percentage, 800)
+		if (response && response.success && response.data?.top_style) {
+			const ts = response.data.top_style
+			topStyleName.value = ts.style_name || '—'
+			animateCountUp(topStylePercent, normalizeTopPercent(ts.percentage), 800)
+			return
 		}
-	} catch (e) {}
-}
-
-function setMockWornData(timeRange) {
-	mostWorn.value = getMockWornData(timeRange)
+	} catch (e) {
+		if (analysisApi.isLoggedIn()) console.error('[WardrobeAnalysis] top-style:', e)
+	}
+	topStyleName.value = 'No data'
+	animateCountUp(topStylePercent, 0, 800)
 }
 
 async function fetchMostWornItems() {
@@ -760,13 +788,13 @@ async function fetchMostWornItems() {
 					color: item.color || 'gray'
 				}))
 			} else {
-				setMockWornData(viewByWorn.value)
+				clearMostWorn()
 			}
 		} else {
-			setMockWornData(viewByWorn.value)
+			clearMostWorn()
 		}
 	} catch (e) {
-		setMockWornData(viewByWorn.value)
+		clearMostWorn()
 	} finally {
 		loadingWorn.value = false
 	}
@@ -809,12 +837,15 @@ watch(() => props.isLoggedIn, (loggedIn) => {
 		}
 	} else {
 		weeklyActivityData.value = null
-		currentWears.value = MOCK_WEEKLY_TOTAL_WEARS
+		currentWears.value = 0
 		loadingActivity.value = false
 		loadingSuggested.value = false
 		suggestedTexts.value = []
 		suggestedAdditionsCache = null
 		saveSuggestedCacheToStorage(null)
+		categoryData.value = []
+		loadingCategory.value = false
+		hoveredSegmentIndex.value = null
 	}
 })
 
@@ -824,8 +855,6 @@ onMounted(() => {
 	const countUpDelay = 320
 	animateCountUp(activityPercent, activityPercentTarget, 800, countUpDelay)
 	animateCountUp(idlePercent, () => idlePercentTarget.value, 800, countUpDelay + 60)
-	animateCountUp(topColorPercent, 38, 800, countUpDelay + 120)
-	animateCountUp(topStylePercent, 45, 800, countUpDelay + 180)
 	if (!props.isLoggedIn) {
 		loadingTrend.value = false
 		loadingWorn.value = false
@@ -1644,6 +1673,13 @@ onMounted(() => {
 }
 
 /* Donut */
+.donut-empty-state {
+	flex: 1;
+	min-height: 320rpx;
+	padding: 40rpx 20rpx;
+	box-sizing: border-box;
+}
+
 .donut-container {
 	flex: 1;
 	position: relative;
@@ -1794,7 +1830,7 @@ onMounted(() => {
 .label-lg { font-size: 54rpx; }
 .label-sm { font-size: 32rpx; }
 
-/* ⭐ Grid Placement - 卡片位置和大小配置
+/* Grid Placement - 卡片位置和大小配置
  * 
  * 每个卡片的布局调整说明：
  * 

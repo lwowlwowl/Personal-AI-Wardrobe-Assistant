@@ -64,7 +64,6 @@ const currentConversationId = ref(props.conversationState?.currentConversationId
 const openConvMenuId = ref(null)
 const renamingConvId = ref(null)
 const deletingConvId = ref(null)
-const loadingConversations = ref(false)
 
 // 是否为后端返回的 id（数字或数字字符串）
 function isServerId(id) {
@@ -96,7 +95,6 @@ function syncState() {
 // 登入后从后端拉取对话列表
 async function loadConversationsFromServer() {
 	if (!props.isLoggedIn) return
-	loadingConversations.value = true
 	try {
 		const { data } = await listConversations()
 		conversations.value = (data || []).map(c => ({
@@ -110,9 +108,8 @@ async function loadConversationsFromServer() {
 			currentConversationId.value = null
 		}
 	} catch (e) {
-		console.warn('[ConversationSidebar] 拉取对话列表失败', e?.message || e)
+		console.warn('[ConversationSidebar] Failed to load conversations', e?.message || e)
 	} finally {
-		loadingConversations.value = false
 		syncState()
 	}
 }
@@ -198,7 +195,7 @@ const confirmDelete = async () => {
 		try {
 			await deleteConversation(id)
 		} catch (e) {
-			console.warn('[ConversationSidebar] 删除对话失败', e?.message || e)
+			console.warn('[ConversationSidebar] Failed to delete conversation', e?.message || e)
 		}
 	}
 	conversations.value = conversations.value.filter(c => c.id !== id)
@@ -235,7 +232,7 @@ async function handleCreateConversation({ id: providedId, title, firstMessage })
 			}
 			syncState()
 		} catch (e) {
-			console.warn('[ConversationSidebar] 创建对话同步失败', e?.message || e)
+			console.warn('[ConversationSidebar] Failed to sync new conversation', e?.message || e)
 		}
 	}
 }
@@ -254,7 +251,7 @@ function handleUpdateConversation({ id, messages, title }) {
 		if (title !== undefined) payload.title = title
 		if (Object.keys(payload).length === 0) return
 		updateConversation(id, payload).catch(e => {
-			console.warn('[ConversationSidebar] 更新对话同步失败', e?.message || e)
+			console.warn('[ConversationSidebar] Failed to sync conversation update', e?.message || e)
 		})
 	}
 }
