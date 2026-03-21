@@ -8,16 +8,18 @@
 			<text class="bg-watermark">{{ monthLabel.split(' ')[0].toUpperCase() }}</text>
 
 			<view class="scatter-bg-container" :class="{ 'panel-open': selectedDateKey }" aria-hidden="true">
-				<view
-					v-for="(item, index) in backgroundScatterItems"
-					:key="'scatter-' + item.id + '-' + index"
-					class="scatter-card"
-					:style="item.style"
-				>
-					<view class="scatter-thumb-wrap">
-						<image :src="item.image" mode="aspectFill" class="scatter-img" />
+				<transition-group name="scatter-polaroid" tag="view" class="scatter-transition-group">
+					<view
+						v-for="(item, index) in backgroundScatterItems"
+						:key="'scatter-' + monthKey + '-' + (item.id != null ? item.id : 'i' + index)"
+						class="scatter-card"
+						:style="item.style"
+					>
+						<view class="scatter-thumb-wrap">
+							<image :src="item.image" mode="aspectFill" class="scatter-img" />
+						</view>
 					</view>
-				</view>
+				</transition-group>
 			</view>
 
 			<view class="wardrobe-decor" aria-hidden="true">
@@ -171,7 +173,7 @@
 							<view class="outfit-panel-header" ref="panelHeaderRef">
 								<view class="outfit-header-row1">
 									<text class="outfit-panel-title">{{ selectedDateLabel }}</text>
-									<view class="close-panel-btn magnetic-btn" @click="closePanel" role="button" aria-label="关闭面板">
+									<view class="close-panel-btn magnetic-btn" @click="closePanel" role="button" aria-label="Close panel">
 										<text class="close-icon">✕</text>
 									</view>
 								</view>
@@ -270,6 +272,178 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import AddOutfitPanel from './AddOutfitPanel.vue'
 import { getCalendarOutfits, saveCalendarOutfits, API_BASE_URL } from '@/api/calendarApi.js'
 
+/** 将年月日转换为日期键字符串（格式：YYYY-MM-DD） */
+function toDateKey(y, m, d) {
+	const pad = (n) => String(n).padStart(2, '0')
+	return `${y}-${pad(m + 1)}-${pad(d)}`
+}
+
+/** 将后端返回的单品统一为前端格式（image 为完整 URL） */
+function normalizeItem(item) {
+	if (!item) return item
+	let image = item.image || item.image_url || ''
+	if (image && image.startsWith('/') && !image.startsWith('//')) {
+		image = `${API_BASE_URL}${image}`
+	}
+	return {
+		id: item.id,
+		name: item.name || 'Unnamed',
+		image,
+		accentColor: item.accentColor || item.accent_color || '#8d6e63'
+	}
+}
+
+/** 依日期月份推算季节（北半球：3–5 春、6–8 夏、9–11 秋、12–2 冬） */
+function getSeasonForDateKey(dateKey) {
+	const [, m] = dateKey.split('-')
+	const month = parseInt(m, 10)
+	if (month >= 3 && month <= 5) return 'Spring'
+	if (month >= 6 && month <= 8) return 'Summer'
+	if (month >= 9 && month <= 11) return 'Autumn'
+	return 'Winter'
+}
+
+/**
+ * 计算连续记录天数（day streak）
+ * outfitsByDate: 普通对象 { "YYYY-MM-DD": items[] }
+ */
+function calculateStreakFromMap(outfitsByDate, viewYear, viewMonth) {
+	const today = new Date()
+	const todayYear = today.getFullYear()
+	const todayMonth = today.getMonth()
+
+	let startDate = new Date()
+
+	if (viewYear === todayYear && viewMonth === todayMonth) {
+		const todayKey = toDateKey(todayYear, todayMonth, today.getDate())
+		const todayHasRecord = outfitsByDate[todayKey]?.length > 0
+		if (!todayHasRecord) {
+			return 0
+		}
+	} else if (viewYear < todayYear || (viewYear === todayYear && viewMonth < todayMonth)) {
+		const lastDay = new Date(viewYear, viewMonth + 1, 0)
+		const firstDay = new Date(viewYear, viewMonth, 1)
+
+		let foundStart = false
+		let checkDate = new Date(lastDay)
+
+		while (checkDate >= firstDay) {
+			const key = toDateKey(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate())
+			if (outfitsByDate[key]?.length > 0) {
+				startDate = new Date(checkDate)
+				foundStart = true
+				break
+			}
+			checkDate.setDate(checkDate.getDate() - 1)
+		}
+
+		if (!foundStart) {
+			return 0
+		}
+	} else {
+		return 0
+	}
+
+	const viewMonth0 = viewMonth
+	let streak = 0
+	let checkDate = new Date(startDate)
+	while (true) {
+		const y = checkDate.getFullYear()
+		const m = checkDate.getMonth()
+		if (y !== viewYear || m !== viewMonth0) break
+		const key = toDateKey(y, m, checkDate.getDate())
+		if (outfitsByDate[key]?.length > 0) {
+			streak++
+			checkDate.setDate(checkDate.getDate() - 1)
+		} else {
+			break
+		}
+	}
+	return streak
+}
+
+/** 本月穿搭统计（uniqueItems 按 item.id 去重） */
+function computeMonthStats(outfitsByDate, year, month) {
+	const prefix = `${year}-${String(month + 1).padStart(2, '0')}-`
+	let daysRecorded = 0
+	const uniqueIds = new Set()
+	for (const [key, items] of Object.entries(outfitsByDate)) {
+		if (key.startsWith(prefix) && items?.length) {
+			daysRecorded++
+			for (const item of items) {
+				if (item.id != null) uniqueIds.add(item.id)
+			}
+		}
+	}
+	return { daysRecorded, uniqueItems: uniqueIds.size }
+}
+
+/** 生成日历单元格数组（包含当前月、上月末尾、下月开头的日期，共42个单元格） */
+function buildCalendarCells(year, month) {
+	const first = new Date(year, month, 1)
+	const last = new Date(year, month + 1, 0)
+	const firstDay = first.getDay()
+	const daysInMonth = last.getDate()
+
+	const today = new Date()
+	const todayKey = toDateKey(today.getFullYear(), today.getMonth(), today.getDate())
+
+	const cells = []
+	const prevMonth = month === 0 ? 11 : month - 1
+	const prevYear = month === 0 ? year - 1 : year
+	const prevLast = new Date(prevYear, prevMonth + 1, 0)
+	const prevDays = prevLast.getDate()
+
+	for (let i = 0; i < firstDay; i++) {
+		const d = prevDays - firstDay + i + 1
+		cells.push({
+			day: d,
+			dateKey: toDateKey(prevYear, prevMonth, d),
+			isCurrentMonth: false,
+			isToday: false
+		})
+	}
+
+	for (let d = 1; d <= daysInMonth; d++) {
+		const key = toDateKey(year, month, d)
+		cells.push({
+			day: d,
+			dateKey: key,
+			isCurrentMonth: true,
+			isToday: key === todayKey
+		})
+	}
+
+	const remaining = 42 - cells.length
+	const nextMonth = month === 11 ? 0 : month + 1
+	const nextYear = month === 11 ? year + 1 : year
+	for (let d = 1; d <= remaining; d++) {
+		cells.push({
+			day: d,
+			dateKey: toDateKey(nextYear, nextMonth, d),
+			isCurrentMonth: false,
+			isToday: false
+		})
+	}
+
+	return cells
+}
+
+/** 格式化日期为面板标题样式（用于 FLIP 飞入文字） */
+function formatDateLabel(dateKey) {
+	if (!dateKey) return ''
+	const [y, m, d] = dateKey.split('-')
+	const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
+	return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+}
+
+/** 格式化预览浮层显示的日期 */
+function formatPreviewDate(dateKey) {
+	const [y, m, d] = dateKey.split('-')
+	const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
+	return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const userToken = ref(uni.getStorageSync('auth_token') || '')
@@ -355,6 +529,10 @@ const outfitsByDate = ref({})
 
 /** 背景散落卡片 (Moodboard Scatter) - 分区均匀散布：最多 8 张，左 4 右 4，垂直区间错开 */
 const backgroundScatterItems = computed(() => {
+	// 与当前查看月份绑定，换月时立即重算以触发 transition-group（数据仍可能为上一月直至 fetch 完成）
+	displayYear.value
+	displayMonth.value
+
 	const allItems = []
 	const seenIds = new Set()
 
@@ -396,26 +574,13 @@ const backgroundScatterItems = computed(() => {
 				top: `${top}%`,
 				'--r': `${rotation}deg`,
 				'--s': scale,
-				'--opacity': opacity
+				'--opacity': opacity,
+				'--scatter-enter-delay': `${index * 55}ms`,
+				'--scatter-leave-delay': `${(maxCards - 1 - index) * 40}ms`
 			}
 		}
 	})
 })
-
-/** 将后端返回的单品统一为前端格式（image 为完整 URL） */
-function normalizeItem(item) {
-	if (!item) return item
-	let image = item.image || item.image_url || ''
-	if (image && image.startsWith('/') && !image.startsWith('//')) {
-		image = `${API_BASE_URL}${image}`
-	}
-	return {
-		id: item.id,
-		name: item.name || '未命名',
-		image,
-		accentColor: item.accentColor || item.accent_color || '#8d6e63'
-	}
-}
 
 /** 拉取当前显示月份的穿搭记录 */
 async function fetchMonthOutfits() {
@@ -442,7 +607,7 @@ async function fetchMonthOutfits() {
 		}
 	} catch (e) {
 		outfitsByDate.value = {}
-		uni.showToast({ title: '获取日历记录失败', icon: 'none' })
+		uni.showToast({ title: 'Failed to load calendar.', icon: 'none' })
 	}
 }
 
@@ -466,16 +631,6 @@ const selectedDateLabel = computed(() => {
 	return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 })
 
-/** 依日期月份推算季节（北半球：3–5 春、6–8 夏、9–11 秋、12–2 冬） */
-function getSeasonForDateKey(dateKey) {
-	const [, m] = dateKey.split('-')
-	const month = parseInt(m, 10)
-	if (month >= 3 && month <= 5) return 'Spring'
-	if (month >= 6 && month <= 8) return 'Summer'
-	if (month >= 9 && month <= 11) return 'Autumn'
-	return 'Winter'
-}
-
 /** 选中日的摘要：几套穿搭、该日期的季节（依月份，非单品标签） */
 const selectedDaySummary = computed(() => {
 	const key = selectedDateKey.value
@@ -488,170 +643,16 @@ const selectedDaySummary = computed(() => {
 	return `${count}   ·   ${season}`
 })
 
-/** 
- * 计算连续记录天数（day streak）
- * 
- * 逻辑说明：
- * 
- * 【当前月份的逻辑】
- * - 如果今天有记录：从今天开始往前倒推，计算连续有记录的天数
- * - 如果今天没记录：不显示 streak（返回 0），因为今天还没记，streak 已经断了
- *   这样设计的好处：只有今天有记录时才显示 streak，更符合"习惯打卡"的实时性
- * 
- * 【过去月份的逻辑】
- * - 从该月最后一天往前倒推，找到最后一个有记录的天作为起点
- * - 如果该月完全没有记录，返回 0
- * - 从找到的最后一个有记录的天开始，继续往前倒推，计算连续有记录的天数
- *   这样可以看到用户在该月结束时的连续记录情况
- * 
- * 【未来月份的逻辑】
- * - 返回 0（未来还没有记录）
- */
-function calculateStreak() {
-	const today = new Date()
-	const todayYear = today.getFullYear()
-	const todayMonth = today.getMonth()
-	
-	const viewYear = displayYear.value
-	const viewMonth = displayMonth.value
-	
-	let startDate = new Date()
-	
-	// 根据查看的月份决定起始日期
-	if (viewYear === todayYear && viewMonth === todayMonth) {
-		// 【当前月份】只有今天有记录时才显示 streak
-		const todayKey = toDateKey(todayYear, todayMonth, today.getDate())
-		const todayHasRecord = outfitsByDate.value[todayKey]?.length > 0
-		if (!todayHasRecord) {
-			// 今天没记录，不显示 streak
-			return 0
-		}
-		// 今天有记录，从今天开始往前倒推
-	} else if (viewYear < todayYear || (viewYear === todayYear && viewMonth < todayMonth)) {
-		// 【过去月份】从该月最后一天往前倒推，找到最后一个有记录的天作为起点
-		const lastDay = new Date(viewYear, viewMonth + 1, 0) // 该月最后一天
-		const firstDay = new Date(viewYear, viewMonth, 1) // 该月第一天
-		
-		// 从最后一天往前找，找到最后一个有记录的天
-		let foundStart = false
-		let checkDate = new Date(lastDay)
-		
-		while (checkDate >= firstDay) {
-			const key = toDateKey(checkDate.getFullYear(), checkDate.getMonth(), checkDate.getDate())
-			if (outfitsByDate.value[key]?.length > 0) {
-				startDate = new Date(checkDate)
-				foundStart = true
-				break
-			}
-			checkDate.setDate(checkDate.getDate() - 1)
-		}
-		
-		// 如果该月完全没有记录，streak 为 0
-		if (!foundStart) {
-			return 0
-		}
-	} else {
-		// 【未来月份】streak 为 0
-		return 0
-	}
-	
-	// 从起始日期往前倒推，计算连续有记录的天数（仅限当前查看月份内，跨月不连续）
-	const viewMonth0 = viewMonth
-	let streak = 0
-	let checkDate = new Date(startDate)
-	while (true) {
-		const y = checkDate.getFullYear()
-		const m = checkDate.getMonth()
-		if (y !== viewYear || m !== viewMonth0) break // 仅限当月
-		const key = toDateKey(y, m, checkDate.getDate())
-		if (outfitsByDate.value[key]?.length > 0) {
-			streak++
-			checkDate.setDate(checkDate.getDate() - 1)
-		} else {
-			break
-		}
-	}
-	return streak
-}
-
-const currentStreak = computed(() => calculateStreak())
+const currentStreak = computed(() =>
+	calculateStreakFromMap(outfitsByDate.value, displayYear.value, displayMonth.value)
+)
 
 /** 本月穿搭统计（与 MY_CALENDAR.md 口径一致：uniqueItems 按 item.id 去重） */
-const monthStats = computed(() => {
-	const year = displayYear.value
-	const month = displayMonth.value
-	const prefix = `${year}-${String(month + 1).padStart(2, '0')}-`
-	let daysRecorded = 0
-	const uniqueIds = new Set()
-	for (const [key, items] of Object.entries(outfitsByDate.value)) {
-		if (key.startsWith(prefix) && items?.length) {
-			daysRecorded++
-			for (const item of items) {
-				if (item.id != null) uniqueIds.add(item.id)
-			}
-		}
-	}
-	return { daysRecorded, uniqueItems: uniqueIds.size }
-})
+const monthStats = computed(() =>
+	computeMonthStats(outfitsByDate.value, displayYear.value, displayMonth.value)
+)
 
-/** 将年月日转换为日期键字符串（格式：YYYY-MM-DD） */
-function toDateKey(y, m, d) {
-	const pad = (n) => String(n).padStart(2, '0')
-	return `${y}-${pad(m + 1)}-${pad(d)}`
-}
-
-/** 生成日历单元格数组（包含当前月、上月末尾、下月开头的日期，共42个单元格） */
-const calendarCells = computed(() => {
-	const year = displayYear.value
-	const month = displayMonth.value
-	const first = new Date(year, month, 1)
-	const last = new Date(year, month + 1, 0)
-	const firstDay = first.getDay()
-	const daysInMonth = last.getDate()
-
-	const today = new Date()
-	const todayKey = toDateKey(today.getFullYear(), today.getMonth(), today.getDate())
-
-	const cells = []
-	const prevMonth = month === 0 ? 11 : month - 1
-	const prevYear = month === 0 ? year - 1 : year
-	const prevLast = new Date(prevYear, prevMonth + 1, 0)
-	const prevDays = prevLast.getDate()
-
-	for (let i = 0; i < firstDay; i++) {
-		const d = prevDays - firstDay + i + 1
-		cells.push({
-			day: d,
-			dateKey: toDateKey(prevYear, prevMonth, d),
-			isCurrentMonth: false,
-			isToday: false
-		})
-	}
-
-	for (let d = 1; d <= daysInMonth; d++) {
-		const key = toDateKey(year, month, d)
-		cells.push({
-			day: d,
-			dateKey: key,
-			isCurrentMonth: true,
-			isToday: key === todayKey
-		})
-	}
-
-	const remaining = 42 - cells.length
-	const nextMonth = month === 11 ? 0 : month + 1
-	const nextYear = month === 11 ? year + 1 : year
-	for (let d = 1; d <= remaining; d++) {
-		cells.push({
-			day: d,
-			dateKey: toDateKey(nextYear, nextMonth, d),
-			isCurrentMonth: false,
-			isToday: false
-		})
-	}
-
-	return cells
-})
+const calendarCells = computed(() => buildCalendarCells(displayYear.value, displayMonth.value))
 
 /** 切换到上一个月，设置滑动方向为 left（用于动画） */
 function prevMonth() {
@@ -765,14 +766,6 @@ function onEmptyIllusMouseLeave() {
 	emptyIllusMouseY.value = null
 }
 
-/** 格式化日期为面板标题样式（用于 FLIP 飞入文字） */
-function formatDateLabel(dateKey) {
-	if (!dateKey) return ''
-	const [y, m, d] = dateKey.split('-')
-	const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
-	return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-}
-
 /** 选择日期：FLIP 共享元素飞入 + 若在 Add 模式则退出 */
 function selectDay(cell, e) {
 	if (showAddPanel.value) {
@@ -836,19 +829,12 @@ function getOutfitItemStyle(i) {
 	}
 }
 
-/** 格式化预览浮层显示的日期 */
-function formatPreviewDate(dateKey) {
-	const [y, m, d] = dateKey.split('-')
-	const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
-	return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-}
-
 /** 确认添加 Outfit：调用 POST 全量覆盖，成功后更新本地状态 */
 async function handleAddOutfitConfirm(selectedItems) {
 	if (!selectedDateKey.value) return
 	const token = userToken.value
 	if (!token) {
-		uni.showToast({ title: '请先登录', icon: 'none' })
+		uni.showToast({ title: 'Please sign in first.', icon: 'none' })
 		return
 	}
 	const key = selectedDateKey.value
@@ -872,10 +858,10 @@ async function handleAddOutfitConfirm(selectedItems) {
 			}
 		} else {
 			// 优先展示后端返回的 detail（例如「穿着日期不能是未来日期」）
-			uni.showToast({ title: res.data?.message || res.data?.detail || '保存失败', icon: 'none' })
+			uni.showToast({ title: res.data?.message || res.data?.detail || 'Failed to save outfit.', icon: 'none' })
 		}
 	} catch (e) {
-		uni.showToast({ title: '保存失败', icon: 'none' })
+		uni.showToast({ title: 'Failed to save outfit.', icon: 'none' })
 	}
 	showAddPanel.value = false
 }
@@ -902,7 +888,7 @@ async function removeOutfit(dateKey, index) {
 	if (!outfitsByDate.value[dateKey]) return
 	const token = userToken.value
 	if (!token) {
-		uni.showToast({ title: '请先登录', icon: 'none' })
+		uni.showToast({ title: 'Please sign in first.', icon: 'none' })
 		return
 	}
 
@@ -921,10 +907,10 @@ async function removeOutfit(dateKey, index) {
 	try {
 		const res = await saveCalendarOutfits({ token, date: dateKey, items: payload })
 		if (!(res.statusCode === 200 && res.data && res.data.success)) {
-			uni.showToast({ title: res.data?.message || res.data?.detail || '删除失败', icon: 'none' })
+			uni.showToast({ title: res.data?.message || res.data?.detail || 'Failed to remove outfit.', icon: 'none' })
 		}
 	} catch (e) {
-		uni.showToast({ title: '删除失败', icon: 'none' })
+		uni.showToast({ title: 'Failed to remove outfit.', icon: 'none' })
 	}
 }
 
@@ -935,7 +921,7 @@ function clearAllOutfits() {
 	if (items.length === 0) return
 	const token = userToken.value
 	if (!token) {
-		uni.showToast({ title: '请先登录', icon: 'none' })
+		uni.showToast({ title: 'Please sign in first.', icon: 'none' })
 		return
 	}
 
@@ -957,1253 +943,16 @@ function clearAllOutfits() {
 				delete next[selectedDateKey.value]
 				outfitsByDate.value = next
 			} else {
-				uni.showToast({ title: res.data?.message || res.data?.detail || '清除失败', icon: 'none' })
+				uni.showToast({ title: res.data?.message || res.data?.detail || 'Failed to clear outfits.', icon: 'none' })
 			}
 		} catch (e) {
-			uni.showToast({ title: '清除失败', icon: 'none' })
+			uni.showToast({ title: 'Failed to clear outfits.', icon: 'none' })
 		}
 		setTimeout(() => { isClearing.value = false }, 100)
 	}, totalItemAnimation)
 }
 </script>
 
-<style scoped>
-/* =========================================
-   1. 赋予背景「布料纹理」(Fabric Weave Texture)
-========================================= */
-.calendar-container {
-	width: 100%;
-	height: 100vh;
-	overflow: hidden;
-	background-color: #FDFBF7;
-	/* 极细的网格线，模拟高级亚麻或纯棉布料的经纬线 */
-	background-image:
-		linear-gradient(rgba(141, 110, 99, 0.02) 1px, transparent 1px),
-		linear-gradient(90deg, rgba(141, 110, 99, 0.02) 1px, transparent 1px);
-	background-size: 8rpx 8rpx;
-	position: relative;
-	z-index: 0;
-}
-
-/* =========================================
-   2. AI 衣橱主题装饰层 (Thematic Decor)
-========================================= */
-.wardrobe-decor {
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-	z-index: 0;
-	overflow: hidden;
-}
-
-/* 裁缝打版十字定位标 (Tailor Crosshairs) */
-.tailor-mark {
-	position: absolute;
-	width: 40rpx;
-	height: 40rpx;
-}
-.tailor-mark::before,
-.tailor-mark::after {
-	content: '';
-	position: absolute;
-	background: rgba(184, 107, 31, 0.2);
-}
-.tailor-mark::before {
-	top: 0;
-	bottom: 0;
-	left: 50%;
-	width: 2rpx;
-	transform: translateX(-50%);
-}
-.tailor-mark::after {
-	left: 0;
-	right: 0;
-	top: 50%;
-	height: 2rpx;
-	transform: translateY(-50%);
-}
-.tailor-mark.top-left {
-	top: 8%;
-	left: 6%;
-}
-.tailor-mark.bottom-right {
-	bottom: 8%;
-	right: 6%;
-}
-
-/* 服装制版弧形虚线 (Pattern Drafting Curve) */
-.pattern-curve {
-	position: absolute;
-	top: -10%;
-	left: -5%;
-	width: 45vw;
-	height: 80vh;
-	border: 2rpx dashed rgba(184, 107, 31, 0.08);
-	border-radius: 50%;
-	transform: rotate(15deg);
-}
-
-/* 边缘排版：AI 数据与洗标 (Vertical Editorial Text) */
-.meta-text {
-	position: absolute;
-	font-family: "Courier New", Courier, monospace;
-	font-size: 20rpx;
-	color: rgba(141, 110, 99, 0.25);
-	letter-spacing: 0.15em;
-	writing-mode: vertical-rl;
-	transform: rotate(180deg);
-}
-
-.left-meta {
-	bottom: 8%;
-	left: 3%;
-}
-
-.right-meta {
-	top: 8%;
-	right: 3%;
-	display: flex;
-	align-items: center;
-	gap: 16rpx;
-}
-
-.care-symbols {
-	font-family: sans-serif;
-	font-size: 28rpx;
-	letter-spacing: 0.3em;
-	transform: rotate(90deg);
-	margin-bottom: 24rpx;
-}
-
-/* =========================================
-   背景情绪板散落卡片 (Moodboard Scatter) - 高级静态版
-========================================= */
-.scatter-bg-container {
-	position: absolute;
-	inset: 0;
-	z-index: 0;
-	pointer-events: none;
-	overflow: hidden;
-}
-
-/* 拍立得相纸质感：使用 CSS 变量便于面板打开时统一缩小与降透明 */
-.scatter-card {
-	position: absolute;
-	width: 240rpx;
-	height: 280rpx;
-	padding: 16rpx 16rpx 56rpx 16rpx;
-	background: #ffffff;
-	border-radius: 4rpx;
-	box-shadow:
-		0 30rpx 60rpx rgba(141, 110, 99, 0.12),
-		0 4rpx 16rpx rgba(0, 0, 0, 0.06),
-		inset 0 0 0 1rpx rgba(0, 0, 0, 0.03);
-	filter: contrast(0.95) sepia(10%);
-	transform: rotate(var(--r)) scale(var(--s));
-	opacity: var(--opacity);
-	transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
-	will-change: transform;
-}
-
-/* 右侧面板打开时：背景卡片等比例缩小且透明度降低，不抢主内容 */
-.scatter-bg-container.panel-open .scatter-card {
-	transform: rotate(var(--r)) scale(calc(var(--s) * 0.75));
-	opacity: calc(var(--opacity) * 0.55);
-}
-
-/* 纸胶带 (Masking Tape) 手工质感 */
-.scatter-card::before {
-	content: '';
-	position: absolute;
-	top: -12rpx;
-	left: 50%;
-	width: 80rpx;
-	height: 24rpx;
-	transform: translateX(-50%) rotate(-2deg);
-	background: rgba(230, 225, 215, 0.85);
-	box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.05);
-	border-left: 2rpx dashed rgba(255, 255, 255, 0.4);
-	border-right: 2rpx dashed rgba(255, 255, 255, 0.4);
-	backdrop-filter: blur(2px);
-	z-index: 10;
-}
-
-.scatter-thumb-wrap {
-	width: 100%;
-	height: 100%;
-	overflow: hidden;
-	background: #f5f2ee;
-	box-shadow: inset 0 4rpx 10rpx rgba(0, 0, 0, 0.04);
-}
-
-.scatter-img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	display: block;
-}
-
-.calendar-inner {
-	padding: 80rpx 24rpx 48rpx; /* 顶部留白，避免两侧组件贴顶 */
-	width: 100%;
-	max-width: 100%;
-	height: 100%;
-	box-sizing: border-box;
-	display: flex;
-	flex-direction: column;
-	position: relative;
-}
-
-/* =========================================
-   巨型环境水印 (解决背景空旷感)
-========================================= */
-.bg-watermark {
-	position: absolute;
-	top: 45%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	font-size: 32vw;
-	font-family: "Didot", "Bodoni MT", "Times New Roman", serif;
-	font-weight: 700;
-	color: rgba(184, 107, 31, 0.03);
-	white-space: nowrap;
-	pointer-events: none;
-	z-index: 0;
-	user-select: none;
-	letter-spacing: -0.04em;
-}
-
-/* =========================================
-   1. 容器：移除 gap 和 :has，改用 margin 物理占位
-========================================= */
-.main-wrapper {
-	width: 100%;
-	max-width: 2400rpx;
-	margin: 0 auto;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	flex: 1;
-	min-height: 0;
-	position: relative;
-	/* 删除了原本的 gap: 0 和 transition: gap */
-}
-
-/* =========================================
-   2. 左侧日历：让出更多空间
-========================================= */
-.main-left {
-	flex: 0 1 1400rpx;
-	width: 100%;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 28rpx;
-	/* 该贝塞尔曲线与右边面板保持绝对同步 */
-	transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-	will-change: flex-basis, max-width;
-}
-
-.main-left.is-shrunk {
-	/* 从原来的 1080rpx 改小，给中间留出更多呼吸空间 */
-	flex: 0 1 960rpx;
-}
-
-/* =========================================
-   3. 右侧面板：释放玻璃的完整形态 (移除裁剪)
-========================================= */
-.main-right {
-	position: relative;
-	width: 880rpx;
-	max-width: 880rpx;
-	margin-left: 200rpx;
-	height: calc(100vh - 260rpx);
-	display: flex;
-	flex-direction: column;
-	/* 删除 overflow: hidden，让玻璃边框与阴影在滑动全程保持完整，不被切断 */
-}
-
-.outfit-panel.glass-panel {
-	/* 内部面板强制固定宽度，不受外层 shrink 影响 */
-	width: 880rpx;
-	flex-shrink: 0;
-	height: 100%;
-	max-height: 100%;
-	/* 下方材质由「重塑高级玻璃材质」区块统一覆盖 */
-}
-
-/* =========================================
-   4. 右侧抽屉滑入/滑出动画：解耦透明度与空间位移
-========================================= */
-.split-panel-fade-enter-active,
-.split-panel-fade-leave-active {
-	/* 透明度用较短的 0.35s ease-out，在位移结束前就已 100% 清晰，消除顿挫感 */
-	transition:
-		opacity 0.35s ease-out,
-		transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-		max-width 0.6s cubic-bezier(0.16, 1, 0.3, 1),
-		margin-left 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.split-panel-fade-enter-from,
-.split-panel-fade-leave-to {
-	opacity: 0;
-	transform: translateX(60rpx);
-	max-width: 0;
-	margin-left: 0;
-}
-.split-panel-fade-enter-to,
-.split-panel-fade-leave-from {
-	opacity: 1;
-	transform: translateX(0);
-	max-width: 880rpx;
-	margin-left: 200rpx;
-}
-
-/* =========================================
-   重塑高级玻璃材质 (Apple-style Glassmorphism)
-========================================= */
-.glass-panel,
-.glass-card {
-	/* 底色改为高纯净度透白，与背景 FDFBF7 产生明显对比 */
-	background: rgba(255, 255, 255, 0.65);
-	backdrop-filter: blur(30px) saturate(120%);
-	-webkit-backdrop-filter: blur(30px) saturate(120%);
-
-	/* 顶部与左侧反光白边，模拟玻璃被光照的厚度 */
-	border-top: 2rpx solid rgba(255, 255, 255, 1);
-	border-left: 2rpx solid rgba(255, 255, 255, 0.8);
-	border-right: 1rpx solid rgba(255, 255, 255, 0.4);
-	border-bottom: 1rpx solid rgba(255, 255, 255, 0.2);
-
-	box-shadow:
-		inset 0 2rpx 0 rgba(255, 255, 255, 0.6), /* 顶部内侧高光 */
-		0 12rpx 40rpx rgba(141, 110, 99, 0.06),
-		0 4rpx 12rpx rgba(0, 0, 0, 0.03);
-}
-
-/* 右侧抽屉面板层级最高，材质更不透明且厚重 */
-.outfit-panel.glass-panel {
-	background: rgba(255, 255, 255, 0.85);
-	backdrop-filter: blur(40px);
-	-webkit-backdrop-filter: blur(40px);
-
-	box-shadow:
-		inset 0 2rpx 0 rgba(255, 255, 255, 0.8),
-		0 40rpx 100rpx rgba(141, 110, 99, 0.12),
-		0 10rpx 30rpx rgba(0, 0, 0, 0.04);
-}
-
-@supports not (backdrop-filter: blur(1px)) {
-	.glass-panel,
-	.glass-card {
-		background: rgba(255, 255, 255, 0.95);
-	}
-	.outfit-panel.glass-panel {
-		background: #FFFFFF;
-	}
-}
-
-.side-panel {
-	width: 100%;
-	padding: 28rpx 32rpx;
-	border-radius: 24rpx;
-	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
-}
-
-.side-title {
-	display: block;
-	font-size: 22rpx;
-	font-weight: 600;
-	color: #aaa;
-	text-transform: uppercase;
-	letter-spacing: 0.1em;
-	margin-bottom: 20rpx;
-}
-
-/* 流体进度条：非对称视觉 */
-.stat-bars {
-	display: flex;
-	flex-direction: column;
-	gap: 20rpx;
-}
-.stat-bar-wrap {
-	display: flex;
-	flex-direction: column;
-	gap: 8rpx;
-}
-.stat-bar-label {
-	display: flex;
-	align-items: baseline;
-	gap: 8rpx;
-}
-.stat-bar-track {
-	height: 20rpx;
-	min-height: 8px;
-	border-radius: 999rpx;
-	background: rgba(0, 0, 0, 0.08);
-	overflow: hidden;
-}
-.stat-bar-fill {
-	height: 100%;
-	min-width: 4px;
-	border-radius: 999rpx;
-	background: linear-gradient(90deg, rgba(184, 107, 31, 0.7) 0%, rgba(141, 110, 99, 0.6) 100%);
-	transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.stat-bar-fill--secondary {
-	background: linear-gradient(90deg, rgba(100, 80, 70, 0.55) 0%, rgba(120, 95, 85, 0.5) 100%);
-}
-.stat-bar-fill--streak {
-	background: linear-gradient(90deg, rgba(200, 120, 60, 0.75) 0%, rgba(184, 107, 31, 0.65) 100%);
-}
-.streak-bar .stat-bar-label {
-	gap: 6rpx;
-}
-.stat-num {
-	font-size: 36rpx;
-	font-weight: 600;
-	color: #888;
-	line-height: 1.2;
-}
-.stat-label {
-	font-size: 20rpx;
-	color: #bbb;
-	margin-top: 0;
-}
-.streak-emoji {
-	font-size: 28rpx;
-	line-height: 1;
-}
-.streak-num {
-	color: #C8A27A;
-}
-
-.calendar-block {
-	width: 100%;
-	max-width: 100%;
-	flex: 1;
-}
-
-.calendar-card {
-	width: 100%;
-	padding: 28rpx 24rpx 32rpx;
-	border-radius: 24rpx;
-}
-
-/* 日历网格容器：鼠标光晕追踪 */
-.calendar-grid-wrap {
-	position: relative;
-}
-.day-cell-glow {
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-	border-radius: 12rpx;
-	background: radial-gradient(
-		circle 120rpx at var(--mouse-x, -999px) var(--mouse-y, -999px),
-		rgba(255, 255, 255, 0.25) 0%,
-		rgba(255, 255, 255, 0.08) 40%,
-		transparent 70%
-	);
-	opacity: 0.9;
-	transition: opacity 0.2s ease;
-	z-index: 0;
-}
-.calendar-grid-wrap:not(:hover) .day-cell-glow {
-	opacity: 0;
-}
-.calendar-grid--perspective {
-	perspective: 1200px;
-	transform-style: preserve-3d;
-}
-
-/* 右侧 Outfit Panel：玻璃拟态 */
-.outfit-panel {
-	height: calc(100vh - 260rpx);
-	max-height: calc(100vh - 360rpx);
-	min-height: 0;
-	display: flex;
-	flex-direction: column;
-	padding: 40rpx 44rpx 52rpx;
-	border-radius: 28rpx;
-	box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.06), 0 2rpx 16rpx rgba(0, 0, 0, 0.03);
-}
-
-/* FLIP 共享元素：飞入的日期胶囊 */
-.fly-date-pill {
-	position: fixed;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 0 24rpx;
-	border-radius: 16rpx;
-	background: rgba(184, 107, 31, 0.2);
-	border: 2rpx solid rgba(184, 107, 31, 0.35);
-	box-shadow: 0 8rpx 24rpx rgba(184, 107, 31, 0.2);
-	z-index: 9999;
-	pointer-events: none;
-	box-sizing: border-box;
-}
-.fly-date-pill-text {
-	font-size: 32rpx;
-	font-weight: 700;
-	color: #1d1d1f;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	max-width: 100%;
-}
-
-.outfit-panel-header {
-	display: flex;
-	flex-direction: column;
-	gap: 12rpx;
-	margin-bottom: 24rpx;
-}
-
-.outfit-header-row1 {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
-
-.outfit-panel-title {
-	font-size: 38rpx;
-	font-weight: 700;
-	color: #1d1d1f;
-	letter-spacing: -0.02em;
-}
-.close-panel-btn {
-	width: 64rpx;
-	height: 64rpx;
-	border-radius: 50%;
-	background: rgba(0, 0, 0, 0.04);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	cursor: pointer;
-	transition: all 0.2s ease;
-}
-.close-panel-btn:hover {
-	background: rgba(0, 0, 0, 0.08);
-	transform: rotate(90deg);
-}
-.close-panel-btn:active {
-	transform: scale(0.9) rotate(90deg);
-}
-.close-icon {
-	font-size: 32rpx;
-	color: #666;
-	line-height: 1;
-}
-
-.outfit-panel-subtitle {
-	font-size: 26rpx;
-	font-weight: 500;
-	color: #666;
-}
-
-.add-btn-primary {
-	padding: 18rpx 28rpx;
-	font-size: 28rpx;
-	font-weight: 700;
-	background: rgba(184, 107, 31, 0.2);
-	border: 2rpx solid rgba(184, 107, 31, 0.4);
-	border-radius: 16rpx;
-	align-self: flex-start;
-	margin-top: 4rpx;
-}
-.add-btn-primary:hover {
-	background: rgba(184, 107, 31, 0.28);
-	border-color: rgba(184, 107, 31, 0.5);
-}
-.add-btn-primary:active {
-	transform: translateY(2rpx);
-	box-shadow: inset 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
-}
-.add-btn-primary .add-icon {
-	width: 36rpx;
-	height: 36rpx;
-}
-
-/* Add 模式 / 列表·空状态 切换：淡入淡出 */
-.panel-inner {
-	flex: 1;
-	min-height: 0;
-	display: flex;
-	flex-direction: column;
-}
-
-.panel-inner-fade-enter-active,
-.panel-inner-fade-leave-active {
-	transition: opacity 0.25s ease;
-}
-.panel-inner-fade-enter-from,
-.panel-inner-fade-leave-to {
-	opacity: 0;
-}
-.panel-inner-fade-enter-to,
-.panel-inner-fade-leave-from {
-	opacity: 1;
-}
-
-.panel-content-fade-enter-active,
-.panel-content-fade-leave-active {
-	transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.panel-content-fade-enter-from {
-	opacity: 0;
-	transform: translateY(16rpx);
-}
-.panel-content-fade-leave-to {
-	opacity: 0;
-	transform: translateY(-16rpx);
-}
-.panel-content-fade-enter-to,
-.panel-content-fade-leave-from {
-	opacity: 1;
-	transform: translateY(0);
-}
-
-
-.calendar-nav {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 48rpx;
-	margin-bottom: 36rpx;
-}
-
-.nav-btn {
-	width: 72rpx;
-	height: 72rpx;
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: rgba(0, 0, 0, 0.04);
-	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
-	transition: background 0.25s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
-	cursor: pointer;
-}
-.nav-btn.magnetic-btn {
-	transition: background 0.25s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
-}
-.add-btn.magnetic-btn,
-.empty-add-btn.magnetic-btn {
-	transition: background 0.2s ease, transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
-}
-.month-switch:hover {
-	background: rgba(0, 0, 0, 0.08);
-	box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.06);
-}
-.month-switch:active {
-	transform: scale(0.92) translateY(2rpx);
-	background: rgba(0, 0, 0, 0.1);
-	box-shadow: inset 0 4rpx 12rpx rgba(0, 0, 0, 0.12);
-}
-
-.nav-arrow {
-	font-size: 36rpx;
-	font-weight: 600;
-	color: #1d1d1f;
-	line-height: 1;
-}
-
-.month-label {
-	font-size: 40rpx;
-	font-weight: 700;
-	color: #1d1d1f;
-	min-width: 280rpx;
-	text-align: center;
-}
-
-.weekday-row {
-	display: grid;
-	grid-template-columns: repeat(7, 1fr);
-	gap: 6rpx;
-	margin-bottom: 12rpx;
-	padding: 0 4rpx;
-}
-
-.weekday-cell {
-	font-size: 24rpx;
-	font-weight: 700;
-	color: #555;
-	text-align: center;
-	letter-spacing: 0.02em;
-}
-
-/* 月份切换：淡入 + 位移，轻柔过渡 */
-/* 月份切换：slide-left / slide-right + fade，慢柔丝滑 */
-.month-slide-left-enter-active,
-.month-slide-left-leave-active,
-.month-slide-right-enter-active,
-.month-slide-right-leave-active {
-	transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1), transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-}
-/* 向左切换（prevMonth）：新内容（更早的月份）从左边滑入，旧内容向右滑出 */
-.month-slide-left-enter-from {
-	opacity: 0;
-	transform: translateX(-40rpx);
-}
-.month-slide-left-leave-to {
-	opacity: 0;
-	transform: translateX(40rpx);
-}
-/* 向右切换（nextMonth）：新内容（更晚的月份）从右边滑入，旧内容向左滑出 */
-.month-slide-right-enter-from {
-	opacity: 0;
-	transform: translateX(40rpx);
-}
-.month-slide-right-leave-to {
-	opacity: 0;
-	transform: translateX(-40rpx);
-}
-.month-slide-left-enter-to,
-.month-slide-left-leave-from,
-.month-slide-right-enter-to,
-.month-slide-right-leave-from {
-	opacity: 1;
-	transform: translateX(0);
-}
-
-.calendar-grid {
-	display: grid;
-	grid-template-columns: repeat(7, 1fr);
-	gap: 6rpx;
-	position: relative;
-	z-index: 1;
-}
-
-/* 日格：Stagger + Spring 入场（斜向波浪）+ 光随指动 */
-.day-cell {
-	aspect-ratio: 1;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	border-radius: 12rpx;
-	background: transparent;
-	border: 1rpx solid transparent;
-	transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-	position: relative;
-	opacity: 0;
-	transform: translateZ(-100px) rotateX(20deg);
-	animation: sophisticated-entry 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-@keyframes sophisticated-entry {
-	to {
-		opacity: 1;
-		transform: translateZ(0) rotateX(0);
-	}
-}
-.day-cell:hover {
-	border-color: rgba(0, 0, 0, 0.08);
-	background: rgba(255, 255, 255, 0.4);
-	transform: scale(1.03);
-	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
-	cursor: pointer;
-}
-.day-cell:active {
-	transform: scale(0.97);
-}
-/* 非当月日期：数字用浅灰色，当月日期保持黑色 */
-.day-cell.other-month .day-num {
-	color: #999;
-}
-.day-cell.other-month {
-	opacity: 0.85;
-}
-.day-cell.today {
-	background: rgba(255, 242, 217, 0.55);
-}
-.day-cell.today:hover {
-	border-color: rgba(184, 107, 31, 0.25);
-}
-.day-cell.has-items {
-	background: rgba(184, 107, 31, 0.04);
-}
-.day-cell.has-items:hover {
-	border-color: rgba(184, 107, 31, 0.15);
-}
-.day-cell.selected {
-	background: rgba(184, 107, 31, 0.14);
-	border: 4rpx solid #C8A27A;
-	box-shadow: 0 6rpx 20rpx rgba(184, 107, 31, 0.25);
-	transform: scale(1.05);
-	z-index: 1;
-}
-.day-cell.selected:hover {
-	background: rgba(184, 107, 31, 0.2);
-	border-color: #C8A27A;
-	transform: scale(1.05);
-	box-shadow: 0 8rpx 24rpx rgba(184, 107, 31, 0.3);
-}
-
-.selected-bar {
-	position: absolute;
-	bottom: 8rpx;
-	left: 50%;
-	transform: translateX(-50%);
-	width: 28rpx;
-	height: 6rpx;
-	border-radius: 3rpx;
-	background: #8d6e63;
-}
-.day-num-wrap {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	padding: 0;
-}
-.day-num-wrap.today {
-	padding: 4rpx 12rpx;
-	border-radius: 16rpx;
-	background: #8d6e63;
-}
-.day-num {
-	font-size: 32rpx;
-	font-weight: 600;
-	color: #1d1d1f; /* 当月日期：黑色 */
-}
-.day-num-wrap.today .day-num {
-	color: #fff;
-}
-
-/* Outfit 预览浮层：hover 时显示 */
-.outfit-preview {
-	position: absolute;
-	bottom: calc(100% + 12rpx);
-	left: 50%;
-	transform: translateX(-50%);
-	width: 280rpx;
-	background: #fff;
-	border-radius: 20rpx;
-	box-shadow: 0 12rpx 40rpx rgba(0, 0, 0, 0.15), 0 4rpx 16rpx rgba(0, 0, 0, 0.1);
-	border: 1rpx solid rgba(0, 0, 0, 0.06);
-	z-index: 100;
-	padding: 20rpx;
-	pointer-events: none;
-}
-.outfit-preview::after {
-	content: '';
-	position: absolute;
-	bottom: -8rpx;
-	left: 50%;
-	transform: translateX(-50%);
-	width: 0;
-	height: 0;
-	border-left: 8rpx solid transparent;
-	border-right: 8rpx solid transparent;
-	border-top: 8rpx solid #fff;
-}
-.preview-header {
-	margin-bottom: 12rpx;
-	padding-bottom: 12rpx;
-	border-bottom: 1rpx solid rgba(0, 0, 0, 0.06);
-}
-.preview-date {
-	font-size: 24rpx;
-	font-weight: 600;
-	color: #333;
-}
-.preview-items {
-	display: flex;
-	flex-direction: column;
-	gap: 12rpx;
-}
-.preview-item {
-	display: flex;
-	align-items: center;
-	gap: 12rpx;
-}
-.preview-thumb-wrap {
-	width: 56rpx;
-	height: 56rpx;
-	border-radius: 12rpx;
-	overflow: hidden;
-	flex-shrink: 0;
-	box-shadow: inset 4rpx 0 0 0 var(--thumb-accent, #8d6e63);
-}
-.preview-thumb {
-	width: 100%;
-	height: 100%;
-	border-radius: 8rpx 12rpx 12rpx 8rpx;
-	background: #f5f2ee;
-	display: block;
-}
-.preview-thumb.placeholder {
-	background: #e8e4df;
-}
-.preview-item-name {
-	font-size: 24rpx;
-	font-weight: 400;
-	color: #666;
-	flex: 1;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-.preview-fade-enter-active,
-.preview-fade-leave-active {
-	transition: opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1), transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.preview-fade-enter-from {
-	opacity: 0;
-	transform: translateX(-50%) translateY(8rpx);
-}
-.preview-fade-leave-to {
-	opacity: 0;
-	transform: translateX(-50%) translateY(8rpx);
-}
-.preview-fade-enter-to,
-.preview-fade-leave-from {
-	opacity: 1;
-	transform: translateX(-50%) translateY(0);
-}
-
-/* 日历格子状态：有记录 ● / 多套 ●2 */
-.day-status {
-	margin-top: 6rpx;
-}
-
-.has-outfit {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 4rpx;
-}
-
-.outfit-dot {
-	font-size: 16rpx;
-	color: #8d6e63;
-	line-height: 1;
-}
-
-.outfit-count {
-	font-size: 18rpx;
-	font-weight: 700;
-	color: #8d6e63;
-}
-
-/* 右侧面板出现/消失：仅淡入淡出，不位移，避免切换日期时面板跳到右边 */
-.panel-fade-enter-active,
-.panel-fade-leave-active {
-	transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.panel-fade-enter-from,
-.panel-fade-leave-to {
-	opacity: 0;
-}
-.panel-fade-enter-to,
-.panel-fade-leave-from {
-	opacity: 1;
-}
-
-.add-btn {
-	display: flex;
-	align-items: center;
-	gap: 8rpx;
-	padding: 12rpx 20rpx;
-	border-radius: 12rpx;
-	background: rgba(184, 107, 31, 0.12);
-	color: #7a4e18;
-	font-size: 26rpx;
-	font-weight: 600;
-	transition: background 0.2s ease, transform 0.2s ease;
-	cursor: pointer;
-}
-.add-btn:hover {
-	background: rgba(184, 107, 31, 0.2);
-}
-.add-btn:active {
-	background: rgba(184, 107, 31, 0.25);
-	transform: scale(0.97) translateY(2rpx);
-	box-shadow: inset 0 4rpx 12rpx rgba(0, 0, 0, 0.12);
-}
-
-.add-icon {
-	width: 32rpx;
-	height: 32rpx;
-}
-
-.empty-day {
-	text-align: center;
-	padding: 56rpx 40rpx 64rpx;
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-}
-
-/* 空状态：鼠标追踪容器，传递 --mouse-x / --mouse-y 给下方卡片 */
-.empty-illus-wrap {
-	width: 160rpx;
-	height: 160rpx;
-	margin: 0 auto 36rpx;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	cursor: default;
-}
-
-/* Apple 级拟真光影：全息金属/绸缎反光卡片 + 原有衣橱图标 */
-.empty-illus-premium {
-	position: relative;
-	width: 160rpx;
-	height: 160rpx;
-	border-radius: 40rpx;
-	background: linear-gradient(135deg, #f5f2ee 0%, #e8e4df 100%);
-	box-shadow:
-		inset 2rpx 2rpx 4rpx rgba(255, 255, 255, 0.8),
-		inset -2rpx -2rpx 8rpx rgba(0, 0, 0, 0.05),
-		0 16rpx 32rpx rgba(141, 110, 99, 0.1);
-	overflow: hidden;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-.empty-illus-icon {
-	width: 72rpx;
-	height: 72rpx;
-	opacity: 0.7;
-	position: relative;
-	z-index: 1;
-	pointer-events: none;
-}
-
-/* 跟随鼠标的光泽反射（丝绸/拉丝金属高光） */
-.empty-illus-premium::after {
-	content: '';
-	position: absolute;
-	inset: -50%;
-	background: radial-gradient(
-		circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-		rgba(255, 255, 255, 0.9) 0%,
-		rgba(255, 255, 255, 0) 60%
-	);
-	mix-blend-mode: overlay;
-	pointer-events: none;
-	transition: opacity 0.3s ease;
-}
-.empty-illus-wrap:hover .empty-illus-premium::after {
-	opacity: 1;
-}
-.empty-illus-wrap:not(:hover) .empty-illus-premium::after {
-	opacity: 0;
-}
-
-.empty-text {
-	display: block;
-	font-size: 34rpx;
-	color: #4a4a4a;
-	font-weight: 600;
-	letter-spacing: -0.02em;
-}
-.empty-hint {
-	display: block;
-	font-size: 28rpx;
-	color: #888;
-	margin-top: 12rpx;
-	letter-spacing: 0.01em;
-}
-
-.empty-add-btn {
-	display: inline-flex;
-	align-items: center;
-	gap: 10rpx;
-	margin-top: 32rpx;
-	padding: 20rpx 36rpx;
-	border-radius: 16rpx;
-	background: rgba(184, 107, 31, 0.2);
-	border: 2rpx solid rgba(184, 107, 31, 0.35);
-	color: #7a4e18;
-	font-size: 28rpx;
-	font-weight: 700;
-	transition: background 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
-	cursor: pointer;
-}
-.empty-add-btn:hover {
-	background: rgba(184, 107, 31, 0.28);
-}
-.empty-add-btn:active {
-	background: rgba(184, 107, 31, 0.35);
-	transform: scale(0.97) translateY(2rpx);
-	box-shadow: inset 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
-}
-.empty-add-btn .add-icon {
-	width: 36rpx;
-	height: 36rpx;
-}
-
-.outfit-list {
-	display: flex;
-	flex-direction: column;
-	gap: 20rpx;
-	flex: 1;
-	min-height: 0;
-	overflow-y: auto;
-	padding-right: 8rpx;
-	perspective: 800px;
-}
-.outfit-list-footer {
-	margin-top: auto;
-	padding-top: 24rpx;
-	border-top: 1rpx solid rgba(0, 0, 0, 0.06);
-}
-.clear-all-btn {
-	width: 100%;
-	padding: 18rpx 28rpx;
-	border-radius: 16rpx;
-	background: rgba(184, 107, 31, 0.1);
-	border: 1rpx solid rgba(184, 107, 31, 0.2);
-	color: #8d6e63;
-	font-size: 28rpx;
-	font-weight: 600;
-	text-align: center;
-	transition: background 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
-	cursor: pointer;
-}
-.clear-all-btn:hover {
-	background: rgba(184, 107, 31, 0.15);
-	border-color: rgba(184, 107, 31, 0.3);
-}
-.clear-all-btn:active {
-	background: rgba(184, 107, 31, 0.2);
-	transform: scale(0.98) translateY(2rpx);
-	box-shadow: inset 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
-}
-
-/* 日记卡片：滚动视差倾斜 + hover 浮起 */
-.outfit-item {
-	display: flex;
-	align-items: center;
-	gap: 20rpx;
-	padding: 24rpx 28rpx;
-	border-radius: 24rpx;
-	background: rgba(255, 255, 255, 0.7);
-	backdrop-filter: blur(8px);
-	border: 1rpx solid rgba(255, 255, 255, 0.5);
-	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
-	transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
-	transform-origin: center center;
-	transform: perspective(800px) rotateX(var(--tilt, 0deg));
-}
-.outfit-item:hover {
-	box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.08), 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
-	cursor: pointer;
-}
-/* 瀑布流入场 + 视差倾斜（--tilt 由 JS 更新） */
-.outfit-item-enter {
-	opacity: 0;
-	transform: perspective(800px) translateY(24rpx) rotateX(var(--tilt, 0deg));
-	animation: outfit-item-enter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
-@keyframes outfit-item-enter {
-	to {
-		opacity: 1;
-		transform: perspective(800px) translateY(0) rotateX(var(--tilt, 0deg));
-	}
-}
-
-.outfit-item-leave {
-	animation: outfit-item-leave 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-@keyframes outfit-item-leave {
-	from {
-		opacity: 1;
-		transform: translateY(0) scale(1);
-	}
-	to {
-		opacity: 0;
-		transform: translateY(-24rpx) scale(0.95);
-	}
-}
-
-.outfit-list.is-clearing {
-	pointer-events: none;
-}
-
-.outfit-list-footer.is-clearing {
-	opacity: 0;
-	transition: opacity 0.2s ease;
-}
-
-.outfit-thumb-wrap {
-	position: relative;
-	flex-shrink: 0;
-	border-radius: 20rpx;
-	overflow: hidden;
-	box-shadow: inset 6rpx 0 0 0 var(--thumb-accent, #8d6e63);
-}
-
-.outfit-thumb {
-	width: 100rpx;
-	height: 100rpx;
-	border-radius: 14rpx 20rpx 20rpx 14rpx;
-	background: #f5f2ee;
-	display: block;
-}
-.outfit-thumb.placeholder {
-	background: #e8e4df;
-}
-
-.outfit-name {
-	flex: 1;
-	font-size: 28rpx;
-	font-weight: 500;
-	color: #333;
-	letter-spacing: 0.01em;
-	line-height: 1.4;
-}
-
-.remove-btn {
-	width: 64rpx;
-	height: 64rpx;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border-radius: 50%;
-	opacity: 0.85;
-	transition: opacity 0.2s ease, background 0.2s ease;
-	flex-shrink: 0;
-}
-.remove-btn:hover {
-	opacity: 1;
-	background: rgba(0, 0, 0, 0.06);
-}
-.remove-btn:active {
-	opacity: 1;
-	background: rgba(0, 0, 0, 0.1);
-}
-.remove-icon {
-	width: 28rpx;
-	height: 28rpx;
-}
-
-
-/* 响应式：Mobile 上下结构 */
-@media (max-width: 768px) {
-	.main-wrapper {
-		flex-direction: column;
-		align-items: stretch;
-	}
-	.main-left {
-		flex: none;
-		max-width: 100%;
-		min-width: 0;
-	}
-	.main-right {
-		flex: none;
-		min-width: 0;
-		max-width: 100%;
-		margin-left: 0;
-	}
-	.calendar-block {
-		max-width: 100%;
-	}
-}
+<style scoped lang="scss">
+@use './MyCalendar.scss' as *;
 </style>

@@ -253,7 +253,7 @@ async function loadWardrobe() {
 
 			return {
 				id: item.id,
-				name: item.name || '未命名',
+				name: item.name || 'Unnamed',
 				image,
 				accentColor: (item.color && /^#?[0-9A-Fa-f]{6}$/i.test(String(item.color).replace(/^#/, ''))) ? (item.color.startsWith('#') ? item.color : '#' + item.color) : '#8d6e63',
 				category: item.category || '',
