@@ -1,6 +1,6 @@
 /**
- * 衣櫃分析 API：趨勢、概覽、分類分布、閒置率、最常穿、顏色/風格統計、閒置明細
- * 與 backend /api/analysis/* 對接
+ * 衣柜分析 API：趋势、概览、分类分布、闲置率、最常穿、颜色/风格统计、闲置明细
+ * 与 backend /api/analysis/* 对接
  */
 
 import { API_BASE_URL, request } from '@/utils/request.js'
@@ -17,7 +17,7 @@ function getToken() {
 }
 
 /**
- * 發起分析 API 請求（GET，參數與 token 放在 query）
+ * 发起分析 API 请求（GET，参数与 token 放在 query）
  */
 export async function apiRequest(path, params = {}) {
   const token = getToken()
@@ -47,7 +47,7 @@ export function isLoggedIn() {
   return !!getToken()
 }
 
-/** 供其他模組（如日曆、記錄穿著）取得 token */
+/** 供其他模块（如日历、记录穿着）取得 token */
 export { getToken }
 
 // ---------- 分析接口 ----------

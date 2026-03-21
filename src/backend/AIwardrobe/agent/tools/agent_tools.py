@@ -26,7 +26,7 @@ def set_agent_request_user_id(user_id: Optional[int]) -> Token:
 def reset_agent_request_user_id(token: Token) -> None:
     _REQUEST_USER_ID.reset(token)
 
-# 中國時區：Windows 上若無 tzdata 則 ZoneInfo("Asia/Shanghai") 會失敗，改用 UTC+8
+# 中国时区：Windows 上若无 tzdata 则 ZoneInfo("Asia/Shanghai") 会失败，改用 UTC+8
 def _china_tz():
     try:
         from zoneinfo import ZoneInfo

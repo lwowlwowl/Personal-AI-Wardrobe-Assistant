@@ -121,7 +121,7 @@ function getFullImageUrl(imageUrl) {
 	return `${API_BASE_URL}/${imageUrl}`
 }
 
-/** Idle status: never / over_season(3+月) / over_year(12+月)；一年内但不足一季的不显示状态文案 */
+/** Idle status: never / over_season (3+ months) / over_year (12+ months); no label when under a year but under one season */
 function getIdleStatus(item) {
 	if (item.wear_count === 0) return { level: 'never', label: 'Never worn' }
 	if (item.last_worn_date) {
@@ -145,7 +145,7 @@ function getLastWornDisplay(item, status) {
 	return ''
 }
 
-/** 用于排序：数值越大越靠前（从未穿 999，或按距今天数） */
+/** Sort key: higher first (never worn = 999, else days since last worn) */
 function getSortOrder(lastWornDate) {
 	if (!lastWornDate) return 999
 	const d = new Date(lastWornDate)
@@ -160,7 +160,7 @@ async function fetchData() {
 		const res = await getIdleRate(30)
 		if (res && res.success && res.data) stats.value = res.data
 	} catch (e) {
-		console.error('获取闲置率失败:', e)
+		console.error('[IdleItems] getIdleRate failed:', e)
 	}
 }
 
@@ -183,7 +183,7 @@ async function fetchIdleItems(page = 1) {
 		}
 		return res
 	} catch (e) {
-		console.error('获取闲置明细失败:', e)
+		console.error('[IdleItems] getIdleItemsDetail failed:', e)
 		throw e
 	}
 }
@@ -226,7 +226,7 @@ watch([activeTimeFilter, activeSeasonFilter], () => {
 	fetchIdleItems(1)
 })
 
-/** 季节匹配：后端 season 为数组，需判断数组是否包含所选季节 */
+/** Season filter: backend `season` may be an array — match if it includes the selected value */
 function itemMatchesSeason(item, seasonValue) {
 	if (!seasonValue || seasonValue === 'all') return true
 	const s = item.season
@@ -251,7 +251,7 @@ const filteredItems = computed(() => {
 	return list
 })
 
-/** 点击 Try today 后从列表移除并播放离开动画（用数组保证 Vue 响应式） */
+/** After Try today: remove from list for leave animation (array copy keeps reactivity) */
 const justWornIds = ref([])
 const displayList = computed(() =>
 	filteredItems.value.filter((item) => !justWornIds.value.includes(getItemId(item)))
@@ -263,15 +263,15 @@ function getItemId(item) {
 async function wearToday(item) {
 	const itemId = getItemId(item)
 	if (itemId == null) {
-		uni.showToast({ title: '无法记录：缺少衣物 ID', icon: 'none' })
+		uni.showToast({ title: 'Cannot record: missing item ID', icon: 'none' })
 		return
 	}
 	const token = getToken()
 	if (!token) {
-		uni.showToast({ title: '请先登录', icon: 'none' })
+		uni.showToast({ title: 'Please sign in first', icon: 'none' })
 		return
 	}
-	uni.showLoading({ title: '记录中...', mask: true })
+	uni.showLoading({ title: 'Saving…', mask: true })
 	try {
 		const now = new Date()
 		const year = now.getFullYear()
@@ -286,16 +286,16 @@ async function wearToday(item) {
 			justWornIds.value = [...justWornIds.value, itemId]
 			stats.value.idle_items = Math.max(0, (stats.value.idle_items ?? 0) - 1)
 			uni.hideLoading()
-			uni.showToast({ title: `"${item.name}" 已在今日穿搭中`, icon: 'none' })
+			uni.showToast({ title: `"${item.name}" is already in today's outfit`, icon: 'none' })
 			return
 		}
 		todayItems.push({ id: itemId })
 		const saveRes = await saveCalendarOutfits({ token, date: todayKey, items: todayItems })
 		const ok = saveRes && saveRes.statusCode === 200 && saveRes.data && saveRes.data.success !== false
 		if (!ok) {
-			const msg = (saveRes && saveRes.data && saveRes.data.detail) ? saveRes.data.detail : '请稍后再试'
+			const msg = (saveRes && saveRes.data && saveRes.data.detail) ? saveRes.data.detail : 'Please try again later'
 			uni.hideLoading()
-			uni.showToast({ title: `记录失败：${typeof msg === 'string' ? msg : '请稍后再试'}`, icon: 'none', duration: 2500 })
+			uni.showToast({ title: `Could not save: ${typeof msg === 'string' ? msg : 'Please try again later'}`, icon: 'none', duration: 2500 })
 			return
 		}
 		justWornIds.value = [...justWornIds.value, itemId]
@@ -306,20 +306,20 @@ async function wearToday(item) {
 	} catch (e) {
 		console.error('wearToday error:', e)
 		uni.hideLoading()
-		uni.showToast({ title: '记录失败（网络或服务器错误），请稍后再试', icon: 'none', duration: 2500 })
+		uni.showToast({ title: 'Save failed (network or server). Please try again.', icon: 'none', duration: 2500 })
 	}
 }
 
 onMounted(async () => {
 	await nextTick()
 
-	// 同时并发拉取统计数据与列表数据，缩短等待时间
+	// Fetch summary and list in parallel
 	await Promise.all([
 		fetchData(),
 		fetchIdleItems(1)
 	])
 
-	// 数据都返回后再允许展示列表或空状态，避免空状态闪烁（FOUC）
+	// Show list/empty state only after both complete (avoid empty-state flash)
 	listReady.value = true
 })
 </script>
@@ -328,13 +328,15 @@ onMounted(async () => {
 .expanded-page {
 	position: relative;
 	background: linear-gradient(165deg, #f2efe8 0%, #f5f0eb 40%, #f0ebe6 100%);
-	height: 100vh;
+	min-height: 100%;
+	height: 100%;
+	max-height: 100%;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	box-sizing: border-box;
 	overflow: hidden;
 }
 .bg-blob {
-	position: fixed;
+	position: absolute;
 	width: 120%;
 	height: 120%;
 	left: 50%;
@@ -359,7 +361,7 @@ onMounted(async () => {
 	to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 .grain-overlay {
-	position: fixed;
+	position: absolute;
 	inset: 0;
 	pointer-events: none;
 	z-index: 1;
@@ -370,14 +372,14 @@ onMounted(async () => {
 .expanded-content {
 	position: relative;
 	z-index: 2;
-	padding: 24rpx 30rpx 40rpx;
+	padding: 48rpx 30rpx 40rpx;
 }
 
 .expanded-header {
 	display: flex;
 	align-items: center;
 	gap: 20rpx;
-	margin-bottom: 28rpx;
+	margin-bottom: 36rpx;
 }
 
 .back-btn {

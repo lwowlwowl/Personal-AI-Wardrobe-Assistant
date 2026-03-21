@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, date
 import jwt
 import secrets
 
-# PyJWT 2.8+ 使用 PyJWTError，舊版使用 JWTError，統一用此別名捕獲
+# PyJWT 2.8+ 使用 PyJWTError，旧版使用 JWTError，统一用此别名捕获
 _JWTError = getattr(jwt, "PyJWTError", getattr(jwt, "JWTError", Exception))
 from passlib.context import CryptContext
 

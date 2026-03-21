@@ -350,7 +350,7 @@ const filterCategoryLabel = computed(() => {
 const filterColorLabel = computed(() => {
 	const arr = filterColor.value
 	if (!arr.length) return 'Color'
-	// Color 這裡使用實際顏色 code 作為 label（與 WardrobeView 保持一致）
+	// Color 这里使用实际颜色 code 作为 label（与 WardrobeView 保持一致）
 	return arr.length >= 2 ? `Color (${arr.length})` : arr[0]
 })
 const filterSeasonLabel = computed(() => {

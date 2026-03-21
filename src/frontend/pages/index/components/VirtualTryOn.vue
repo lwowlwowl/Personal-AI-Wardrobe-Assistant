@@ -145,8 +145,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick, onBeforeUnmount } from 'vue'
-import { API_BASE_URL } from '@/api/wardrobe.js'
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
+import {
+  getCleanAuthToken,
+  uploadVirtualTryOnImage,
+  generateVirtualTryOn
+} from '@/api/virtualTryOnApi.js'
 
 const props = defineProps({
   isLoggedIn: { type: Boolean, default: false },
@@ -162,7 +166,7 @@ const props = defineProps({
    type: String,
    default: null
   },
-  /** 多件衣服：依序試穿，上一張結果作為下一張的 person（後端仍為單次 person+cloth） */
+  /** Multi-step outfit: each result becomes the next person image; backend still one pair per request */
   initialOutfitQueue: {
    type: Array,
    default: () => []
@@ -179,29 +183,22 @@ function requireLogin() {
 
 const personImg = ref('')
 const clothingImg = ref('')
-const personImgName = ref('') // 存储上传到ComfyUI的人物图片名称
-const clothingImgName = ref('') // 存储上传到ComfyUI的服装图片名称
+const personImgName = ref('')
+const clothingImgName = ref('')
 
-// cloth：與原本一致
 watch(() => props.initialClothingImage, (url) => {
   if (url) clothingImg.value = url
 }, { immediate: true })
 
-// model/person：完全比照 cloth
 watch(() => props.initialPersonImage, (url) => {
   if (url) personImg.value = url
 }, { immediate: true })
 
-onMounted(() => {
-  if (props.initialClothingImage) clothingImg.value = props.initialClothingImage
-  if (props.initialPersonImage) personImg.value = props.initialPersonImage
-})
-
-const resultImg = ref('') // 存储生成的结果图片
-const draggingTarget = ref(null) // 用于控制拖拽时的 UI 高亮
-const showResult = ref(false) // 控制结果区域的显示/隐藏
-const isLoading = ref(false) // 控制加载状态
-const resultZoneRef = ref(null) // 结果区域的引用
+const resultImg = ref('')
+const draggingTarget = ref(null)
+const showResult = ref(false)
+const isLoading = ref(false)
+const resultZoneRef = ref(null)
 const outfitProgressText = ref('')
 const isPipelineRunning = ref(false)
 /** -1 = idle; 0..n-1 = current step; n = all steps finished (show all ✓) */
@@ -244,44 +241,10 @@ watch(
   { deep: true }
 )
 
-// --- 核心：Token 获取与清洗 ---
-// 解决 "Not enough segments" 的关键：去除可能存在的双引号和空格
-const getCleanToken = () => {
-  // 1. 尝试所有常见的键名
-  let t1 = uni.getStorageSync('token')
-  let t2 = uni.getStorageSync('auth_token')
-  let userInfo = uni.getStorageSync('user_info')
-
-  // 2. 如果藏在 user_info 对象里面，把它挖出来
-  let t3 = ''
-  if (userInfo && typeof userInfo === 'object' && userInfo.token) {
-    t3 = userInfo.token
-  }
-
-  // 3. 兜底：防止 uni API 抽风，直接找原生浏览器的缓存
-  let t4 = ''
-  let t5 = ''
-  if (typeof window !== 'undefined') {
-    t4 = localStorage.getItem('token') || ''
-    t5 = localStorage.getItem('auth_token') || ''
-  }
-
-  // 4. 谁有值就用谁
-  let rawToken = t1 || t2 || t3 || t4 || t5 || ''
-
-  // 5. 如果不小心是个对象格式，强行转字符串
-  if (typeof rawToken === 'object') {
-    rawToken = rawToken.token || rawToken.access_token || ''
-  }
-
-  // 6. 剥除所有双引号和首尾空格
-  return String(rawToken).trim().replace(/^"|"$/g, '')
-}
-
-// 启用滚动并滚动到底部
+// Scroll parent panel and snap to bottom after generation
 const enableScrollAndScrollToBottom = () => {
   if (!props.mainContentRef || !props.mainContentRef.value) {
-   // 如果父组件没有传递 ref，尝试直接查找
+   // Fallback when parent ref is missing (H5)
    const mainContent = document.querySelector('.main-content')
    if (mainContent) {
     enableScroll(mainContent)
@@ -295,14 +258,12 @@ const enableScrollAndScrollToBottom = () => {
   scrollToBottom(mainContent)
 }
 
-// 启用滚动
 const enableScroll = (element) => {
   if (element) {
    element.style.overflowY = 'auto'
   }
 }
 
-// 滚动到底部
 const scrollToBottom = (element) => {
   setTimeout(() => {
    if (element) {
@@ -428,66 +389,6 @@ function ensureUploadablePath(src, revokeList) {
   return src
 }
 
-function requestGenerateVirtualTryon(body) {
-  return new Promise((resolve, reject) => {
-   uni.request({
-    url: `${API_BASE_URL}/api/virtual-try-on/generate`,
-    method: 'POST',
-    header: { 'content-type': 'application/json' },
-    data: body,
-    success: (res) => {
-     if (res.statusCode === 200 && res.data?.success && res.data?.data?.result_image) {
-      resolve(res.data.data.result_image)
-     } else {
-      reject(new Error(res.data?.message || 'Generation failed'))
-     }
-    },
-    fail: (err) => reject(err || new Error('Network error'))
-   })
-  })
-}
-
-// --- 核心：修改后的上传逻辑 ---
-const uploadImageToComfyUI = (filePath, type) => {
-  return new Promise((resolve, reject) => {
-   const token = getCleanToken() // 获取清洗后的 Token
-   if (!token) {
-     reject(new Error('请先登录'))
-     return
-   }
-
-   uni.uploadFile({
-    url: `${API_BASE_URL}/api/virtual-try-on/upload-image`,
-    filePath: filePath,
-    name: 'file', // 🚨 关键：后端 FastAPI 通常接收名为 'file' 的参数
-    formData: {
-     'image_type': type,
-     'token': token // 必须确保 token 也传过去
-    },
-    success: (res) => {
-     try {
-      // uni.uploadFile 返回的是字符串，需要手动 JSON.parse
-      const data = JSON.parse(res.data)
-      console.log('Upload Result:', data)
-      
-      if (data.success) {
-       // 💡 适配后端返回结构：如果是 data.filename 或 data.data.filename
-       resolve(data.filename || data.data?.filename)
-      } else {
-       reject(new Error(data.message || '上传失败'))
-      }
-     } catch (e) {
-      reject(new Error('服务器响应格式错误'))
-     }
-    },
-    fail: (err) => {
-     console.error('Upload IO Error:', err)
-     reject(new Error('网络连接失败'))
-    }
-   })
-  })
-}
-
 async function runOutfitPipeline() {
   const q = parsedOutfitQueue.value
   if (!q.length) return
@@ -499,7 +400,7 @@ async function runOutfitPipeline() {
   outfitPipelineStepIndex.value = 0
   enableScrollAndScrollToBottom()
 
-  const token = getCleanToken()
+  const token = getCleanAuthToken()
   if (!token) {
    uni.showToast({ title: 'Please log in first', icon: 'none' })
    isPipelineRunning.value = false
@@ -540,10 +441,10 @@ async function runOutfitPipeline() {
     const personPath = ensureUploadablePath(personSrc, blobUrlsToRevoke)
     const clothPath = ensureUploadablePath(clothSrc, blobUrlsToRevoke)
 
-    const personName = await uploadImageToComfyUI(personPath, 'person')
-    const clothName = await uploadImageToComfyUI(clothPath, 'clothing')
+    const personName = await uploadVirtualTryOnImage(personPath, 'person')
+    const clothName = await uploadVirtualTryOnImage(clothPath, 'clothing')
 
-    const resultDataUrl = await requestGenerateVirtualTryon({
+    const resultDataUrl = await generateVirtualTryOn({
      person_image: personName,
      clothing_image: clothName,
      token,
@@ -591,7 +492,6 @@ onBeforeUnmount(() => {
   outfitPipelineStepIndex.value = -1
 })
 
-// --- 核心：修改后的生成逻辑 ---
 const handleGenerate = async () => {
   if (requireLogin()) return
   if (isPipelineRunning.value) return
@@ -607,60 +507,41 @@ const handleGenerate = async () => {
   uni.showToast({ title: 'Uploading images...', icon: 'loading', duration: 2000 })
 
   try {
-   const token = getCleanToken()
+   const token = getCleanAuthToken()
+   if (!token) {
+    uni.showToast({ title: 'Please log in first', icon: 'none' })
+    return
+   }
 
-   // 1. 上传图片到后端
    if (!personImgName.value || personImg.value.includes('blob:')) {
-    personImgName.value = await uploadImageToComfyUI(personImg.value, 'person')
+    personImgName.value = await uploadVirtualTryOnImage(personImg.value, 'person')
    }
 
    if (!clothingImgName.value || clothingImg.value.includes('blob:')) {
-    clothingImgName.value = await uploadImageToComfyUI(clothingImg.value, 'clothing')
+    clothingImgName.value = await uploadVirtualTryOnImage(clothingImg.value, 'clothing')
    }
 
    uni.showToast({ title: 'Generating...', icon: 'loading', duration: 4000 })
 
-uni.request({
-    url: `${API_BASE_URL}/api/virtual-try-on/generate`,
-    method: 'POST',
-    header: { 'content-type': 'application/json' }, // 改回默认的 JSON 格式
-    data: {
-     person_image: personImgName.value,
-     clothing_image: clothingImgName.value,
-     token: token,
-     model_type: '2509'
-    },
-    // 🚨 注意：这里删除了 responseType: 'arraybuffer'
-    success: (res) => {
-     console.log('API Response:', res.data) // 在控制台打印后端到底回了什么
-     isLoading.value = false
-
-     // 按照你的后端原始格式进行解析
-     if (res.statusCode === 200 && res.data && res.data.success) {
-      // 成功获取到图片的 URL 或 Base64
-      resultImg.value = res.data.data.result_image
-      uni.showToast({ title: 'Generation completed!', icon: 'success' })
-     } else {
-      uni.showToast({ title: res.data?.message || 'Generation failed', icon: 'none' })
-     }
-    },
-    fail: (err) => {
-     console.error('API Error:', err)
-     isLoading.value = false
-     uni.showToast({ title: 'Network error', icon: 'none' })
-    }
+   const resultDataUrl = await generateVirtualTryOn({
+    person_image: personImgName.value,
+    clothing_image: clothingImgName.value,
+    token,
+    model_type: '2509'
    })
 
+   resultImg.value = resultDataUrl
+   uni.showToast({ title: 'Generation completed!', icon: 'success' })
   } catch (error) {
    console.error('Process Error:', error)
+   uni.showToast({ title: error?.message || 'Process failed', icon: 'none' })
+  } finally {
    isLoading.value = false
-   uni.showToast({ title: error.message || 'Process failed', icon: 'none' })
   }
 }
 </script>
 
 <style scoped>
-/* 保持原有布局样式 */
 .virtual-tryon-container {
   width: 100%;
   min-height: 100%;

@@ -530,7 +530,7 @@ const userToken = ref(uni.getStorageSync('auth_token') || '')
 const userInfo = ref(uni.getStorageSync('user_info') || null)
 const isLoggedIn = ref(!!userToken.value)
 const isCheckingAuth = ref(false) // 用于token验证
-// 首次加載狀態：數據回來前顯示骨架屏，避免閃現空狀態
+// 首次加载状态：数据回来前显示骨架屏，避免闪现空状态
 const isInitialLoadingCloth = ref(true)
 const isInitialLoadingModel = ref(true)
 
@@ -745,7 +745,7 @@ const closeCategoryModal = () => {
 
 
 // 加载衣物数据的方法
-// showSkeleton: 是否顯示骨架屏（初次進入為 true，上傳/刪除後刷新為 false）
+// showSkeleton: 是否显示骨架屏（初次进入为 true，上传/删除后刷新为 false）
 const loadClothingData = async (options = {}) => {
   const { showSkeleton = true } = options
   try {
@@ -894,7 +894,7 @@ const showModelModal = ref(false)
 
 /**
  * 加载模特照片数据
- * showSkeleton: 是否顯示骨架屏（初次/切換 Tab 為 true，上傳/刪除後刷新為 false）
+ * showSkeleton: 是否显示骨架屏（初次/切换 Tab 为 true，上传/删除后刷新为 false）
  */
 const loadModelPhotos = async (options = {}) => {
   const { showSkeleton = true } = options
@@ -1471,10 +1471,10 @@ const resetSeason = () => {
 	activeFilter.value = null
 }
 
-/** 強制搜尋框重掛載用（uni-app 下程式清空後 input 可能不更新） */
+/** 强制搜索框重挂载用（uni-app 下程序清空后 input 可能不更新） */
 const clearKey = ref(0)
 
-/** 一鍵清除所有篩選條件（含搜尋框），用於「無搜尋結果」時一鍵還原 */
+/** 一键清除所有筛选条件（含搜索框），用于「无搜索结果」时一键还原 */
 const clearAllFilters = () => {
 	activeFilter.value = null
 	appliedFavouriteLevels.value = []
@@ -2185,7 +2185,7 @@ const handleUploadDrop = async (event) => {
 	}
 }
 
-/* 首次加載骨架屏：統一占位色 + 呼吸動畫 */
+/* 首次加载骨架屏：统一占位色 + 呼吸动画 */
 .is-loading {
 	background: #F5F0E6 !important;
 	box-shadow: none !important;
@@ -2504,7 +2504,7 @@ const handleUploadDrop = async (event) => {
 	transform: translateY(0);
 }
 
-/* --- 搜尋/篩選無結果的高級感樣式 --- */
+/* --- 搜索/筛选无结果的高级感样式 --- */
 .no-results-wrap {
 	display: flex;
 	justify-content: center;
@@ -2591,7 +2591,7 @@ const handleUploadDrop = async (event) => {
 	background-color: #1D1D1F;
 }
 
-/* 無結果 ⇄ 列表 狀態切換：先完整淡出再淡入，避免衣服突然閃現 */
+/* 无结果 ⇄ 列表 状态切换：先完整淡出再淡入，避免衣服突然闪现 */
 .state-fade-enter-active,
 .state-fade-leave-active {
 	transition: opacity 0.4s ease, transform 0.4s ease;
@@ -2610,7 +2610,7 @@ const handleUploadDrop = async (event) => {
 	opacity: 1;
 	transform: translateY(0) scale(1);
 }
-/* 列表容器進場時稍延遲，讓「無結果」先離開再顯示列表 */
+/* 列表容器进场时稍延迟，让「无结果」先离开再显示列表 */
 .list-container {
 	animation: list-container-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.08s forwards;
 	opacity: 0;
@@ -2626,7 +2626,7 @@ const handleUploadDrop = async (event) => {
 	}
 }
 
-/* 列表進場：卡片錯落淡入 */
+/* 列表进场：卡片错落淡入 */
 .stagger-enter {
 	animation: stagger-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 	opacity: 0;

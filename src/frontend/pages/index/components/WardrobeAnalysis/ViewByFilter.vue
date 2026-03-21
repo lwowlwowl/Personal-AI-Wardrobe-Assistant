@@ -41,7 +41,7 @@ const selectOption = (val) => {
 </script>
 
 <style scoped>
-/* smooth popover：淡入 + 轻微上移 + 轻微缩放，easing 让出现不硬切 */
+/* Smooth popover: fade, slight lift + scale; eased entrance */
 .filter-popover {
 	position: absolute;
 	top: 100%;
@@ -64,6 +64,8 @@ const selectOption = (val) => {
 }
 
 .popover-content {
+	position: relative;
+	z-index: 1;
 	background: #fff;
 	padding: 24rpx;
 	border-radius: 20rpx;

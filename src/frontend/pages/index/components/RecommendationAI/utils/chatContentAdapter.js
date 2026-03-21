@@ -426,7 +426,7 @@ function parseSchemeBlock(block) {
 	let content = ''
 	let temperature = ''
 
-	// 只把行首的「③/3 推荐搭配」視作章節開頭；④/⑤ 也必須在新行開頭，避免誤傷 ID: 42/45 等數字
+	// 只把行首的「③/3 推荐搭配」视作章节开头；④/⑤ 也必须在新行开头，避免误伤 ID: 42/45 等数字
 	let recMatch = block.match(/(?:^|\n)\s*(?:③|3\.?|###)[\s]*\*?\*?\s*(?:推荐搭配|Outfit recommendation(?:s)?|Recommended outfit(?:s)?)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:^|\n)\s*(?:④|4\.?)[\s]*\*?\*?|(?:^|\n)\s*(?:⑤|5\.?)[\s]*\*?\*?|###|$)/i)
 	if (!recMatch) {
 		recMatch = block.match(/\*?\*?\s*(?:推荐搭配|Outfit recommendation(?:s)?|Recommended outfit(?:s)?)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:为什么这样搭|Why this works|Why it works|Styling rationale)|(?:^|\n)\s*(?:④|4\.?)[\s]*\*?\*?|(?:^|\n)\s*(?:⑤|5\.?)[\s]*\*?\*?|###|$)/i)

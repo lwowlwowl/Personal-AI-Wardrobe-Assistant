@@ -3195,7 +3195,7 @@ async def get_top_style(
 async def get_most_worn_items(
         token: str = Query(...),
         db: Session = Depends(get_db),
-        time_range: str = Query("yearly", regex="^(yearly|monthly|daily)$"),
+        time_range: str = Query("yearly", regex="^(yearly|monthly|daily|weekly)$"),
         limit: int = Query(5, ge=1, le=20, description="返回数量")
 ):
     """
@@ -3223,6 +3223,10 @@ async def get_most_worn_items(
             # 月度统计：从本月1日开始
             start_date = date(now.year, now.month, 1)
             date_range_text = f"本月 ({now.year}年{now.month}月)"
+        elif time_range == "weekly":
+            # 近 7 天（与前端 ViewByFilter「Weekly」一致）
+            start_date = today - timedelta(days=7)
+            date_range_text = f"近7天 ({start_date.isoformat()} 起)"
         else:  # daily
             # 每日统计：从今天开始
             start_date = today
@@ -3279,10 +3283,13 @@ async def get_most_worn_items(
 
                 # 如果在时间范围内有穿着记录
                 if last_worn >= start_date:
-                    # 对于 yearly/monthly/daily 的不同处理
+                    # 对于 yearly/monthly/weekly/daily 的不同处理
                     if time_range == "daily":
                         # 每日：如果最后穿着时间是今天，显示实际穿着次数，否则为0
                         wears_in_range = item.wear_count if last_worn == today else 0
+                    elif time_range == "weekly":
+                        # 近7天：最后穿着落在窗口内则沿用与 monthly 相同的「总次数」近似（非逐日 wear_history）
+                        wears_in_range = item.wear_count
                     elif time_range == "monthly":
                         # 月度：如果最后穿着时间在本月，显示实际穿着次数，否则为0
                         wears_in_range = item.wear_count if last_worn.month == now.month and last_worn.year == now.year else 0

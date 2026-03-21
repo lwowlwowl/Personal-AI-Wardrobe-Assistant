@@ -1,0 +1,93 @@
+<template>
+	<view class="card bento-suggested">
+		<view class="card-row suggested-card-row">
+			<text class="card-label">Suggested Additions</text>
+			<view v-if="isLoggedIn" class="suggested-refresh" :class="{ refreshing: loadingSuggested }" @click="$emit('refresh')">
+				<text class="refresh-icon">↻</text>
+			</view>
+		</view>
+		<view class="suggest-list">
+			<view v-if="!isLoggedIn" class="loading-state">
+				<text class="loading-text">Please log in first</text>
+			</view>
+			<view v-else-if="loadingSuggested" class="loading-state">
+				<text class="loading-text">Generating suggestions...</text>
+			</view>
+			<view v-else-if="suggestedTexts.length === 0" class="suggest-empty">
+				<text class="suggest-empty-text">No data</text>
+			</view>
+			<view
+				v-else
+				v-for="(sug, index) in suggestedTexts"
+				:key="`${index}-${sug}`"
+				class="suggest-card-v2"
+				:class="{ 'suggest-card-v2-expanded': expandedSuggestIndices.includes(index), 'suggest-card-v2-hover': hoveredSuggestIndex === index }"
+				@click="toggleSuggestExpanded(index)"
+				@mouseenter="hoveredSuggestIndex = index"
+				@mouseleave="hoveredSuggestIndex = null"
+			>
+				<view class="suggest-side">
+					<text class="luxury-index">{{ String(index + 1).padStart(2, '0') }}</text>
+					<view class="vertical-line"></view>
+				</view>
+				<view class="suggest-body">
+					<text class="suggest-title">{{ parseSuggestLine(sug).title }}</text>
+					<view class="suggest-accordion-grid" :class="{ expanded: expandedSuggestIndices.includes(index) }">
+						<view class="suggest-accordion-inner">
+							<text v-if="parseSuggestLine(sug).detail" class="suggest-detail">{{ parseSuggestLine(sug).detail }}</text>
+							<view class="capability-tags">
+								<text v-for="tag in getCapabilityTags(sug)" :key="tag" class="tag">{{ tag }}</text>
+							</view>
+						</view>
+					</view>
+				</view>
+				<view class="item-ghost-icon" :class="{ visible: hoveredSuggestIndex === index }">✦</view>
+			</view>
+		</view>
+	</view>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+
+defineProps({
+	isLoggedIn: { type: Boolean, default: false },
+	loadingSuggested: { type: Boolean, default: true },
+	suggestedTexts: { type: Array, default: () => [] }
+})
+
+defineEmits(['refresh'])
+
+const expandedSuggestIndices = ref([])
+const hoveredSuggestIndex = ref(null)
+
+function toggleSuggestExpanded(index) {
+	const arr = expandedSuggestIndices.value
+	if (arr.includes(index)) {
+		expandedSuggestIndices.value = arr.filter((i) => i !== index)
+	} else {
+		expandedSuggestIndices.value = [...arr, index]
+	}
+}
+
+function parseSuggestLine(sug) {
+	if (!sug || typeof sug !== 'string') return { title: '', detail: '' }
+	const parts = sug.split('，')
+	const title = parts[0]?.trim() || ''
+	const detail = parts.slice(1).join('，').trim()
+	return { title, detail }
+}
+
+function getCapabilityTags(sug) {
+	if (!sug || typeof sug !== 'string') return ['#Essential']
+	const t = sug
+	const tags = []
+	if (/平衡|balance|搭配|協調/i.test(t)) tags.push('#Balance')
+	if (/百搭|versatility|多樣|多用/i.test(t)) tags.push('#Versatility')
+	if (/正式|formal|場合|office/i.test(t)) tags.push('#Formal')
+	if (/基礎|essential|必備|基本/i.test(t)) tags.push('#Essential')
+	if (/下装|下裝|褲|裙|bottom/i.test(t)) tags.push('#WardrobeBalance')
+	if (tags.length === 0) tags.push('#Essential')
+	return tags.slice(0, 3)
+}
+</script>

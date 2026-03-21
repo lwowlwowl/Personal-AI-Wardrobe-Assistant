@@ -76,13 +76,13 @@ const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const EMPTY_WEEK_BARS = WEEKDAY_LABELS.map((label) => ({ label, wears: 0 }))
 
 const props = defineProps({
-	/** 本周总穿戴次数（来自 API 或父组件） */
+	/** Total wears this week (from API or parent) */
 	totalWears: { type: Number, default: null },
 	trendValue: { type: Number, default: 8 },
 	isIncrease: { type: Boolean, default: false },
-	/** 本周每日穿戴分布（API 返回）；无则展示 7 天 0 */
+	/** Daily wears this week; if missing, show seven zero bars */
 	weekData: { type: Array, default: null },
-	/** 按分类的穿戴次数（API 返回）；无则空列表 */
+	/** Wears per category from API; if missing, empty list */
 	categoryActivity: { type: Array, default: null }
 })
 
@@ -104,7 +104,7 @@ const categoryActivityWithPercent = computed(() =>
 	}))
 )
 
-/** 若周数据为空数组或未传入，展示 7 天 0 */
+/** Empty array or missing prop → seven days at zero */
 const weekData = computed(() => {
 	if (props.weekData != null) {
 		if (props.weekData.length === 0) return EMPTY_WEEK_BARS
@@ -117,7 +117,7 @@ const maxWears = computed(() => Math.max(...weekData.value.map((d) => d.wears), 
 const avgWears = computed(() => weekData.value.reduce((s, d) => s + d.wears, 0) / weekData.value.length)
 const avgLinePercent = computed(() => (avgWears.value / maxWears.value) * 100)
 
-/** 💡 修复 3：整周皆 0 时，Most active day 显示 None */
+/** When every day is zero, show None for most active day */
 const mostActiveDay = computed(() => {
 	if (weekData.value.every(d => d.wears === 0)) return 'None'
 	const best = weekData.value.reduce((a, b) => (a.wears >= b.wears ? a : b))
@@ -140,7 +140,7 @@ function animateCountUp() {
 		const elapsed = now - start
 		const t = Math.min(elapsed / duration, 1)
 		const eased = 1 - Math.pow(1 - t, 3)
-		displayedTrendValue.value = Math.round(0 + (target - 0) * eased)
+		displayedTrendValue.value = Math.round(target * eased)
 		if (t < 1) requestAnimationFrame(tick)
 	}
 	requestAnimationFrame(tick)
@@ -159,13 +159,16 @@ onMounted(() => {
 .expanded-page {
 	position: relative;
 	background: linear-gradient(165deg, #f2efe8 0%, #f5f0eb 40%, #f0ebe6 100%);
-	height: 100vh;
+	/* Fill parent .page--expanded; 100vh misaligns with padded layout and shows container #FDFBF7 as a top band */
+	min-height: 100%;
+	height: 100%;
+	max-height: 100%;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	box-sizing: border-box;
 	overflow: hidden;
 }
 .bg-blob {
-	position: fixed;
+	position: absolute;
 	width: 120%;
 	height: 120%;
 	left: 50%;
@@ -190,7 +193,7 @@ onMounted(() => {
 	to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 .grain-overlay {
-	position: fixed;
+	position: absolute;
 	inset: 0;
 	pointer-events: none;
 	z-index: 1;
@@ -201,14 +204,14 @@ onMounted(() => {
 .expanded-content {
 	position: relative;
 	z-index: 2;
-	padding: 24rpx 30rpx 40rpx;
+	padding: 48rpx 30rpx 40rpx;
 }
 
 .expanded-header {
 	display: flex;
 	align-items: center;
 	gap: 20rpx;
-	margin-bottom: 28rpx;
+	margin-bottom: 36rpx;
 }
 
 .back-btn {

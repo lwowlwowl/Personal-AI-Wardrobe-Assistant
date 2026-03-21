@@ -457,7 +457,8 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	padding: 10px 14px;
 	border-radius: 10px;
 	cursor: pointer;
-	transition: all 0.18s ease;
+	/* Only background-color; avoid animating box-shadow/filter (heavy repaint, sidebar text looks soft) */
+	transition: background-color 0.16s ease;
 	justify-content: flex-start;
 	/* 固定高度，防止激活状态改变布局 */
 	min-height: 72rpx;
@@ -550,7 +551,7 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	letter-spacing: 0.3px;
 	white-space: nowrap;
 	opacity: 1;
-	transition: opacity 0.3s ease, width 0.3s ease;
+	transition: color 0.16s ease, opacity 0.3s ease, width 0.3s ease;
 	overflow: hidden;
 }
 
@@ -732,25 +733,24 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 .main-content-inner {
 	width: 100%;
 	height: 100%;
+	min-height: 0;
 	position: relative;
+	/* Fill main-content height so nested % heights match (avoid top gap / wrong 100vh band) */
+	align-self: stretch;
+	flex: 1;
 }
 
-/* 视图切换动画 */
+/* 视图切换：仅用 opacity，避免整页 transform 合成大块图层导致卡顿与文字发糊 */
 .view-fade-enter-active,
 .view-fade-leave-active {
-	transition: opacity 0.28s ease, transform 0.28s ease;
+	transition: opacity 0.2s ease;
 }
-.view-fade-enter-from {
-	opacity: 0;
-	transform: translateX(12rpx);
-}
+.view-fade-enter-from,
 .view-fade-leave-to {
 	opacity: 0;
-	transform: translateX(-12rpx);
 }
 .view-fade-enter-to,
 .view-fade-leave-from {
 	opacity: 1;
-	transform: translateX(0);
 }
 </style>
