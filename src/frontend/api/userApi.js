@@ -10,6 +10,72 @@ export { API_BASE_URL }
 // ============ 认证 ============
 
 /**
+ * 登录 POST /api/auth/login
+ * 请求体对应 schemas.UserLogin：username, password, remember
+ * @param {{ username: string, password: string, remember?: boolean }} body
+ * @returns {Promise<{ statusCode: number, data: any }>}
+ */
+export function loginAuth(body) {
+  const { username, password, remember = false } = body || {}
+  return request({
+    url: '/api/auth/login',
+    method: 'POST',
+    data: JSON.stringify({
+      username,
+      password,
+      remember: remember === true
+    }),
+    header: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
+    }
+  })
+}
+
+/**
+ * 注册 POST /api/auth/register
+ * 请求体对应 schemas.UserCreate：username, email, password, confirm_password
+ * @param {{ username: string, email: string, password: string, confirm_password: string }} body
+ * @returns {Promise<{ statusCode: number, data: any }>}
+ */
+export function registerAuth(body) {
+  const { username, email, password, confirm_password } = body || {}
+  return request({
+    url: '/api/auth/register',
+    method: 'POST',
+    data: JSON.stringify({
+      username,
+      email,
+      password,
+      confirm_password
+    }),
+    header: { 'Content-Type': 'application/json' },
+    timeout: 10000
+  })
+}
+
+/**
+ * 忘记密码：凭邮箱 + 用户名匹配同一账号后重置（POST /api/auth/reset-password-by-identity）
+ * @param {{ email: string, username: string, new_password: string, confirm_password: string }} body
+ * @returns {Promise<{ statusCode: number, data: any }>}
+ */
+export function resetPasswordByIdentity(body) {
+  const { email, username, new_password, confirm_password } = body || {}
+  return request({
+    url: '/api/auth/reset-password-by-identity',
+    method: 'POST',
+    data: JSON.stringify({
+      email,
+      username,
+      new_password,
+      confirm_password
+    }),
+    header: { 'Content-Type': 'application/json' },
+    timeout: 15000
+  })
+}
+
+/**
  * 验证 JWT token 是否有效
  * @param {string} token
  * @returns {Promise<{ statusCode, data }>}

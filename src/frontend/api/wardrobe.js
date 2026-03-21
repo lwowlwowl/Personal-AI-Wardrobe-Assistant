@@ -3,25 +3,9 @@
  * 衣物、模特照片等接口。用户/认证相关见 userApi.js
  */
 
-const API_BASE_URL = 'http://localhost:8000'
+import { API_BASE_URL, request } from '@/utils/request.js'
 
-/**
- * 封装 uni.request，返回完整 response（含 statusCode、data）供调用端判断
- * 提取为可复用方法，供其他 API 模块（如日历模块）共用。
- * @param {Object} options - uni.request 的 options
- * @returns {Promise<{ statusCode, data }>}
- */
-export function request(options) {
-  const url = options.url.startsWith('http') ? options.url : `${API_BASE_URL}${options.url.startsWith('/') ? '' : '/'}${options.url}`
-  return new Promise((resolve, reject) => {
-    uni.request({
-      ...options,
-      url,
-      success: (res) => resolve(res),
-      fail: (err) => reject(err)
-    })
-  })
-}
+export { API_BASE_URL, request }
 
 // ============ 健康检查 ============
 
@@ -270,5 +254,3 @@ export function updateModelPhoto(token, photoId, updateData) {
     header: { 'Content-Type': 'application/x-www-form-urlencoded' }
   })
 }
-
-export { API_BASE_URL }

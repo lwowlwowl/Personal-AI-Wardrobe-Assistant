@@ -148,6 +148,11 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'update:userProfile'])
 
+function userAvatarUrl(url) {
+	if (!url) return ''
+	return url.startsWith('http') ? url : `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`
+}
+
 const settingsUsername = ref('')
 const settingsUsernameError = ref('')
 const settingsCurrentPassword = ref('')
@@ -158,11 +163,6 @@ const uploadingAvatar = ref(false)
 const showCurrentPassword = ref(false)
 const showNewPassword = ref(false)
 const showConfirmPassword = ref(false)
-
-function userAvatarUrl(url) {
-	if (!url) return ''
-	return url.startsWith('http') ? url : `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`
-}
 
 // 用户名实时校验：至少 3 字符
 const usernameValid = computed(() => {
@@ -247,20 +247,31 @@ async function saveUsername() {
 			setTimeout(() => { uni.showToast({ title: 'Saved!', icon: 'success' }) }, 100)
 		} else {
 			const d = res.data?.detail
-			settingsUsernameError.value = Array.isArray(d) ? (d[0] || 'Save failed') : (d || 'Save failed')
+			const raw = Array.isArray(d) ? (d[0]?.msg ?? d[0]) : d
+			const s = typeof raw === 'string' ? raw : String(raw || '')
+			settingsUsernameError.value =
+				s && !/[\u4e00-\u9fff]/.test(s) ? s : 'Save failed. Please try again.'
 		}
 	} catch {
 		settingsUsernameError.value = 'Network error'
 	}
 }
 
-/** 根据后端返回的 detail 和 statusCode 给出具体原因，方便用户知道是「当前密码错误」还是其他 */
+/** Map API errors to English copy for the password form (backend may still return non-English detail). */
 function passwordFailureMessage(detail, statusCode) {
-	const msg = Array.isArray(detail) ? (detail[0] || '') : (detail || '')
-	const s = (msg || '').toString()
-	if (/当前密码|密码错误|incorrect|wrong|修改失败/i.test(s)) return 'Current password is incorrect.'
 	if (statusCode === 400) return 'Current password is incorrect.'
-	return s || 'Failed to change password.'
+	let s = ''
+	if (typeof detail === 'string') s = detail
+	else if (Array.isArray(detail) && detail[0]) {
+		const first = detail[0]
+		s = typeof first === 'string' ? first : (first?.msg || '')
+	} else if (detail && typeof detail === 'object' && detail.msg) {
+		s = String(detail.msg)
+	}
+	if (/incorrect|wrong|invalid.*password|password.*incorrect|modification failed/i.test(s)) {
+		return 'Current password is incorrect.'
+	}
+	return 'Failed to change password.'
 }
 
 /** 点击「Change password」时：先在校验处统一把错误显示在 Confirm 下方，再在通过时发请求 */

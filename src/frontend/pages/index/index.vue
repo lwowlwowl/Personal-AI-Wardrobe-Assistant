@@ -15,59 +15,21 @@
 			
 			<view class="nav-and-conversation">
 			<view class="nav-menu">
-				<view 
-					class="nav-item" 
-					:class="{ 'active': activeMenu === 'recommendation' }"
-					@click="setActiveMenu('recommendation')"
+				<view
+					v-for="item in sidebarNavItems"
+					:key="item.id"
+					class="nav-item"
+					:class="{ active: activeMenu === item.id }"
+					@click="setActiveMenu(item.id)"
 				>
 					<view class="nav-icon">
-						<image :src="activeMenu === 'recommendation' ? '/static/icons/icon-recommendation-active.svg' : '/static/icons/icon-recommendation.svg'" mode="aspectFit" class="icon-img icon-20"></image>
+						<image
+							:src="activeMenu === item.id ? item.iconActive : item.icon"
+							mode="aspectFit"
+							class="icon-img icon-20"
+						></image>
 					</view>
-					<text class="nav-text" v-show="!isCollapsed">Recommendation AI</text>
-				</view>
-				
-				<view 
-					class="nav-item" 
-					:class="{ 'active': activeMenu === 'tryon' }"
-					@click="setActiveMenu('tryon')"
-				>
-					<view class="nav-icon">
-						<image :src="activeMenu === 'tryon' ? '/static/icons/icon-tryon-active.svg' : '/static/icons/icon-tryon.svg'" mode="aspectFit" class="icon-img icon-20"></image>
-					</view>
-					<text class="nav-text" v-show="!isCollapsed">Virtual Try-On</text>
-				</view>
-				
-				<view 
-					class="nav-item" 
-					:class="{ 'active': activeMenu === 'wardrobe' }"
-					@click="setActiveMenu('wardrobe')"
-				>
-					<view class="nav-icon">
-						<image :src="activeMenu === 'wardrobe' ? '/static/icons/icon-wardrobe-active.svg' : '/static/icons/icon-wardrobe.svg'" mode="aspectFit" class="icon-img icon-20"></image>
-					</view>
-					<text class="nav-text" v-show="!isCollapsed">My Wardrobe</text>
-				</view>
-				
-				<view 
-					class="nav-item" 
-					:class="{ 'active': activeMenu === 'calendar' }"
-					@click="setActiveMenu('calendar')"
-				>
-					<view class="nav-icon">
-						<image :src="activeMenu === 'calendar' ? '/static/icons/icon-calendar-active.svg' : '/static/icons/icon-calendar.svg'" mode="aspectFit" class="icon-img icon-20"></image>
-					</view>
-					<text class="nav-text" v-show="!isCollapsed">My Calendar</text>
-				</view>
-				
-				<view 
-					class="nav-item" 
-					:class="{ 'active': activeMenu === 'analysis' }"
-					@click="setActiveMenu('analysis')"
-				>
-					<view class="nav-icon">
-						<image :src="activeMenu === 'analysis' ? '/static/icons/icon-analysis-active.svg' : '/static/icons/icon-analysis.svg'" mode="aspectFit" class="icon-img icon-20"></image>
-					</view>
-					<text class="nav-text" v-show="!isCollapsed">Wardrobe Analysis</text>
+					<text class="nav-text" v-show="!isCollapsed">{{ item.label }}</text>
 				</view>
 			</view>
 			
@@ -93,10 +55,9 @@
 						<view v-if="showUserMenu" class="user-menu-popup" :class="{ 'user-menu-popup--collapsed': isCollapsed }" @click.stop>
 							<template v-if="isLoggedIn">
 								<view v-show="!isCollapsed" class="user-menu-header">
-									<view class="user-menu-avatar-wrap" @click="handleChooseAvatar">
+									<view class="user-menu-avatar-wrap">
 										<image v-if="userProfile?.avatar_url" :src="userAvatarUrl(userProfile.avatar_url)" mode="aspectFill" class="user-menu-avatar-img"></image>
 										<image v-else src="/static/icons/icon-user.svg" mode="aspectFit" class="user-menu-avatar-icon"></image>
-										<text v-if="uploadingAvatar" class="user-menu-avatar-loading">Uploading…</text>
 									</view>
 									<text class="user-menu-username">{{ userProfile?.username || displayUserName }}</text>
 								</view>
@@ -177,9 +138,9 @@
 </template>
 
 <script setup>
-import { ref, nextTick, provide } from 'vue'
+import { ref, nextTick, provide, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { authVerify, getUsersMe, uploadUserAvatar, API_BASE_URL } from '@/api/userApi.js'
+import { authVerify, getUsersMe, API_BASE_URL } from '@/api/userApi.js'
 import RecommendationAI from './components/RecommendationAI/RecommendationAI.vue'
 import ConversationSidebar from './components/RecommendationAI/sidebar/ConversationSidebar.vue'
 import VirtualTryOn from './components/VirtualTryOn.vue'
@@ -187,6 +148,14 @@ import WardrobeView from './components/MyWardrobe/WardrobeView.vue'
 import MyCalendar from './components/MyCalendar/MyCalendar.vue'
 import WardrobeAnalysis from './components/WardrobeAnalysis/WardrobeAnalysis.vue'
 import SettingsModal from './SettingsModal.vue'
+
+const sidebarNavItems = [
+	{ id: 'recommendation', label: 'Recommendation AI', icon: '/static/icons/icon-recommendation.svg', iconActive: '/static/icons/icon-recommendation-active.svg' },
+	{ id: 'tryon', label: 'Virtual Try-On', icon: '/static/icons/icon-tryon.svg', iconActive: '/static/icons/icon-tryon-active.svg' },
+	{ id: 'wardrobe', label: 'My Wardrobe', icon: '/static/icons/icon-wardrobe.svg', iconActive: '/static/icons/icon-wardrobe-active.svg' },
+	{ id: 'calendar', label: 'My Calendar', icon: '/static/icons/icon-calendar.svg', iconActive: '/static/icons/icon-calendar-active.svg' },
+	{ id: 'analysis', label: 'Wardrobe Analysis', icon: '/static/icons/icon-analysis.svg', iconActive: '/static/icons/icon-analysis-active.svg' }
+]
 
 const activeMenu = ref('recommendation')
 const isCollapsed = ref(false)
@@ -261,13 +230,11 @@ const refreshDisplayUserName = async () => {
 	}
 }
 
-// 头像完整 URL（后端返回的是相对路径）
 const userAvatarUrl = (url) => {
 	if (!url) return ''
 	return url.startsWith('http') ? url : `${API_BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`
 }
 
-const uploadingAvatar = ref(false)
 const showSettingsModal = ref(false)
 
 function openSettings() {
@@ -290,29 +257,9 @@ function onSettingsUpdateUserProfile(payload) {
 	}
 }
 
-const handleChooseAvatar = () => {
-	if (!isLoggedIn.value || uploadingAvatar.value) return
-	uni.chooseImage({
-		count: 1,
-		sizeType: ['compressed'],
-		sourceType: ['album', 'camera'],
-		success: async (res) => {
-			const filePath = res.tempFilePaths[0]
-			const token = uni.getStorageSync('auth_token')
-			if (!token) return
-			uploadingAvatar.value = true
-			try {
-				const upRes = await uploadUserAvatar({ token, filePath })
-				if (upRes.statusCode === 200 && upRes.data?.avatar_url) {
-					if (userProfile.value) userProfile.value.avatar_url = upRes.data.avatar_url
-				}
-			} finally {
-				uploadingAvatar.value = false
-			}
-		}
-	})
-}
-;(async () => { await refreshDisplayUserName() })()
+onMounted(() => {
+	refreshDisplayUserName()
+})
 onShow(() => {
 	refreshDisplayUserName()
 })
@@ -709,7 +656,6 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	cursor: pointer;
 }
 .user-menu-avatar-img {
 	width: 100%;
@@ -719,17 +665,6 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	width: 52rpx;
 	height: 52rpx;
 	opacity: 0.7;
-}
-.user-menu-avatar-loading {
-	position: absolute;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	background: rgba(0,0,0,0.5);
-	color: #fff;
-	font-size: 20rpx;
-	text-align: center;
-	padding: 4rpx 0;
 }
 .user-menu-username {
 	font-size: 38rpx;

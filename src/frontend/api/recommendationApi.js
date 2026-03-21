@@ -3,19 +3,9 @@
  * 约定见 backend/AIwardrobe/README.md、RecommendationAI/RECOMMENDATION_AI.md
  */
 
-const API_BASE_URL = 'http://localhost:8000'
+import { API_BASE_URL, request } from '@/utils/request.js'
 
-function request(options) {
-  const url = options.url.startsWith('http') ? options.url : `${API_BASE_URL}${options.url.startsWith('/') ? '' : '/'}${options.url}`
-  return new Promise((resolve, reject) => {
-    uni.request({
-      ...options,
-      url,
-      success: (res) => resolve(res),
-      fail: (err) => reject(err)
-    })
-  })
-}
+export { API_BASE_URL }
 
 /**
  * 推荐 AI 对话接口（流式），对接后端 POST /api/ai/chat/stream
@@ -97,6 +87,30 @@ export function chatRecommendation(query, history = []) {
   })
 }
 
+export function getSuggestions() {
+  const token = uni.getStorageSync('auth_token') || ''
+  if (!token) return Promise.reject(new Error('Please sign in first'))
+  const url = `${API_BASE_URL}/api/ai/suggestions?token=${encodeURIComponent(token)}`
+  return request({ url, method: 'GET' }).then(res => {
+    if (res.statusCode === 200 && res.data && res.data.success) {
+      return res.data.data || []
+    }
+    throw new Error((res.data && (res.data.detail || res.data.message)) || 'Failed to fetch suggestions')
+  })
+}
+
+export function updateSuggestion(slot, payload) {
+  const token = uni.getStorageSync('auth_token') || ''
+  if (!token) return Promise.reject(new Error('Please sign in first'))
+  const url = `${API_BASE_URL}/api/ai/suggestions/${slot}?token=${encodeURIComponent(token)}`
+  return request({ url, method: 'PUT', data: payload }).then(res => {
+    if (res.statusCode === 200 && res.data && res.data.success) {
+      return res.data.data
+    }
+    throw new Error((res.data && (res.data.detail || res.data.message)) || 'Failed to update suggestion')
+  })
+}
+
 /**
  * ========== 天气 API / GeoAPI 触发规律总结 ==========
  *
@@ -142,7 +156,7 @@ export function getWeatherNow(lat, lon) {
       _weatherThrottle = { at: Date.now(), data }
       return data
     }
-    const msg = (res.data && (res.data.detail || res.data.message)) || '天气请求失败'
+    const msg = (res.data && (res.data.detail || res.data.message)) || 'Weather request failed'
     throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
   })
 }
@@ -167,7 +181,7 @@ export function listConversations() {
     if (res.statusCode === 200 && res.data && res.data.success) {
       return { data: res.data.data || [], total: res.data.total || 0 }
     }
-    throw new Error((res.data && res.data.detail) || '获取对话列表失败')
+    throw new Error((res.data && res.data.detail) || 'Failed to load conversations')
   })
 }
 
@@ -178,7 +192,7 @@ export function listConversations() {
  */
 export function createConversation(payload = {}) {
   const token = getAuthToken()
-  if (!token) return Promise.reject(new Error('请先登录'))
+  if (!token) return Promise.reject(new Error('Please sign in first'))
   const url = `${API_BASE_URL}/api/ai/conversations?token=${encodeURIComponent(token)}`
   return request({
     url,
@@ -188,7 +202,7 @@ export function createConversation(payload = {}) {
     if (res.statusCode === 200 && res.data && res.data.success) {
       return res.data.data
     }
-    throw new Error((res.data && res.data.detail) || '创建对话失败')
+    throw new Error((res.data && res.data.detail) || 'Failed to create conversation')
   })
 }
 
@@ -199,14 +213,14 @@ export function createConversation(payload = {}) {
  */
 export function updateConversation(id, payload) {
   const token = getAuthToken()
-  if (!token) return Promise.reject(new Error('请先登录'))
+  if (!token) return Promise.reject(new Error('Please sign in first'))
   const url = `${API_BASE_URL}/api/ai/conversations/${id}?token=${encodeURIComponent(token)}`
   const body = {}
   if (payload.title !== undefined) body.title = payload.title
   if (payload.messages !== undefined) body.messages = payload.messages
   return request({ url, method: 'PUT', data: body }).then(res => {
     if (res.statusCode === 200 && res.data && res.data.success) return res.data.data
-    throw new Error((res.data && res.data.detail) || '更新对话失败')
+    throw new Error((res.data && res.data.detail) || 'Failed to update conversation')
   })
 }
 
@@ -216,12 +230,11 @@ export function updateConversation(id, payload) {
  */
 export function deleteConversation(id) {
   const token = getAuthToken()
-  if (!token) return Promise.reject(new Error('请先登录'))
+  if (!token) return Promise.reject(new Error('Please sign in first'))
   const url = `${API_BASE_URL}/api/ai/conversations/${id}?token=${encodeURIComponent(token)}`
   return request({ url, method: 'DELETE' }).then(res => {
     if (res.statusCode === 200 && res.data && res.data.success) return
-    throw new Error((res.data && res.data.detail) || '删除对话失败')
+    throw new Error((res.data && res.data.detail) || 'Failed to delete conversation')
   })
 }
 
-export { API_BASE_URL, WEATHER_THROTTLE_MS }

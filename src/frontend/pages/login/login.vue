@@ -175,11 +175,20 @@
 				
 			</view>
 		</view>
+
+		<ForgotPasswordModal :visible="showForgotModal" @close="showForgotModal = false" />
 	</view>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'   
+import { ref, onMounted } from 'vue'
+import { loginAuth, registerAuth } from '@/api/userApi.js'
+import ForgotPasswordModal from './ForgotPasswordModal.vue'
+
+const activeTab = ref('login')
+const isEntering = ref(false)
+const isSwitching = ref(false)
+const showForgotModal = ref(false)
 
 // Login 表单数据
 const loginForm = ref({
@@ -218,8 +227,19 @@ const toggleRemember = () => {
 	loginForm.value.remember = !loginForm.value.remember
 }
 
+const goToHomeAfterLogin = () => {
+	setTimeout(() => {
+		uni.reLaunch({
+			url: '/pages/index/index',
+			fail: () => {
+				uni.navigateTo({ url: '/pages/index/index' })
+			}
+		})
+	}, 1500)
+}
+
 // 登录
-const handleLogin = () => {
+const handleLogin = async () => {
 	if (!loginForm.value.username) {
 		uni.showToast({
 			title: 'Please enter your username',
@@ -234,117 +254,72 @@ const handleLogin = () => {
 		})
 		return
 	}
-	
+
 	uni.showLoading({
-	        title: 'Logging in...',
-	        mask: true
-	    })
-		
-	uni.request({
-	        url: 'http://localhost:8000/api/auth/login',
-	        method: 'POST',
-	        header: {
-	            'Content-Type': 'application/json',
-				'Accept': 'application/json'
-	        },
-	        data: {
-	            username: loginForm.value.username,
-	            password: loginForm.value.password,
-	            remember: loginForm.value.remember
-	        },
-	        success: (res) => {
-	            uni.hideLoading()
-	            
-	            if (res.statusCode === 200) {
-	                if (res.data && res.data.success === true) {
-						console.log('Login successful, token received')
-	                    uni.showToast({
-	                        title: 'Login successful',
-	                        icon: 'success',
-	                        duration: 1500
-	                    })
-	                    
-	                    // 存储认证信息
-	                    uni.setStorageSync('auth_token', res.data.access_token)
-	                    uni.setStorageSync('user_info', {
-	                        user_id: res.data.user_id,
-	                        username: res.data.username,
-	                        email: res.data.email
-	                    })
-	                    
-	                    // 记住我选项
-	                    if (loginForm.value.remember) {
-	                        uni.setStorageSync('remember_me', true)
-	                    }
-	                    
-	                    // 跳转到主页
-	                    setTimeout(() => {
-	                                    console.log('Preparing to navigate to home page...')
-	                                    
-	                                    // 先尝试 reLaunch 重启应用到首页
-	                                    uni.reLaunch({
-	                                        url: '/pages/index/index',
-	                                        success: () => {
-	                                            console.log('Navigated to home page successfully')
-	                                        },
-	                                        fail: (err) => {
-	                                            console.error('Failed to navigate to home page:', err)
-	                                            
-	                                            // 如果 reLaunch 失败，尝试 switchTab
-	                                            uni.switchTab({
-	                                                url: '/pages/index/index',
-	                                                fail: (err2) => {
-	                                                    console.error('switchTab also failed:', err2)
-	                                                    // 最后尝试 navigateTo
-	                                                    uni.navigateTo({
-	                                                        url: '/pages/index/index'
-	                                                    })
-	                                                }
-	                                            })
-	                                        }
-	                                    })
-	                                }, 1500)
-	                    
-	                } else {
-						console.log('Login failed:', res.data.message)
-	                    uni.showToast({
-	                        title: res.data.message || 'Login failed',
-	                        icon: 'none',
-	                        duration: 3000
-	                    })
-	                }
-	            } else if (res.statusCode === 401) {
-	                uni.showToast({
-	                    title: res.data.detail || 'Incorrect username or password',
-	                    icon: 'none',
-	                    duration: 3000
-	                })
-	            } else {
-	                uni.showToast({
-	                    title: `Server error: ${res.statusCode}`,
-	                    icon: 'none',
-	                    duration: 3000
-	                })
-	            }
-	        },
-	        fail: (err) => {
-	            uni.hideLoading()
-	            console.error('Login request failed:', err)
-	            uni.showToast({
-	                title: 'Network error. Please check if backend service is running',
-	                icon: 'none',
-	                duration: 3000
-	            })
-	        }
-	    })
-	
+		title: 'Logging in...',
+		mask: true
+	})
+
+	try {
+		const res = await loginAuth({
+			username: loginForm.value.username,
+			password: loginForm.value.password,
+			remember: loginForm.value.remember
+		})
+		uni.hideLoading()
+
+		const { statusCode, data } = res
+
+		if (statusCode === 200 && data && data.success === true) {
+			uni.showToast({
+				title: 'Login successful',
+				icon: 'success',
+				duration: 1500
+			})
+
+			uni.setStorageSync('auth_token', data.access_token)
+			uni.setStorageSync('user_info', {
+				user_id: data.user_id,
+				username: data.username,
+				email: data.email
+			})
+
+			if (loginForm.value.remember) {
+				uni.setStorageSync('remember_me', true)
+			}
+
+			goToHomeAfterLogin()
+		} else if (statusCode === 200 && data && data.success === false) {
+			uni.showToast({
+				title: data.message || 'Login failed',
+				icon: 'none',
+				duration: 3000
+			})
+		} else if (statusCode === 401) {
+			uni.showToast({
+				title: (data && (data.detail || data.message)) || 'Incorrect username or password',
+				icon: 'none',
+				duration: 3000
+			})
+		} else {
+			uni.showToast({
+				title: `Server error: ${statusCode}`,
+				icon: 'none',
+				duration: 3000
+			})
+		}
+	} catch (err) {
+		uni.hideLoading()
+		uni.showToast({
+			title: 'Network error. Please check if backend service is running',
+			icon: 'none',
+			duration: 3000
+		})
+	}
 }
 
 const handleForgotPassword = () => {
-	uni.showToast({
-		title: 'Forgot password feature is under development',
-		icon: 'none'
-	})
+	showForgotModal.value = true
 }
 
 // 注册相关校验
@@ -434,36 +409,17 @@ const handleRegister = async () => {
 			title: 'Registering...',
 			mask: true
 		})
-		
-		console.log('Sending registration request:', {
+
+		const res = await registerAuth({
 			username: registerForm.value.username,
 			email: registerForm.value.email,
 			password: registerForm.value.password,
 			confirm_password: registerForm.value.confirmPassword
 		})
-		
-		const res = await uni.request({
-			url: 'http://localhost:8000/api/auth/register',
-			method: 'POST',
-			header: {
-				'Content-Type': 'application/json'
-			},
-			data: {
-				username: registerForm.value.username,
-				email: registerForm.value.email,
-				password: registerForm.value.password,
-				confirm_password: registerForm.value.confirmPassword
-			},
-			timeout: 10000
-		})
-		
-		console.log('Registration API full response:', res)
-		console.log('Response status code:', res.statusCode)
-		console.log('Response data:', res.data)
-		
+
 		uni.hideLoading()
 		isLoading.value = false
-		
+
 		if (res.statusCode === 200) {
 			if (res.data && res.data.success === true) {
 				uni.showToast({
@@ -524,9 +480,7 @@ const handleRegister = async () => {
 	} catch (error) {
 		uni.hideLoading()
 		isLoading.value = false
-		
-		console.error('Registration request exception:', error)
-		
+
 		let errorMessage = 'Registration failed. Please try again later'
 		
 		if (error.errMsg) {
@@ -544,10 +498,6 @@ const handleRegister = async () => {
 		})
 	}
 }
-
-const activeTab = ref('login')
-const isEntering = ref(false)          // 首次进入淡入动画
-const isSwitching = ref(false)        // 表单切换中的状态
 
 onMounted(() => {
   // 页面加载时添加淡入动画

@@ -3,7 +3,7 @@
  * 與 backend /api/analysis/* 對接
  */
 
-const API_BASE_URL = 'http://localhost:8000'
+import { API_BASE_URL, request } from '@/utils/request.js'
 
 function getToken() {
   const keys = ['auth_token', 'token', 'access_token', 'userToken']
@@ -19,25 +19,26 @@ function getToken() {
 /**
  * 發起分析 API 請求（GET，參數與 token 放在 query）
  */
-export async function apiRequest(url, params = {}) {
+export async function apiRequest(path, params = {}) {
   const token = getToken()
   const query = new URLSearchParams({ ...params, token: token || '' })
-  const fullUrl = `${API_BASE_URL}${url}?${query.toString()}`
+  const qs = query.toString()
+  const rel = `${path.startsWith('/') ? path : `/${path}`}${qs ? `?${qs}` : ''}`
   try {
-    const res = await uni.request({
-      url: fullUrl,
+    const res = await request({
+      url: rel,
       method: 'GET',
       header: { 'Content-Type': 'application/json' },
       timeout: 10000
     })
     if (res.statusCode === 200) return res.data
     if (res.statusCode === 401) {
-      uni.showToast({ title: '登入已過期，請重新登入', icon: 'none' })
+      uni.showToast({ title: 'Session expired. Please sign in again.', icon: 'none' })
       return null
     }
     return null
   } catch (err) {
-    console.error('分析 API 請求異常:', err)
+    console.error('Analysis API request error:', err)
     return null
   }
 }

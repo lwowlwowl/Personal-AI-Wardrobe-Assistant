@@ -442,6 +442,50 @@ async def login(
         )
 
 
+@app.post("/api/auth/reset-password-by-identity")
+async def reset_password_by_identity(
+        body: schemas.PasswordResetByIdentity,
+        db: Session = Depends(get_db)
+):
+    """
+    忘记密码：校验邮箱与用户名属于同一账号后更新密码（不发送邮件）。
+    错误信息使用模糊文案，降低枚举风险。
+    """
+    try:
+        email_norm = str(body.email).strip().lower()
+        user = crud.get_user_by_username(db, body.username)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email and username do not match our records.",
+            )
+        if (user.email or "").strip().lower() != email_norm:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email and username do not match our records.",
+            )
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This account is disabled.",
+            )
+        ok, err = crud.update_user_password(db, user.email, body.new_password)
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=err or "Failed to reset password.",
+            )
+        return {"success": True, "message": "Password has been reset. You can sign in now."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"reset_password_by_identity: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reset password.",
+        ) from e
+
+
 # ============ Token验证接口 ============
 @app.get("/api/auth/verify")
 async def verify_token(

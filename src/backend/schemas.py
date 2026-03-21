@@ -78,6 +78,27 @@ class UserLogin(BaseModel):
         return v
 
 
+class PasswordResetByIdentity(BaseModel):
+    """未登录场景：凭邮箱 + 用户名匹配同一账号后重置密码（无邮件链路）"""
+    email: EmailStr
+    username: str = Field(..., min_length=1, max_length=50)
+    new_password: str = Field(..., min_length=6, max_length=100)
+    confirm_password: str = Field(..., min_length=1)
+
+    @validator('username')
+    def username_strip(cls, v):
+        s = (v or '').strip()
+        if not s:
+            raise ValueError('Username cannot be empty')
+        return s
+
+    @validator('confirm_password')
+    def passwords_match(cls, v, values):
+        if 'new_password' in values and v != values['new_password']:
+            raise ValueError('Passwords do not match')
+        return v
+
+
 class UserResponse(BaseModel):
     """用户信息响应模型（返回给客户端的数据）"""
     id: int
