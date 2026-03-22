@@ -6,7 +6,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { formatRecommendationDisplay } from '../utils/recommendationTextDisplay.js'
+import { formatRecommendationDisplay } from '../utils/rec/textDisplay.js'
 
 const props = defineProps({
 	content: { type: String, default: '' },

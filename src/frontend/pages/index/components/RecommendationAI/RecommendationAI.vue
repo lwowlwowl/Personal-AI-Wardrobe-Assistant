@@ -28,48 +28,19 @@
 				</view>
 
 				<view class="input-container input-in-flow">
-					<view class="search-bar">
-						<div
-							class="search-bar-drop-zone"
-							:class="{ 'drag-over': isDragOverInput }"
-							@drop.prevent="handleDropImage"
-							@dragover.prevent="handleDragOverInput"
-							@dragleave.prevent="handleDragLeaveInput"
-							@dragenter.prevent
-						>
-							<view v-if="uploadedImages.length > 0" class="input-thumb-row">
-								<scroll-view class="input-thumb-wrap" scroll-x :show-scrollbar="false">
-									<view class="input-thumb-list">
-										<view v-for="(url, idx) in uploadedImages" :key="idx" class="input-thumb-pill">
-											<image :src="url" mode="aspectFill" class="input-thumb-img" @click="previewImageAt(idx)"></image>
-											<view class="input-thumb-remove" @click.stop="removeUploadedImageAt(idx)">
-												<image src="/static/icons/icon-close.svg" mode="aspectFit" class="icon-close-small"></image>
-											</view>
-										</view>
-									</view>
-								</scroll-view>
-							</view>
-
-							<view class="search-input-row">
-								<view class="search-icon-left" @click="handleAdd">
-									<image src="/static/icons/icon-plus.svg" mode="aspectFit" class="icon-search-btn"></image>
-								</view>
-								<textarea
-									class="search-input search-textarea"
-									v-model="searchQuery"
-									placeholder="Ask me anything!"
-									placeholder-class="search-placeholder"
-									:maxlength="-1"
-									:auto-height="true"
-									@keydown.enter.exact.prevent="handleSearch"
-									@confirm="handleSearch"
-								/>
-								<view class="search-button" @click="handleSearch">
-									<image src="/static/icons/icon-send.svg" mode="aspectFit" class="icon-search-btn"></image>
-								</view>
-							</view>
-						</div>
-					</view>
+					<InputBar
+						v-model="searchQuery"
+						:images="uploadedImages"
+						:is-drag-over="isDragOverInput"
+						@apply-text="onSuggestionApplyText"
+						@search="handleSearch"
+						@add="handleAdd"
+						@drop="handleDropImage"
+						@dragover="handleDragOverInput"
+						@dragleave="handleDragLeaveInput"
+						@preview-thumb="previewImageAt"
+						@remove-thumb="removeUploadedImageAt"
+					/>
 				</view>
 
 			</view>
@@ -187,48 +158,19 @@
 
 		<view v-if="hasSearched" class="input-box-wrapper">
 			<view class="input-container fixed-bottom">
-				<view class="search-bar">
-					<div
-						class="search-bar-drop-zone"
-						:class="{ 'drag-over': isDragOverInput }"
-						@drop.prevent="handleDropImage"
-						@dragover.prevent="handleDragOverInput"
-						@dragleave.prevent="handleDragLeaveInput"
-						@dragenter.prevent
-					>
-						<view v-if="uploadedImages.length > 0" class="input-thumb-row">
-							<scroll-view class="input-thumb-wrap" scroll-x :show-scrollbar="false">
-								<view class="input-thumb-list">
-									<view v-for="(url, idx) in uploadedImages" :key="idx" class="input-thumb-pill">
-										<image :src="url" mode="aspectFill" class="input-thumb-img" @click="previewImageAt(idx)"></image>
-										<view class="input-thumb-remove" @click.stop="removeUploadedImageAt(idx)">
-											<image src="/static/icons/icon-close.svg" mode="aspectFit" class="icon-close-small"></image>
-										</view>
-									</view>
-								</view>
-							</scroll-view>
-						</view>
-
-						<view class="search-input-row">
-							<view class="search-icon-left" @click="handleAdd">
-								<image src="/static/icons/icon-plus.svg" mode="aspectFit" class="icon-search-btn"></image>
-							</view>
-							<textarea
-								class="search-input search-textarea"
-								v-model="searchQuery"
-								placeholder="Ask me anything!"
-								placeholder-class="search-placeholder"
-								:maxlength="-1"
-								:auto-height="true"
-								@keydown.enter.exact.prevent="handleSearch"
-								@confirm="handleSearch"
-							/>
-							<view class="search-button" @click="handleSearch">
-								<image src="/static/icons/icon-send.svg" mode="aspectFit" class="icon-search-btn"></image>
-							</view>
-						</view>
-					</div>
-				</view>
+				<InputBar
+					v-model="searchQuery"
+					:images="uploadedImages"
+					:is-drag-over="isDragOverInput"
+					@apply-text="onSuggestionApplyText"
+					@search="handleSearch"
+					@add="handleAdd"
+					@drop="handleDropImage"
+					@dragover="handleDragOverInput"
+					@dragleave="handleDragLeaveInput"
+					@preview-thumb="previewImageAt"
+					@remove-thumb="removeUploadedImageAt"
+				/>
 			</view>
 
 		</view>
@@ -240,13 +182,26 @@ import { ref, watch, nextTick, onMounted, computed } from 'vue'
 import RecommendationCard from './chat-content/RecommendationCard.vue'
 import ChatMessageBubble from './chat-content/ChatMessageBubble.vue'
 import PlanScheduleCard from './chat-content/PlanScheduleCard.vue'
-import { normalizeChatResponse } from './utils/chatContentAdapter.js'
+import { normalizeChatResponse } from './utils/chat/chatContentAdapter.js'
+import { todayKey } from './utils/common/dates.js'
+import { recTryOnImageUrl, recClothingId, stripRecItemNameId } from './utils/rec/recItem.js'
+import { expandEmbeddedJsonAiMessage } from './utils/chat/aiJson.js'
+import { attachWardrobeToAiMessage } from './utils/chat/wardrobeImages.js'
+import {
+	getRecommendations,
+	getMessageRenderType,
+	getDisplayContent,
+	shouldShowRegenerateOnRecommendation
+} from './utils/chat/msgRender.js'
+import { normalizeHistoryMsg } from './utils/chat/historyMsg.js'
+import { regenerateSuffix } from './utils/common/regenerate.js'
 import LoadingPanel from './chat-content/LoadingPanel.vue'
+import InputBar from './InputBar.vue'
 import { chatRecommendation, getWeatherNow, getAuthToken } from '@/api/recommendationApi.js'
 import { getClothingList, getPrimaryModelPhoto } from '@/api/wardrobe.js'
 import { resolveWardrobeImageUrl } from '@/api/wardrobeMedia.js'
 import { getCalendarOutfits, saveCalendarOutfits } from '@/api/calendarApi.js'
-import { getOutfitTryOnSortIndex, buildOutfitTryOnStepLabel } from './utils/recommendationOutfitOrder.js'
+import { getOutfitTryOnSortIndex, buildOutfitTryOnStepLabel } from './utils/rec/outfitOrder.js'
 
 const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false },
@@ -266,14 +221,6 @@ const handleRecommendationVirtualTryOn = async (item) => {
 	emit('switch-to-tryon', item, defaultPersonImage)
 }
 
-function recItemTryOnImageUrl(item) {
-	if (!item || typeof item !== 'object') return ''
-	if (item.image) return String(item.image)
-	const arr = item.images
-	if (Array.isArray(arr) && arr[0]) return String(arr[0])
-	return ''
-}
-
 const handleFullOutfitTryOn = async (recommendation) => {
 	if (!props.isLoggedIn) {
 		uni.showToast({ title: 'Please log in first', icon: 'none' })
@@ -285,7 +232,7 @@ const handleFullOutfitTryOn = async (recommendation) => {
 		return
 	}
 	const decorated = items
-		.map((it, idx) => ({ it, idx, url: recItemTryOnImageUrl(it) }))
+		.map((it, idx) => ({ it, idx, url: recTryOnImageUrl(it) }))
 		.filter((x) => x.url)
 	if (decorated.length === 0) {
 		uni.showToast({ title: 'No images in this look', icon: 'none' })
@@ -304,25 +251,6 @@ const handleFullOutfitTryOn = async (recommendation) => {
 	emit('switch-to-full-outfit-tryon', { personImage, outfitQueue })
 }
 
-function toTodayDateKey() {
-	const d = new Date()
-	const y = d.getFullYear()
-	const m = String(d.getMonth() + 1).padStart(2, '0')
-	const day = String(d.getDate()).padStart(2, '0')
-	return `${y}-${m}-${day}`
-}
-
-function resolveRecItemClothingId(item) {
-	let id = item?.clothingId ?? item?.clothing_id
-	if ((id == null || id === '') && typeof item?.name === 'string') {
-		const m = item.name.match(/[\(（]\s*id\s*[:：]\s*(\d+)\s*[\)）]/i)
-		if (m) id = Number(m[1])
-	}
-	if (id == null || id === '') return null
-	const n = Number(id)
-	return Number.isFinite(n) ? n : null
-}
-
 async function handleAddRecommendationToCalendar(recommendation) {
 	const token = getAuthToken()
 	if (!props.isLoggedIn || !token) {
@@ -338,11 +266,11 @@ async function handleAddRecommendationToCalendar(recommendation) {
 
 	const newById = new Map()
 	for (const item of recItems) {
-		const cid = resolveRecItemClothingId(item)
+		const cid = recClothingId(item)
 		if (cid == null || newById.has(cid)) continue
 		const cloth = myWardrobeList.value.find(c => Number(c?.id) === cid)
 		const rawName = cloth?.name || item.name || 'Item'
-		const name = String(rawName).replace(/\s*[\(（]\s*id\s*[:：]\s*[A-Za-z0-9_]+\s*[\)）]\s*/gi, '').trim() || 'Item'
+		const name = stripRecItemNameId(rawName)
 		let image = cloth?.image || item.image || ''
 		if (image) image = resolveWardrobeImageUrl(image)
 		newById.set(cid, {
@@ -358,7 +286,7 @@ async function handleAddRecommendationToCalendar(recommendation) {
 	}
 
 	const today = new Date()
-	const dateKey = toTodayDateKey()
+	const dateKey = todayKey()
 	const year = today.getFullYear()
 	const month = today.getMonth() + 1
 
@@ -400,6 +328,11 @@ async function handleAddRecommendationToCalendar(recommendation) {
 
 const searchQuery = ref('')
 const hasSearched = ref(false)
+
+/** 僅將建議寫入主輸入框，不呼叫 handleSearch、不改 hasSearched */
+const onSuggestionApplyText = (text) => {
+	searchQuery.value = text
+}
 
 const WEATHER_MIN_LOADING_MS = 300
 const loadingWeather = ref(true)
@@ -535,173 +468,6 @@ async function fetchMyWardrobe() {
 	}
 }
 
-function attachImagesToAiMessage(msg) {
-	if (!msg || msg.role !== 'ai') return msg
-	if (!Array.isArray(myWardrobeList.value) || myWardrobeList.value.length === 0) return msg
-
-	const processItems = (items) => {
-		if (!Array.isArray(items)) return
-		for (const item of items) {
-			// 保底：若后端未解析 clothingId，但 name 仍带 (ID: 123)，前端只做 ID 抽取（不做名称模糊匹配）
-			let id = item?.clothingId
-			if ((id == null || id === '') && typeof item?.name === 'string') {
-				const m = item.name.match(/[\(（]\s*id\s*[:：]\s*(\d+)\s*[\)）]/i)
-				if (m) id = Number(m[1])
-			}
-
-			// 标记“用户上传图片”等特殊项（无 ID 且名称中含 uploaded/上传/None）
-			if (
-				item?.name &&
-				(typeof item.name === 'string') &&
-				(
-					item.name.includes('上传') ||
-					item.name.toLowerCase().includes('uploaded') ||
-					((id == null || id === '') && /id\s*[:：]\s*(None|null|uploaded)/i.test(item.name))
-				)
-			) {
-				item.isUploaded = true
-			}
-
-			// 清理展示名称中的 (ID: xxx)
-			if (typeof item?.name === 'string') {
-				item.name = item.name.replace(/\s*[\(（]\s*id\s*[:：]\s*[A-Za-z0-9_]+\s*[\)）]\s*/gi, '').trim()
-			}
-
-			if (id == null || id === '') continue
-			const needle = Number(id)
-			if (!Number.isFinite(needle)) continue
-			item.clothingId = needle
-			const cloth = myWardrobeList.value.find(c => Number(c?.id) === needle)
-			if (cloth?.image) {
-				item.image = cloth.image
-				item.images = [cloth.image]
-			}
-		}
-	}
-
-	// plan：day.items[*].images
-	if (msg.renderType === 'plan' && Array.isArray(msg?.plan?.days)) {
-		for (const day of msg.plan.days) {
-			processItems(day?.items)
-		}
-	}
-
-	// recommendation：recommendations[*].items[*].images（兼容后端/前端解析结构）
-	if (Array.isArray(msg?.recommendations)) {
-		for (const rec of msg.recommendations) {
-			processItems(rec?.items)
-
-			// 将本推荐方案内所有单品图片汇总到 rec.images，供画廊显示
-			const itemImages = (rec?.items || []).map(i => i.image).filter(Boolean)
-			if (itemImages.length > 0) {
-				const existing = Array.isArray(rec.images) ? rec.images : []
-				const merged = [...new Set([...existing, ...itemImages])]
-				rec.images = merged
-			}
-		}
-	}
-
-	return msg
-}
-
-function normalizeHistoryMessage(msg) {
-	if (!msg || typeof msg !== 'object') return msg
-
-	if (msg.role === 'ai') {
-		let normalized = normalizeChatResponse(msg)
-		// 关键：历史消息也需要附加图片
-		normalized = attachImagesToAiMessage(normalized)
-		return normalized
-	}
-
-	if (msg.role === 'user') {
-		return {
-			role: 'user',
-			content: msg.content || '',
-			images: Array.isArray(msg.images) ? msg.images : []
-		}
-	}
-
-	return msg
-}
-
-/**
- * 多张 recommendation 时：Regenerate 显示在「有单品」的那一张（取最后一张有 items 的，通常即具体搭配），
- * 避免诊断-only 卡（items: []）占用 Regenerate；若都没有单品则退回第一张。
- */
-const shouldShowRegenerateOnRecommendation = (msg, ri) => {
-	const recs = getRecommendations(msg)
-	if (recs.length <= 1) return true
-	let lastWithItems = -1
-	for (let i = recs.length - 1; i >= 0; i--) {
-		if (Array.isArray(recs[i]?.items) && recs[i].items.length > 0) {
-			lastWithItems = i
-			break
-		}
-	}
-	if (lastWithItems >= 0) return ri === lastWithItems
-	return ri === 0
-}
-
-const getRecommendations = (msg) => {
-	if (Array.isArray(msg?.recommendations) && msg.recommendations.length > 0) {
-		return msg.recommendations
-	}
-
-	// 与 normalizeChatResponse 的 rawText 合并呼应：历史里若只存了 rawText 未展开 recommendations，仍用于渲染卡片
-	const raw = msg?.rawText
-	if (typeof raw === 'string' && raw.trim().startsWith('{')) {
-		try {
-			const p = JSON.parse(raw.trim())
-			if (Array.isArray(p.recommendations) && p.recommendations.length > 0) {
-				return p.recommendations
-			}
-		} catch (_) {}
-	}
-
-	const items = (msg?.outfitItems || []).map(it => ({
-		type: it.category,
-		name: it.name,
-		reason: it.desc,
-		details: it.details
-	}))
-
-	if (msg?.list && msg.list.length > 0 && items.length === 0) {
-		msg.list.forEach(t => items.push({ type: 'Item', name: t, reason: '' }))
-	}
-
-	const tags = msg?.tags || []
-	const tempTag = tags.find(t => /°C|℃/.test(t))
-	const styleTags = tags.filter(t => t !== tempTag)
-
-	const rec = {
-		title: styleTags[0] || '',
-		temperature: tempTag || '',
-		styleTags,
-		content: msg?.content || '',
-		items,
-		whyThisWorks: msg?.whyThisWorks || [],
-		images: msg?.images || []
-	}
-
-	return items.length > 0 || (rec.images && rec.images.length > 0) ? [rec] : []
-}
-
-const getMessageRenderType = (msg) => {
-	// 勿优先信任 renderType：若仅有 renderType=recommendation 而无 recommendations，会只剩「AI Analysis」引言、无卡片
-	if (msg?.plan && Array.isArray(msg.plan.days) && msg.plan.days.length > 0) return 'plan'
-
-	const recs = getRecommendations(msg)
-	if (recs.length > 0) return 'recommendation'
-
-	return 'text'
-}
-
-// 优先显示已解析的 content（后端 JSON 协议下 rawText 为原始 JSON 字符串，不应直接展示）
-const getDisplayContent = (msg) => {
-	return msg?.content ?? msg?.rawText ?? ''
-}
-
 watch(
 	() => [props.currentConversationId, props.currentConversation],
 	([cid, conv]) => {
@@ -716,7 +482,7 @@ watch(
 
 		if (conv && conv.messages) {
 			chatHistory.value = conv.messages.length
-				? conv.messages.map(normalizeHistoryMessage)
+				? conv.messages.map((m) => normalizeHistoryMsg(m, myWardrobeList.value))
 				: []
 			hasSearched.value = chatHistory.value.length > 0
 		} else {
@@ -760,26 +526,9 @@ async function replaceLoadingWithAiMessage(aiMessage, options = {}) {
 		await new Promise((r) => setTimeout(r, 300))
 	}
 
-	let toNormalize = aiMessage
-	const hasStructure = (Array.isArray(aiMessage?.recommendations) && aiMessage.recommendations.length > 0) ||
-		(aiMessage?.plan?.days && aiMessage.plan.days.length > 0)
-	if (!hasStructure && aiMessage?.content && typeof aiMessage.content === 'string' && aiMessage.content.trim().startsWith('{')) {
-		try {
-			const parsed = JSON.parse(aiMessage.content.trim())
-			if (parsed && typeof parsed === 'object') {
-				toNormalize = {
-					role: 'ai',
-					rawText: aiMessage.content.trim(),
-					content: parsed.content ?? '',
-					recommendations: parsed.recommendations ?? [],
-					plan: parsed.plan ?? null,
-					locale: parsed.locale ?? 'en'
-				}
-			}
-		} catch (_) {}
-	}
+	const toNormalize = expandEmbeddedJsonAiMessage(aiMessage)
 	let normalized = normalizeChatResponse(toNormalize)
-	normalized = attachImagesToAiMessage(normalized)
+	normalized = attachWardrobeToAiMessage(normalized, myWardrobeList.value)
 
 	let loadingIdx = -1
 	if (replaceAtIndex != null && chatHistory.value[replaceAtIndex]?.role === 'loading') {
@@ -804,13 +553,6 @@ async function replaceLoadingWithAiMessage(aiMessage, options = {}) {
 	}
 }
 
-/** Regenerate 仅附一句中性说明；具体要分析还是要搭配由「同一则 user 原文 query」决定，前端不猜意图。 */
-function getRegenerateSuffix(isZh) {
-	return isZh
-		? '\n\n（请对同一条用户问题重新生成一版回答：换角度或补充细节，避免机械重复；篇幅与展开程度应与平时完整回答相当，勿刻意缩短。）'
-		: '\n\n(Regenerate a full new answer to the same user question: a different angle or more detail; do not merely repeat. Match your usual depth and length—do not intentionally shorten.)'
-}
-
 const handleRegenerate = async (msgIdx) => {
 	if (!props.isLoggedIn) {
 		uni.showToast({ title: 'Please log in first', icon: 'none' })
@@ -832,7 +574,7 @@ const handleRegenerate = async (msgIdx) => {
 	const locale = prevAi?.locale
 	const isZh = locale === 'zh' || locale === 'zh-CN' || locale === 'zh_CN'
 	const userText = (userMsg.content || '').trim()
-	const regHint = getRegenerateSuffix(isZh)
+	const regHint = regenerateSuffix(isZh)
 
 	let query = userText
 	if (!query) {
@@ -1000,6 +742,7 @@ const handleDropImage = (e) => {
 	uploadedImages.value = [...uploadedImages.value, ...add]
 }
 
+/** 相册/相机：子组件 InputBar 暂不 emit('add')（菜单「Add photos」已去掉）；仍保留事件绑定供之后接回。H5 可拖拽图片到输入栏。 */
 const handleAdd = () => {
 	const remain = MAX_UPLOAD_IMAGES - uploadedImages.value.length
 	if (remain <= 0) {
@@ -1212,11 +955,6 @@ const previewImages = (urls, index = 0) => {
 .icon-robot-avatar {
 	width: 26px;
 	height: 26px;
-	display: block;
-}
-.icon-search-btn {
-	width: 20px;
-	height: 20px;
 	display: block;
 }
 
@@ -1473,202 +1211,6 @@ const previewImages = (urls, index = 0) => {
 	bottom: auto;
 	left: auto;
 	transform: none;
-}
-
-/* 图片预览区：位于输入行上方，输入框内部 */
-.input-thumb-row {
-	width: 100%;
-	padding: 16rpx 24rpx 12rpx;
-	flex-shrink: 0;
-}
-
-/* 预览区高度，需与 input-thumb-pill 的 height 一致或略大 */
-.input-thumb-wrap {
-	width: 100%;
-	height: 100rpx;
-}
-
-.input-thumb-list {
-	display: flex;
-	gap: 12rpx;
-	height: 100rpx;
-	padding: 4rpx 0;
-	white-space: nowrap;
-}
-
-/* 单张缩略图胶囊（修改 width/height 可调整尺寸，如 80rpx、120rpx） */
-.input-thumb-pill {
-	position: relative;
-	width: 96rpx;
-	height: 96rpx;
-	border-radius: 16rpx;
-	overflow: hidden;
-	background: #EEE;
-	border: 2rpx solid #E5E5EA;
-	flex-shrink: 0;
-}
-
-/* 缩略图图片，点击可预览大图 */
-.input-thumb-img {
-	width: 100%;
-	height: 100%;
-	display: block;
-	object-fit: cover;
-	cursor: pointer;
-}
-
-/* 缩略图右上角删除按钮 */
-.input-thumb-remove {
-	position: absolute;
-	top: 0;
-	right: 0;
-	width: 40rpx;
-	height: 40rpx;
-	border-radius: 0 12rpx 0 8rpx;
-	background: rgba(0,0,0,0.5);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.icon-close-small {
-	width: 22rpx;
-	height: 22rpx;
-	filter: brightness(0) invert(1);
-}
-
-/* 搜索条保持原有长度，不随容器变宽；多行时高度可变 */
-.search-bar {
-	pointer-events: auto;
-	width: 1400rpx; 
-	max-width: 90%; 
-	min-height: 100rpx;
-	background: rgba(255, 255, 255, 0.66);
-	backdrop-filter: blur(24px);
-	-webkit-backdrop-filter: blur(24px);
-	border-radius: 50rpx;
-	display: flex;
-	flex-direction: column;
-	align-items: stretch;
-	border: 1px solid rgba(255, 255, 255, 0.88);
-	box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.06), 0 4rpx 12rpx rgba(0, 0, 0, 0.02);
-	transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-}
-
-.search-bar-drop-zone {
-	display: flex;
-	flex-direction: column;
-	align-items: stretch;
-	min-height: 100%;
-	border-radius: inherit;
-	transition: background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.search-bar-drop-zone:hover {
-	background-color: rgba(0, 0, 0, 0.02);
-	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.06);
-}
-
-.search-bar-drop-zone.drag-over {
-	background-color: rgba(157, 139, 112, 0.12);
-	box-shadow: inset 0 0 0 3rpx #9D8B70, 0 4rpx 20rpx rgba(157, 139, 112, 0.25);
-}
-
-/* 输入行：+ | 文字 | 发送 */
-.search-input-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 16rpx 22rpx 16rpx 32rpx;
-	flex: 1;
-	min-height: 68rpx;
-}
-
-.search-bar:focus-within {
-	/* 模拟光晕扩散 */
-	box-shadow: 0 10rpx 40rpx rgba(0, 0, 0, 0.15);
-	border-color: #8C7B60; /* 边框变色为主题色 */
-	transform: scale(1.022); /* 轻微放大，产生「提起来」的感觉 */
-}
-
-.search-icon-left {
-	width: 72rpx;
-	height: 72rpx;
-	min-height: 72rpx;
-	border-radius: 50%;
-	background-color: transparent;
-	display: flex;
-	flex-shrink: 0;
-	align-items: center;
-	justify-content: center;
-	cursor: pointer;
-	transition: all 0.2s ease;
-	margin-right: 20rpx;
-	position: relative;
-	left: -10rpx;
-	box-sizing: border-box;
-	align-self: center;
-}
-
-.search-icon-left:hover {
-	background-color: #1D1D1F;
-}
-
-.search-icon-left:hover .icon-search-btn {
-	filter: brightness(0) invert(1);
-}
-
-.search-input {
-	flex: 1;
-	min-width: 120rpx;
-	min-height: 72rpx;
-	max-height: 400rpx;
-	padding: 0;
-	font-size: 30rpx;
-	color: #1D1D1F;
-	font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Microsoft YaHei", sans-serif;
-	font-weight: 400;
-	line-height: 72rpx;
-	border: none;
-	outline: none;
-	overflow-y: auto;
-	align-self: center;
-	box-sizing: border-box;
-	vertical-align: middle;
-	transition: height 0.2s ease;
-}
-
-
-.search-placeholder {
-	color: #999;
-	font-weight: 300;
-	font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Microsoft YaHei", sans-serif;
-}
-
-.search-button {
-	width: 72rpx;
-	height: 72rpx;
-	min-height: 72rpx;
-	margin-left: 20rpx;
-	border-radius: 50%;
-	background-color: transparent; /* 图片里按钮背景是透明的，边框是外围的 */
-	border: 2rpx solid #1D1D1F; /* 按钮圆圈边框，用 rpx 与整体一致 */
-	display: flex;
-	flex-shrink: 0;
-	align-items: center;
-	justify-content: center;
-	cursor: pointer;
-	transition: all 0.2s ease;
-	box-sizing: border-box;
-	align-self: center;
-}
-
-.search-button:hover {
-	background-color: #1D1D1F;
-}
-
-.search-button:hover .icon-search-btn {
-	filter: brightness(0) invert(1);
 }
 
 </style>

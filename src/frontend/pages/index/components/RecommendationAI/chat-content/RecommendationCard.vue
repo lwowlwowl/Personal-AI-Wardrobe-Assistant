@@ -153,7 +153,7 @@
 
 <script setup>
 import { reactive, computed, watch } from 'vue'
-import { formatRecommendationDisplay } from '../utils/recommendationTextDisplay.js'
+import { formatRecommendationDisplay } from '../utils/rec/textDisplay.js'
 
 const props = defineProps({
 	recommendation: {

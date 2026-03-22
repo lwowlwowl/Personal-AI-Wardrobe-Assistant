@@ -3362,7 +3362,7 @@ _WEEKLY_ACTIVITY_CATEGORY_MAP = {
     "footwear": {"name": "Footwear", "icon": "👟"},
     "accessory": {"name": "Accessories", "icon": "⌚"},
     "bag": {"name": "Bag", "icon": "👜"},
-    "underwear": {"name": "Other", "icon": "📦"},
+    "underwear": {"name": "Underwear", "icon": "🩲"},
     "other": {"name": "Other", "icon": "📦"},
 }
 _WEEK_DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]

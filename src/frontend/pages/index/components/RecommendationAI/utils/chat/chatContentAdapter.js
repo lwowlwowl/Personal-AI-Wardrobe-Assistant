@@ -313,7 +313,7 @@ function parseItemLine(line) {
 	return null
 }
 
-/** 从「为什么这样搭」段落提取最多 3 条极简 bullet */
+/** 从「为什么这样搭」段落提取最多 3 条极简要点 */
 function extractWhyThisWorks(block) {
 	const bullets = []
 	const lines = block.split(/\n/)
@@ -368,8 +368,8 @@ function extractCautions(text) {
 }
 
 /**
- * 类别映射（对齐衣橱后端写死 9 类的 label）
- * Top / Bottom / Dress / Outerwear / Footwear / Accessory / Bag / Underwear / Other
+ * 类别映射（与衣橱后端固定的 9 类英文 label 对齐）
+ * 取值：Top、Bottom、Dress、Outerwear、Footwear、Accessory、Bag、Underwear、Other
  */
 const LAYER_MAP = {
 	// 中文常见写法

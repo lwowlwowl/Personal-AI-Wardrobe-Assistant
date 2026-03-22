@@ -22,7 +22,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { LOADING_STEPS } from '../utils/chatContentAdapter.js'
+import { LOADING_STEPS } from '../utils/chat/chatContentAdapter.js'
 
 const STEP_INTERVAL_MS = 800
 const PROGRESS_TICK_MS = 150

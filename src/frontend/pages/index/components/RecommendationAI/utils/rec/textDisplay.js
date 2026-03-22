@@ -1,4 +1,4 @@
-/** 推荐卡片 / 气泡：去掉 #编号、中英混排加空格，仅影响展示 */
+/** 推荐卡片 / 气泡：去掉 # 编号、中英混排加空格，仅影响展示 */
 
 const DOUBLE_SPACE = '  '
 
@@ -11,7 +11,7 @@ export function stripWardrobeHashIds(s) {
 }
 
 /**
- * 英文服饰词（≥2 个拉丁字母）与汉字紧贴时，边界处插入两个空格，避免「与puffer构」挤在一起
+ * 英文服饰词（≥2 个拉丁字母）与汉字紧贴时，在边界插入两个空格，避免挤在一起
  */
 export function padLatinCjkBoundaries(s) {
 	if (s == null || typeof s !== 'string') return ''
