@@ -257,10 +257,28 @@ if COMFYUI_AVAILABLE:
                         subfolder=img_info.get("subfolder", ""),
                         folder_type=img_info.get("type", "output")
                     )
+                    
+                    # --- 🌟 调试开始：暴力自检 ---
+                    if img_bytes:
+                        # 1. 打印日志：看看图片到底有多大
+                        print(f"✅ [后端成功获取图片] 文件名: {img_info['filename']}, 大小: {len(img_bytes)} 字节")
+                        
+                        # 2. 物理保存：直接在后端运行目录下存一张图
+                        # 如果这张图你能打开且是换装后的，说明后端完全没问题！
+                        with open("debug_result.png", "wb") as f:
+                            f.write(img_bytes)
+                        print("💾 [本地备份] 图片已保存至后端目录下的 debug_result.png")
+                    else:
+                        print("❌ [后端获取失败] img_bytes 为空，可能是 ComfyUI 还没写完硬盘")
+                    # --- 调试结束 ---
+
                     return StreamingResponse(
                         io.BytesIO(img_bytes),
                         media_type="image/png",
-                        headers={"X-Prompt-ID": prompt_id}
+                        headers={
+                            "X-Prompt-ID": prompt_id,
+                            "Content-Length": str(len(img_bytes)) # 显式告知前端数据大小
+                        }
                     )
 
             raise HTTPException(status_code=500, detail="未能生成图片结果")

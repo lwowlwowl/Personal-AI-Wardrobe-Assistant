@@ -354,7 +354,7 @@ const handleGenerate = async () => {
 
   showResult.value = true
   isLoading.value = true
-  resultImg.value = ''
+  resultImg.value = '' // 🌟 关键：先清空，强制触发 DOM 重绘
   enableScrollAndScrollToBottom()
 
   uni.showToast({ title: 'Uploading images...', icon: 'loading', duration: 2000 })
@@ -362,45 +362,67 @@ const handleGenerate = async () => {
   try {
     const token = getCleanToken()
 
-    // 🌟 1. 强制上传并拿到真实的文件名 (防止 blob 链接混入)
+    // 1. 强制上传并拿到真实的文件名
     let finalPersonName = personImgName.value
-    // 如果名字是空的，或者是 blob: 开头的本地链接，强制重新上传
     if (!finalPersonName || finalPersonName.startsWith('blob:') || finalPersonName.startsWith('http')) {
       finalPersonName = await uploadImageToComfyUI(personImg.value, 'person')
-      personImgName.value = finalPersonName // 存起来
+      personImgName.value = finalPersonName 
     }
 
     let finalClothingName = clothingImgName.value
-    // 如果名字是空的，或者是 blob: 开头的本地链接，强制重新上传
     if (!finalClothingName || finalClothingName.startsWith('blob:') || finalClothingName.startsWith('http')) {
       finalClothingName = await uploadImageToComfyUI(clothingImg.value, 'clothing')
-      clothingImgName.value = finalClothingName // 存起来
+      clothingImgName.value = finalClothingName 
     }
 
     uni.showToast({ title: 'Generating...', icon: 'loading', duration: 4000 })
 
-    // 🌟 2. 携带真正的文件名发起生成请求
+    // 2. 发起生成请求
     uni.request({
       url: 'http://127.0.0.1:8000/api/virtual-try-on/generate',
       method: 'POST',
       header: { 'content-type': 'application/json' },
-      responseType: 'arraybuffer', // 保持二进制接收，用来解析图片
+      responseType: 'arraybuffer', // 🌟 必须以二进制接收图片
       data: {
-        person_image: finalPersonName,     // 👈 这里必须是 upload_xxx.png 的格式
-        clothing_image: finalClothingName, // 👈 这里必须是 upload_xxx.png 的格式
+        person_image: finalPersonName,
+        clothing_image: finalClothingName,
         token: token,
         model_type: '2509'
       },
       success: (res) => {
+        // 1. 立即停止加载状态
         isLoading.value = false
+        
+        // 调试打印：确认是否收到了有效长度的数据（几百KB以上才正常）
+        console.log("后端返回字节长度:", res.data?.byteLength)
+
         if (res.statusCode === 200 && res.data) {
           try {
+            // 2. 将二进制 ArrayBuffer 转为 Base64
             const base64 = uni.arrayBufferToBase64(res.data)
-            resultImg.value = 'data:image/png;base64,' + base64
-            uni.showToast({ title: 'Generation completed!', icon: 'success' })
+            
+            // 3. 🌟【关键修复】先彻底清空旧数据，强制 Vue 销毁旧的 image 节点
+            resultImg.value = ''
+            
+            // 4. 🌟【关键修复】延迟 100ms 赋值
+            // 这样是为了让 DOM 先完成从“加载动画”到“结果区域”的切换，再注入巨大的图片数据
+            setTimeout(() => {
+              resultImg.value = 'data:image/png;base64,' + base64
+              // 确保结果区域是打开的
+              showResult.value = true
+              console.log("✅ 图片已成功覆盖 resultImg 变量")
+              // 🌟 这里就是“第三步”：终极照妖镜（自检代码）
+  // 它的目的是：如果页面还是不显示，你可以在浏览器控制台点这个链接。
+  // 如果链接点开有图，说明代码逻辑全对，是 CSS 样式或者浏览器安全策略（CSP）把图挡住了。
+  const blob = new Blob([res.data], { type: 'image/png' })
+  const downloadUrl = URL.createObjectURL(blob)
+  console.log("🔗 [终极自检] 如果方框没图，请在控制台点击这个链接直接查看原始数据图:", downloadUrl)
+            }, 100)
+
+            uni.showToast({ title: 'Success!', icon: 'success' })
           } catch (e) {
             console.error('图片转换失败:', e)
-            uni.showToast({ title: 'Image process failed', icon: 'none' })
+            uni.showToast({ title: 'Render failed', icon: 'none' })
           }
         } else {
           uni.showToast({ title: 'Generation failed', icon: 'none' })
@@ -411,7 +433,7 @@ const handleGenerate = async () => {
         isLoading.value = false
         uni.showToast({ title: 'Network error', icon: 'none' })
       }
-    })
+    }); // 🌟 补全了之前漏掉的右括号
 
   } catch (error) {
     console.error('Process Error:', error)
@@ -795,9 +817,11 @@ const handleGenerate = async () => {
 }
 
 .result-image {
-  width: 100%;
+  width: 85%;
   max-width: 100%;
-  height: auto;
+  min-height: 1200rpx; 
+  margin: 0 auto;
+  height: 1400rpx;
   max-height: none;
   object-fit: contain;
   display: block;
