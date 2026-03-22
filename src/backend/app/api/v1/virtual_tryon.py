@@ -36,4 +36,11 @@ async def generate_virtual_tryon(
     out = run_generate_virtual_tryon(body, db)
     if isinstance(out, JsonEnvelope):
         return JSONResponse(status_code=out.status_code, content=out.body)
+    if isinstance(out, dict) and out.get("success") and isinstance(out.get("data"), dict):
+        nbytes = out["data"].get("image_size_bytes")
+        if isinstance(nbytes, int):
+            return JSONResponse(
+                content=out,
+                headers={"X-Result-Image-Bytes": str(nbytes)},
+            )
     return out

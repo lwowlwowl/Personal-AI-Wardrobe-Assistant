@@ -7,6 +7,7 @@ from __future__ import annotations
 import base64
 import traceback
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 import app.crud as crud
@@ -142,16 +143,30 @@ def run_generate_virtual_tryon(
             folder_type=img_info.get("type", "output"),
         )
         if not img_bytes:
+            print(
+                "❌ [virtual_tryon] img_bytes empty — ComfyUI may not have finished writing the file yet"
+            )
             return JsonEnvelope(
                 200,
                 {"success": False, "message": "无法读取生成图片"},
             )
 
+        fn = img_info.get("filename", "")
+        print(f"✅ [virtual_tryon] image ok — filename={fn}, size={len(img_bytes)} bytes")
+        try:
+            debug_path = Path(__file__).resolve().parent.parent.parent / "debug_result.png"
+            debug_path.write_bytes(img_bytes)
+        except OSError as werr:
+            print(f"virtual_tryon: could not write debug_result.png: {werr}")
+
         b64 = base64.b64encode(img_bytes).decode("ascii")
         data_url = f"data:image/png;base64,{b64}"
         return {
             "success": True,
-            "data": {"result_image": data_url},
+            "data": {
+                "result_image": data_url,
+                "image_size_bytes": len(img_bytes),
+            },
         }
     except HTTPException as he:
         return JsonEnvelope(200, {"success": False, "message": str(he.detail)})

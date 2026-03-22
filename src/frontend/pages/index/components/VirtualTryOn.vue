@@ -195,6 +195,7 @@ watch(() => props.initialPersonImage, (url) => {
 }, { immediate: true })
 
 const resultImg = ref('')
+const lastDebugBlobUrl = ref(null)
 const draggingTarget = ref(null)
 const showResult = ref(false)
 const isLoading = ref(false)
@@ -389,6 +390,31 @@ function ensureUploadablePath(src, revokeList) {
   return src
 }
 
+function applyResultImageWithDomFlush(dataUrl) {
+  return new Promise((resolve) => {
+   resultImg.value = ''
+   nextTick(() => {
+    setTimeout(() => {
+     resultImg.value = dataUrl
+     showResult.value = true
+     try {
+      if (lastDebugBlobUrl.value) {
+       try {
+        URL.revokeObjectURL(lastDebugBlobUrl.value)
+       } catch (_) {}
+       lastDebugBlobUrl.value = null
+      }
+      lastDebugBlobUrl.value = dataUrlToBlobUrl(dataUrl)
+      console.log('[VirtualTryOn] debug blob URL', lastDebugBlobUrl.value)
+     } catch (e) {
+      console.warn('[VirtualTryOn] debug blob URL', e)
+     }
+     resolve()
+    }, 100)
+   })
+  })
+}
+
 async function runOutfitPipeline() {
   const q = parsedOutfitQueue.value
   if (!q.length) return
@@ -451,7 +477,7 @@ async function runOutfitPipeline() {
      model_type: '2509'
     })
 
-    resultImg.value = resultDataUrl
+    await applyResultImageWithDomFlush(resultDataUrl)
     personSrc = resultDataUrl
    }
 
@@ -490,6 +516,12 @@ onBeforeUnmount(() => {
   outfitProgressText.value = ''
   isPipelineRunning.value = false
   outfitPipelineStepIndex.value = -1
+  if (lastDebugBlobUrl.value) {
+   try {
+    URL.revokeObjectURL(lastDebugBlobUrl.value)
+   } catch (_) {}
+   lastDebugBlobUrl.value = null
+  }
 })
 
 const handleGenerate = async () => {
@@ -530,11 +562,18 @@ const handleGenerate = async () => {
     model_type: '2509'
    })
 
-   resultImg.value = resultDataUrl
-   uni.showToast({ title: 'Generation completed!', icon: 'success' })
+   isLoading.value = false
+   console.log(
+    '[VirtualTryOn] result data URL length',
+    typeof resultDataUrl === 'string' ? resultDataUrl.length : 0
+   )
+
+   await applyResultImageWithDomFlush(resultDataUrl)
+
+   uni.showToast({ title: 'Success!', icon: 'success' })
   } catch (error) {
    console.error('Process Error:', error)
-   uni.showToast({ title: error?.message || 'Process failed', icon: 'none' })
+   uni.showToast({ title: error?.message || 'Render failed', icon: 'none' })
   } finally {
    isLoading.value = false
   }
@@ -1078,9 +1117,11 @@ const handleGenerate = async () => {
 }
 
 .result-image {
-  width: 100%;
+  width: 85%;
   max-width: 100%;
-  height: auto;
+  min-height: 1200rpx;
+  height: 1400rpx;
+  margin: 0 auto;
   max-height: none;
   object-fit: contain;
   display: block;

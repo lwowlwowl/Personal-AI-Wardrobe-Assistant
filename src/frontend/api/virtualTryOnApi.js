@@ -89,6 +89,10 @@ export function generateVirtualTryOn(body) {
       },
       success: (res) => {
         if (res.statusCode === 200 && res.data?.success && res.data?.data?.result_image) {
+          const nbytes = res.data?.data?.image_size_bytes
+          if (typeof nbytes === 'number') {
+            console.log('[virtualTryOnApi] image_size_bytes', nbytes)
+          }
           resolve(res.data.data.result_image)
         } else {
           reject(new Error(res.data?.message || 'Generation failed'))
