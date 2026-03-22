@@ -85,20 +85,29 @@ def parse_suggested_additions_content(content: str) -> list[str]:
 
 async def generate_suggested_additions(prompt_context: dict[str, Any]) -> list[str]:
     system_prompt = (
-        "你是一名资深衣橱分析顾问。"
-        "请基于用户衣橱摘要，给出 3 条建议新增的单品建议。"
-        "每条建议都必须是纯中文一句话，20 到 40 个字，包含“建议补一件/一条/一双”这类明确单品方向，"
-        "并说明为什么适合当前衣橱。"
-        "不要输出品牌、价格、购买链接、编号、Markdown。"
-        "只返回 JSON 数组字符串，例如 "
-        "[\"建议补一件...\", \"建议补一条...\", \"建议补一双...\"]。"
+        "You are a senior wardrobe analysis advisor. "
+        "From the user's wardrobe summary, propose exactly 3 items to add. "
+        "Write everything in English only. "
+        "Each item is one string with this exact shape: "
+        "\"Short actionable title (about 8–18 words) | One or two sentences explaining why it fits their closet.\" "
+        "The title should read like “Add a …” or “Consider a …” and name a specific garment type; "
+        "the part after the pipe explains the gap it fills. "
+        "Separate title and rationale with a single ASCII pipe surrounded by spaces: \" | \". "
+        "Do not include brands, prices, purchase links, bullet numbers, or Markdown. "
+        "Return only a JSON array of three strings, for example "
+        "[\"Add a … | …\", \"Add a … | …\", \"Add a … | …\"]."
     )
     user_prompt = json.dumps(prompt_context, ensure_ascii=False, indent=2)
 
     response = await chat_model.ainvoke(
         [
             SystemMessage(content=system_prompt),
-            HumanMessage(content=f"用户衣橱摘要如下，请直接返回 JSON 数组：\n{user_prompt}"),
+            HumanMessage(
+                content=(
+                    "Wardrobe context is below. Reply with the JSON array only, no other text:\n"
+                    f"{user_prompt}"
+                )
+            ),
         ]
     )
     return parse_suggested_additions_content(getattr(response, "content", ""))
@@ -118,7 +127,7 @@ async def run_suggested_additions(db: Session, user_id: int, limit: int) -> Dict
 
     return {
         "success": True,
-        "message": "获取推荐添加成功",
+        "message": "Suggested additions loaded successfully",
         "data": {
             "items": items[:limit],
         },

@@ -91,9 +91,12 @@ function toggleSuggestExpanded(index) {
 
 function parseSuggestLine(sug) {
 	if (!sug || typeof sug !== 'string') return { title: '', detail: '' }
-	const parts = sug.split('，')
+	let sep = '，'
+	if (sug.includes(' | ')) sep = ' | '
+	else if (sug.includes('｜')) sep = '｜'
+	const parts = sug.split(sep)
 	const title = parts[0]?.trim() || ''
-	const detail = parts.slice(1).join('，').trim()
+	const detail = parts.slice(1).join(sep).trim()
 	return { title, detail }
 }
 
@@ -101,11 +104,11 @@ function getCapabilityTags(sug) {
 	if (!sug || typeof sug !== 'string') return ['#Essential']
 	const t = sug
 	const tags = []
-	if (/平衡|balance|搭配|協調/i.test(t)) tags.push('#Balance')
-	if (/百搭|versatility|多樣|多用/i.test(t)) tags.push('#Versatility')
-	if (/正式|formal|場合|office/i.test(t)) tags.push('#Formal')
-	if (/基礎|essential|必備|基本/i.test(t)) tags.push('#Essential')
-	if (/下装|下裝|褲|裙|bottom/i.test(t)) tags.push('#WardrobeBalance')
+	if (/平衡|balance|搭配|協調|layer|outerwear|imbalance/i.test(t)) tags.push('#Balance')
+	if (/百搭|versatility|多樣|多用|flexible|mix-and-match/i.test(t)) tags.push('#Versatility')
+	if (/正式|formal|場合|office|semi-formal|commute/i.test(t)) tags.push('#Formal')
+	if (/基礎|essential|必備|基本|staple|foundation/i.test(t)) tags.push('#Essential')
+	if (/下装|下裝|褲|裙|bottom|jeans|trousers|pants|skirt/i.test(t)) tags.push('#WardrobeBalance')
 	if (tags.length === 0) tags.push('#Essential')
 	return tags.slice(0, 3)
 }
