@@ -183,6 +183,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { loginAuth, registerAuth } from '@/api/userApi.js'
+import { formatApiErrorMessage } from '@/utils/apiErrors.js'
 import ForgotPasswordModal from './ForgotPasswordModal.vue'
 
 const activeTab = ref('login')
@@ -291,21 +292,26 @@ const handleLogin = async () => {
 			goToHomeAfterLogin()
 		} else if (statusCode === 200 && data && data.success === false) {
 			uni.showToast({
-				title: data.message || 'Login failed',
+				title: formatApiErrorMessage(data, 'Login failed. Please try again.'),
 				icon: 'none',
-				duration: 3000
+				duration: 3500
 			})
 		} else if (statusCode === 401) {
 			uni.showToast({
-				title: (data && (data.detail || data.message)) || 'Incorrect username or password',
+				title: formatApiErrorMessage(data, 'Incorrect username or password.'),
 				icon: 'none',
-				duration: 3000
+				duration: 3500
 			})
 		} else {
 			uni.showToast({
-				title: `Server error: ${statusCode}`,
+				title: formatApiErrorMessage(
+					data,
+					statusCode >= 500
+						? 'Server error. Please try again later.'
+						: `Something went wrong (code ${statusCode}). Please try again.`
+				),
 				icon: 'none',
-				duration: 3000
+				duration: 3500
 			})
 		}
 	} catch (err) {
@@ -367,7 +373,27 @@ const handleRegister = async () => {
 		})
 		return
 	}
-	
+
+	const usernameTrimmed = registerForm.value.username.trim()
+	if (usernameTrimmed.length < 3) {
+		uni.showToast({
+			title: 'Username must be at least 3 characters',
+			icon: 'none'
+		})
+		return
+	}
+	const usernameOk = [...usernameTrimmed].every(
+		(ch) => ch === ' ' || /\p{L}|\p{N}/u.test(ch)
+	)
+	if (!usernameOk) {
+		uni.showToast({
+			title: 'Username may only contain letters, numbers, and spaces.',
+			icon: 'none',
+			duration: 3500
+		})
+		return
+	}
+
 	if (!registerForm.value.password) {
 		uni.showToast({
 			title: 'Please enter your password',
@@ -411,8 +437,8 @@ const handleRegister = async () => {
 		})
 
 		const res = await registerAuth({
-			username: registerForm.value.username,
-			email: registerForm.value.email,
+			username: usernameTrimmed,
+			email: registerForm.value.email.trim(),
 			password: registerForm.value.password,
 			confirm_password: registerForm.value.confirmPassword
 		})
@@ -420,63 +446,34 @@ const handleRegister = async () => {
 		uni.hideLoading()
 		isLoading.value = false
 
-		if (res.statusCode === 200) {
-			if (res.data && res.data.success === true) {
-				uni.showToast({
-					title: 'Registration successful! Please log in',
-					icon: 'success',
-					duration: 2000
-				})
-				
-				// 注册成功后自动切换到 Login tab，并带上用户名
-				loginForm.value.username = registerForm.value.username
-				activeTab.value = 'login'
-			} else {
-				const errorMessage = res.data?.message || 'Registration failed'
-				uni.showToast({
-					title: errorMessage,
-					icon: 'none',
-					duration: 3000
-				})
-			}
-		} else if (res.statusCode === 400 || res.statusCode === 409) {
-			const errorDetail = res.data?.message || res.data?.detail || ''
-			let errorMessage = 'Registration failed'
-			
-			if (errorDetail.toLowerCase().includes('username')) {
-				errorMessage = 'Username is already registered. Please use another one'
-			} else if (errorDetail.toLowerCase().includes('email')) {
-				errorMessage = 'Email is already registered. Please use another email'
-			} else {
-				errorMessage = errorDetail || 'Registration failed. Please check your input'
-			}
-			
+		if (res.statusCode === 200 && res.data && res.data.success === true) {
 			uni.showToast({
-				title: errorMessage,
-				icon: 'none',
-				duration: 3000
+				title: 'Registration successful! Please log in',
+				icon: 'success',
+				duration: 2000
 			})
-		} else if (res.statusCode === 500) {
-			const errorDetail = res.data?.message || ''
-			let errorMessage = 'Server error. Please try again later'
-			
-			if (errorDetail.includes('create_user')) {
-				errorMessage = 'Server configuration error. Please contact the administrator'
-			}
-			
-			uni.showToast({
-				title: errorMessage,
-				icon: 'none',
-				duration: 3000
-			})
-		} else {
-			const errorDetail = res.data?.message || res.data?.detail || ''
-			uni.showToast({
-				title: `Registration failed: ${errorDetail || res.statusCode}`,
-				icon: 'none',
-				duration: 3000
-			})
+			loginForm.value.username = usernameTrimmed
+			activeTab.value = 'login'
+			return
 		}
+
+		const fallbackByStatus =
+			res.statusCode === 409
+				? 'This username or email is already registered.'
+				: res.statusCode === 422
+					? 'Please fix the fields below and try again.'
+					: res.statusCode === 400
+						? 'Registration could not be completed. Please check your input.'
+						: res.statusCode >= 500
+							? 'Server error. Please try again later.'
+							: 'Registration could not be completed. Please try again.'
+
+		const title = formatApiErrorMessage(res.data, fallbackByStatus)
+		uni.showToast({
+			title,
+			icon: 'none',
+			duration: 4000
+		})
 	} catch (error) {
 		uni.hideLoading()
 		isLoading.value = false

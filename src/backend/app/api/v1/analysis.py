@@ -51,7 +51,7 @@ async def get_total_items_trend(
         print(f"analysis total-items/trend error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取衣物趋势数据时发生错误: {str(e)}",
+            detail=f"Could not load item trend data: {str(e)}",
         )
 
 
@@ -69,7 +69,7 @@ async def get_total_items_summary(
         print(f"analysis total-items/summary error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取衣物概览统计时发生错误: {str(e)}",
+            detail=f"Could not load wardrobe summary: {str(e)}",
         )
 
 
@@ -87,7 +87,7 @@ async def get_category_distribution(
         print(f"analysis category-distribution error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取分类分布时发生错误: {str(e)}",
+            detail=f"Could not load category breakdown: {str(e)}",
         )
 
 
@@ -109,7 +109,7 @@ async def export_trend_data(
         print(f"analysis total-items/export error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"导出趋势数据时发生错误: {str(e)}",
+            detail=f"Could not export trend data: {str(e)}",
         )
 
 
@@ -128,7 +128,7 @@ async def get_idle_rate(
         print(f"analysis idle-rate error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取闲置率时发生错误: {str(e)}",
+            detail=f"Could not load idle rate: {str(e)}",
         )
 
 
@@ -150,7 +150,7 @@ async def get_idle_items_detail(
         print(f"analysis idle-items/detail error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取闲置物品详情时发生错误: {str(e)}",
+            detail=f"Could not load idle items: {str(e)}",
         )
 
 
@@ -168,7 +168,7 @@ async def get_top_color(
         print(f"analysis top-color error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取颜色统计时发生错误: {str(e)}",
+            detail=f"Could not load color stats: {str(e)}",
         )
 
 
@@ -186,7 +186,7 @@ async def get_top_style(
         print(f"analysis top-style error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取风格统计时发生错误: {str(e)}",
+            detail=f"Could not load style stats: {str(e)}",
         )
 
 
@@ -215,7 +215,7 @@ async def get_weekly_activity(
         print(f"analysis weekly-activity error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取本周活跃度时发生错误: {str(e)}",
+            detail=f"Could not load weekly activity: {str(e)}",
         )
 
 
@@ -234,5 +234,5 @@ async def get_suggested_additions(
         print(f"analysis suggested-additions error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取推荐添加时发生错误: {str(e)}",
+            detail=f"Could not load suggested additions: {str(e)}",
         )

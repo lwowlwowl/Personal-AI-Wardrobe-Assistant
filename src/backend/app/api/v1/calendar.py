@@ -48,7 +48,7 @@ async def get_calendar_outfits(
         except Exception:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="请求参数错误"
+                detail="Invalid year or month.",
             )
 
         # 查询当前用户在该月份的穿着记录（按衣物维度）
@@ -107,7 +107,7 @@ async def get_calendar_outfits(
         print(f"获取日历穿搭记录错误: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="服务器内部错误"
+            detail="Something went wrong while loading the calendar.",
         )
 
 
@@ -130,21 +130,21 @@ async def save_calendar_outfits(
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="日期格式不正确"
+                detail="Date must be YYYY-MM-DD.",
             )
 
         # 校验 items
         if payload.items is None or not isinstance(payload.items, list):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="items 必须为数组"
+                detail="Field 'items' must be an array.",
             )
 
         clothing_ids = [item.id for item in payload.items if item.id is not None]
         if len(clothing_ids) != len(payload.items):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="单品 id 不能为空"
+                detail="Each item must include a clothing id.",
             )
 
         # 校验衣物归属
@@ -158,7 +158,7 @@ async def save_calendar_outfits(
             if missing_ids:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="衣橱中不存在该单品"
+                    detail="One or more items are not in your wardrobe.",
                 )
 
         # 获取当前日期已存在的穿着记录（仅 clothing_id 维度）
@@ -249,16 +249,15 @@ async def save_calendar_outfits(
         # 如 wear_date 为未来日期等 Pydantic 校验错误，返回 400；去掉 "Value error, " 等前缀，只给用户看人话
         try:
             msg_list = [err.get("msg", "") for err in e.errors()]  # type: ignore[attr-defined]
-            raw = "；".join([m for m in msg_list if m]) or "请求数据不合法"
+            raw = "; ".join([m for m in msg_list if m]) or "Invalid request data."
             s = raw.strip()
             if s.lower().startswith("value error"):
-                # 去掉 "Value error, " / "value error，" 等前缀
                 rest = s[11:].lstrip(" ,，:：")
-                detail = rest if rest else "请求数据不合法"
+                detail = rest if rest else "Invalid request data."
             else:
-                detail = s or "请求数据不合法"
+                detail = s or "Invalid request data."
         except Exception:
-            detail = "请求数据不合法"
+            detail = "Invalid request data."
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=detail
@@ -268,6 +267,6 @@ async def save_calendar_outfits(
         print(f"保存日历穿搭记录错误: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="服务器内部错误"
+            detail="Something went wrong while loading the calendar.",
         )
 

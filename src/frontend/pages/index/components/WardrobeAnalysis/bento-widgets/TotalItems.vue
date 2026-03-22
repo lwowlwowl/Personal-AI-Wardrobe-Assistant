@@ -1,6 +1,7 @@
 <template>
-	<view class="card card-elevation-main bento-total">
-		<text class="bg-number" aria-hidden="true">{{ totalItemsCount }}</text>
+	<view class="card card-elevation-main bento-total" :class="{ 'bento-total--empty': isTotalTrendEmpty }">
+		<image v-if="isTotalTrendEmpty" class="total-empty-watermark" src="/static/icons/icon-wardrobe.svg" mode="aspectFit" aria-hidden="true" />
+		<text class="bg-number" aria-hidden="true">{{ bgNumberDisplay }}</text>
 		<view class="total-content-overlay">
 			<view class="card-row">
 				<text class="card-label">Total Items</text>
@@ -13,8 +14,16 @@
 				<view v-if="!isLoggedIn" class="loading-state">
 					<text class="loading-text">Please log in first</text>
 				</view>
-				<view v-else-if="loadingTrend" class="loading-state">
+				<view v-else-if="loadingTrend" class="loading-state loading-state--breathe">
 					<text class="loading-text">Loading trend data...</text>
+				</view>
+				<view v-else-if="isTotalTrendEmpty" class="total-trend-empty bento-empty-slot">
+					<text class="total-trend-empty-dash">—</text>
+					<text class="total-trend-empty-title">Ready to organize your style?</text>
+					<text class="total-trend-empty-sub">Add pieces to see growth over time.</text>
+					<view v-if="openWardrobeTab" class="bento-add-pill" hover-class="bento-add-pill--pressed" @click="goToWardrobe">
+						<text class="bento-add-pill-text">Add items +</text>
+					</view>
 				</view>
 				<template v-else>
 					<template v-if="isSinglePointTrend">
@@ -69,8 +78,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, inject } from 'vue'
 import ViewByFilter from '../ViewByFilter.vue'
+
+const openWardrobeTab = inject('openWardrobeTab', null)
+function goToWardrobe() {
+	if (typeof openWardrobeTab === 'function') openWardrobeTab()
+}
 
 const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false },
@@ -130,6 +144,17 @@ const validTrendData = computed(() => {
 	if (!data || !Array.isArray(data)) return []
 	return data.filter((v) => v !== null && v !== undefined && !isNaN(v) && isFinite(v))
 })
+
+/** 衣櫃為空：無趨勢點且總數為 0，顯示引導式空狀態 */
+const isTotalTrendEmpty = computed(
+	() =>
+		props.isLoggedIn &&
+		!props.loadingTrend &&
+		(props.totalItemsCount || 0) === 0 &&
+		validTrendData.value.length === 0
+)
+
+const bgNumberDisplay = computed(() => (isTotalTrendEmpty.value ? '—' : String(props.totalItemsCount ?? 0)))
 
 const isSinglePointTrend = computed(() => validTrendData.value.length === 1)
 const singlePointValue = computed(() =>

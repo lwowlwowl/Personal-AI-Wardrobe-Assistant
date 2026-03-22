@@ -39,7 +39,7 @@ def update_user(db: Session, user_id: int, **kwargs) -> Optional[models.User]:
         if new_username:
             existing = get_user_by_username(db, new_username)
             if existing and existing.id != user_id:
-                raise ValueError("用户名已被使用")
+                raise ValueError("That username is already taken.")
     for key, value in kwargs.items():
         if hasattr(user, key):
             setattr(user, key, value)
@@ -55,9 +55,9 @@ def change_password(db: Session, user_id: int, current_password: str, new_passwo
     """
     user = get_user_by_id(db, user_id)
     if not user:
-        return False, "用户不存在"
+        return False, "User not found."
     if not verify_password(current_password, user.hashed_password):
-        return False, "当前密码错误"
+        return False, "Current password is incorrect."
     user.hashed_password = hash_password(new_password)
     db.commit()
     return True, None
@@ -79,12 +79,12 @@ def create_user(db: Session, user_data: dict) -> Tuple[Optional[models.User], Op
 
         # 检查用户名是否已存在
         if get_user_by_username(db, user_data["username"]):
-            return None, "用户名已被注册"
+            return None, "That username is already registered."
 
         # 检查邮箱是否已存在（如果提供了邮箱）
         if user_data.get("email"):
             if get_user_by_email(db, user_data["email"]):
-                return None, "邮箱已被注册"
+                return None, "That email is already registered."
 
         # 加密密码
         hashed_password = hash_password(user_data["password"])
@@ -109,7 +109,7 @@ def create_user(db: Session, user_data: dict) -> Tuple[Optional[models.User], Op
     except Exception as e:
         db.rollback()
         print(f"create_user error:\n{traceback.format_exc()}")
-        return None, f"创建用户失败: {str(e)}"
+        return None, f"Could not create account: {str(e)}"
 
 
 def authenticate_user(db: Session, username: str, password: str) -> Tuple[Optional[models.User], Optional[str]]:
@@ -135,16 +135,16 @@ def authenticate_user(db: Session, username: str, password: str) -> Tuple[Option
         ).first()
 
         if not user:
-            return None, "用户名或密码错误"
+            return None, "Incorrect username or password."
 
         if not verify_password(password, user.hashed_password):
-            return None, "用户名或密码错误"
+            return None, "Incorrect username or password."
 
         return user, None
 
     except Exception as e:
         print(f"authenticate_user error:\n{traceback.format_exc()}")
-        return None, f"认证过程中发生错误: {str(e)}"
+        return None, f"Sign-in failed: {str(e)}"
 
 
 def update_user_password(db: Session, email: str, new_password: str) -> Tuple[bool, Optional[str]]:
@@ -162,7 +162,7 @@ def update_user_password(db: Session, email: str, new_password: str) -> Tuple[bo
     try:
         user = get_user_by_email(db, email)
         if not user:
-            return False, "用户不存在"
+            return False, "No account uses this email."
 
         # 更新密码和修改时间
         user.hashed_password = hash_password(new_password)
@@ -175,5 +175,5 @@ def update_user_password(db: Session, email: str, new_password: str) -> Tuple[bo
     except Exception as e:
         db.rollback()
         print(f"update_user_password error:\n{traceback.format_exc()}")
-        return False, f"更新密码失败: {str(e)}"
+        return False, f"Could not update password: {str(e)}"
 

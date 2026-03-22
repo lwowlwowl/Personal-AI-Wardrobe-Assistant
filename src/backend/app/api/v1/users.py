@@ -21,19 +21,19 @@ async def read_users_me(
         if not payload:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="无效或过期的token",
+                detail="Invalid or expired session. Please sign in again.",
             )
 
         user_id = payload.get("user_id")
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="无效的token",
+                detail="Invalid session. Please sign in again.",
             )
 
         user = crud.get_user_by_id(db, user_id)
         if user is None:
-            raise HTTPException(status_code=404, detail="用户不存在")
+            raise HTTPException(status_code=404, detail="User not found.")
 
         return user
 
@@ -43,7 +43,7 @@ async def read_users_me(
         print(f"获取用户信息错误详情: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取用户信息时发生错误: {str(e)}",
+            detail=f"Could not load profile: {str(e)}",
         )
 
 
@@ -64,7 +64,7 @@ async def update_users_me(
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     if updated is None:
-        raise HTTPException(status_code=404, detail="用户不存在")
+        raise HTTPException(status_code=404, detail="User not found.")
     return updated
 
 
@@ -79,8 +79,11 @@ async def change_password_me(
         db, current_user.id, body.current_password, body.new_password
     )
     if not ok:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=err or "修改失败")
-    return {"message": "密码已更新"}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=err or "Could not update password.",
+        )
+    return {"message": "Password updated."}
 
 
 @router.post("/api/users/me/avatar", response_model=schemas.UserResponse)
@@ -97,9 +100,9 @@ async def upload_user_avatar(
 
 @router.post("/api/forgot-password")
 async def forgot_password(email: str, db: Session = Depends(get_db)):
-    return {"message": "重置密码链接已发送到邮箱"}
+    return {"message": "If this email is registered, a reset link has been sent."}
 
 
 @router.post("/api/reset-password")
 async def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
-    return {"message": "密码重置成功"}
+    return {"message": "Password has been reset."}

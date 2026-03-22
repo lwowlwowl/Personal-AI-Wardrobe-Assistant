@@ -22,7 +22,7 @@ async def register(
         if not hasattr(crud, "create_user"):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="服务器配置错误：缺少create_user函数",
+                detail="Server misconfiguration: create_user is missing.",
             )
 
         user_data = user.dict(exclude={"confirm_password"})
@@ -31,9 +31,9 @@ async def register(
 
         if error:
             status_code = status.HTTP_400_BAD_REQUEST
-            if "用户名已被注册" in error:
+            if "That username is already registered" in error:
                 status_code = status.HTTP_409_CONFLICT
-            elif "邮箱已被注册" in error:
+            elif "That email is already registered" in error:
                 status_code = status.HTTP_409_CONFLICT
 
             return JSONResponse(
@@ -48,7 +48,7 @@ async def register(
         print(f"注册成功: {db_user.username}")
         return {
             "success": True,
-            "message": "注册成功",
+            "message": "Registration successful.",
             "data": {
                 "id": db_user.id,
                 "username": db_user.username,
@@ -65,7 +65,7 @@ async def register(
         print(f"注册错误详情: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"注册时发生错误: {str(e)}",
+            detail=f"Registration failed: {str(e)}",
         )
 
 
@@ -82,7 +82,7 @@ async def login(
             print("错误: 缺少authenticate_user函数")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="服务器配置错误：缺少authenticate_user函数",
+                detail="Server misconfiguration: authenticate_user is missing.",
             )
 
         print("开始调用authenticate_user...")
@@ -101,7 +101,7 @@ async def login(
         if not user or not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="账号已被禁用，请联系管理员",
+                detail="This account is disabled. Please contact support.",
             )
 
         if login_data.remember:
@@ -112,7 +112,7 @@ async def login(
         if not hasattr(crud, "create_access_token"):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="服务器配置错误：缺少create_access_token函数",
+                detail="Server misconfiguration: create_access_token is missing.",
             )
 
         access_token = crud.create_access_token(
@@ -122,7 +122,7 @@ async def login(
 
         return {
             "success": True,
-            "message": "登录成功",
+            "message": "Signed in successfully.",
             "access_token": access_token,
             "token_type": "bearer",
             "user_id": user.id,
@@ -138,7 +138,7 @@ async def login(
         print(f"登录错误详情: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"登录时发生错误: {str(e)}",
+            detail=f"Sign-in failed: {str(e)}",
         )
 
 
@@ -191,14 +191,14 @@ async def verify_token(
         if not hasattr(crud, "verify_access_token"):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="服务器配置错误：缺少verify_access_token函数",
+                detail="Server misconfiguration: verify_access_token is missing.",
             )
 
         payload = crud.verify_access_token(token)
         if not payload:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="无效或过期的token",
+                detail="Invalid or expired session. Please sign in again.",
             )
 
         username = payload.get("sub")
@@ -207,26 +207,26 @@ async def verify_token(
         if not username or not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="无效的token",
+                detail="Invalid session. Please sign in again.",
             )
 
         if not hasattr(crud, "get_user_by_id"):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="服务器配置错误：缺少get_user_by_id函数",
+                detail="Server misconfiguration: get_user_by_id is missing.",
             )
 
         user = crud.get_user_by_id(db, user_id)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="用户不存在",
+                detail="User not found.",
             )
 
         if not user.is_active:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="账号已被禁用",
+                detail="This account is disabled.",
             )
 
         return {
@@ -244,5 +244,5 @@ async def verify_token(
         print(f"验证token错误详情: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"验证token时发生错误: {str(e)}",
+            detail=f"Could not verify session: {str(e)}",
         )

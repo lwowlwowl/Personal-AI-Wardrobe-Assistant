@@ -56,7 +56,10 @@ async def get_ai_conversation(
     current_user = get_current_user(token, db)
     conv, error = crud.ai_conversation_crud.get_by_id_and_user(db, conversation_id=conversation_id, user_id=current_user.id)
     if error or not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="对话不存在或无权访问")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found or access denied.",
+        )
     return {
         "success": True,
         "data": {"id": conv.id, "title": conv.title, "messages": conv.messages or [], "created_at": conv.created_at.isoformat() if conv.created_at else None, "updated_at": conv.updated_at.isoformat() if conv.updated_at else None}
@@ -73,7 +76,10 @@ async def create_ai_conversation(
     current_user = get_current_user(token, db)
     conv, error = crud.ai_conversation_crud.create(db, user_id=current_user.id, title=body.title, messages=body.messages)
     if error or not conv:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error or "创建失败")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error or "Could not create conversation.",
+        )
     return {
         "success": True,
         "data": {"id": conv.id, "title": conv.title, "messages": conv.messages or [], "created_at": conv.created_at.isoformat() if conv.created_at else None, "updated_at": conv.updated_at.isoformat() if conv.updated_at else None}
@@ -94,7 +100,10 @@ async def update_ai_conversation(
         title=body.title, messages=body.messages
     )
     if error or not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND if not conv else status.HTTP_400_BAD_REQUEST, detail=error or "更新失败")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND if not conv else status.HTTP_400_BAD_REQUEST,
+            detail=error or "Could not update conversation.",
+        )
     return {
         "success": True,
         "data": {"id": conv.id, "title": conv.title, "messages": conv.messages or [], "created_at": conv.created_at.isoformat() if conv.created_at else None, "updated_at": conv.updated_at.isoformat() if conv.updated_at else None}
@@ -111,8 +120,11 @@ async def delete_ai_conversation(
     current_user = get_current_user(token, db)
     ok, error = crud.ai_conversation_crud.delete(db, conversation_id=conversation_id, user_id=current_user.id)
     if not ok:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error or "删除失败")
-    return {"success": True, "message": "已删除"}
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error or "Could not delete conversation.",
+        )
+    return {"success": True, "message": "Deleted."}
 
 
 @router.post("/api/ai/chat/stream")
@@ -130,7 +142,10 @@ async def ai_chat_stream(
         try:
             query_stripped = (req.query or "").strip()
             if not query_stripped:
-                error_payload = json.dumps({"type": "error", "message": "query 不能为空"}, ensure_ascii=False)
+                error_payload = json.dumps(
+                    {"type": "error", "message": "Message cannot be empty."},
+                    ensure_ascii=False,
+                )
                 yield f"data: {error_payload}\n\n"
                 return
             # 先根据当前消息与历史判定回复语言（默认英语）

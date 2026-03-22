@@ -20,8 +20,19 @@
 				<text class="loading-text">Loading...</text>
 			</view>
 			<template v-else>
-				<view v-if="mostWornWithDot.length === 0" class="loading-state">
-					<text class="loading-text">No items in this range</text>
+				<view v-if="mostWornWithDot.length === 0" class="worn-empty-state bento-empty-slot loading-state--breathe">
+					<view class="worn-skeleton-list">
+						<view v-for="n in 3" :key="n" class="worn-skeleton-row">
+							<view class="worn-skel-dot"></view>
+							<view class="worn-skel-bar"></view>
+							<view class="worn-skel-meta"></view>
+						</view>
+					</view>
+					<text class="worn-empty-title">Your favorites will appear here.</text>
+					<text class="worn-empty-hint">Record your OOTD to see your most-loved items.</text>
+					<view v-if="openWardrobeTab" class="worn-empty-cta" @click="goToWardrobe">
+						<text class="worn-empty-cta-text">Add to wardrobe →</text>
+					</view>
 				</view>
 				<!-- :key=时间维度 整块重挂；逐行动画在 scoped 内用 nth-child 错开（不用 transition-group 以免 uni-app 卡更新） -->
 				<view v-else class="worn-list-items worn-list-items--animate" :key="viewByWorn">
@@ -37,7 +48,12 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
+
+const openWardrobeTab = inject('openWardrobeTab', null)
+function goToWardrobe() {
+	if (typeof openWardrobeTab === 'function') openWardrobeTab()
+}
 import ViewByFilter from '../ViewByFilter.vue'
 import { COLOR_HEX_BY_CODE } from '@/utils/wardrobeEnums.js'
 

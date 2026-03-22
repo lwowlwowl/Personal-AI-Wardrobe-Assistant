@@ -13,14 +13,14 @@ class UserLogin(BaseModel):
     def username_not_empty(cls, v):
         """验证用户名不为空"""
         if not v or not v.strip():
-            raise ValueError('用户名不能为空')
+            raise ValueError('Username cannot be empty.')
         return v.strip()
 
     @validator('password')
     def password_not_empty(cls, v):
         """验证密码不为空"""
         if not v:
-            raise ValueError('密码不能为空')
+            raise ValueError('Password cannot be empty.')
         return v
 
 

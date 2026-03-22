@@ -13,8 +13,19 @@
 			<view v-else-if="loadingSuggested" class="loading-state">
 				<text class="loading-text">Generating suggestions...</text>
 			</view>
-			<view v-else-if="suggestedTexts.length === 0" class="suggest-empty">
-				<text class="suggest-empty-text">No data</text>
+			<view v-else-if="suggestedTexts.length === 0 && wardrobeItemCount < SUGGEST_UNLOCK_COUNT" class="suggest-locked-state bento-empty-slot">
+				<view class="ai-core-sleeping" aria-hidden="true">
+					<view class="ai-core-glow"></view>
+				</view>
+				<text class="suggest-locked-title">Stylist is on standby</text>
+				<text class="suggest-locked-sub">Add items to initialize your bespoke AI analysis.</text>
+				<view v-if="openWardrobeTab" class="bento-add-pill" hover-class="bento-add-pill--pressed" @click="goToWardrobe">
+					<text class="bento-add-pill-text">Add items +</text>
+				</view>
+			</view>
+			<view v-else-if="suggestedTexts.length === 0" class="suggest-soft-empty bento-empty-slot">
+				<text class="suggest-soft-title">No suggestions yet</text>
+				<text class="suggest-soft-sub">Tap refresh — we’ll tailor tips to your closet.</text>
 			</view>
 			<view
 				v-else
@@ -48,13 +59,21 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, inject } from 'vue'
+
+const SUGGEST_UNLOCK_COUNT = 5
 
 defineProps({
 	isLoggedIn: { type: Boolean, default: false },
 	loadingSuggested: { type: Boolean, default: true },
+	wardrobeItemCount: { type: Number, default: 0 },
 	suggestedTexts: { type: Array, default: () => [] }
 })
+
+const openWardrobeTab = inject('openWardrobeTab', null)
+function goToWardrobe() {
+	if (typeof openWardrobeTab === 'function') openWardrobeTab()
+}
 
 defineEmits(['refresh'])
 

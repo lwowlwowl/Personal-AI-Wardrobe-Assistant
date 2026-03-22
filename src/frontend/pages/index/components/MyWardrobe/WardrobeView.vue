@@ -503,6 +503,7 @@ import ModelUploadModal from './model-modal/ModelUploadModal.vue'
 import ClothUploadModal from './cloth-modal/ClothUploadModal.vue'
 import DeleteConfirmModal from './DeleteConfirmModal.vue'
 import { TYPE_OPTIONS, SEASON_OPTIONS } from '@/utils/wardrobeEnums.js'
+import { formatApiErrorMessage } from '@/utils/apiErrors.js'
 import { authVerify } from '@/api/userApi.js'
 import {
   getClothingList,
@@ -695,7 +696,9 @@ const testSimpleUpload = async () => {
       formData: createEmptyClothingUploadForm()
     })
     if (result.statusCode !== 200 || !result.data?.success) {
-      throw new Error(result.data?.message || result.data?.detail || 'Upload failed')
+      throw new Error(
+        formatApiErrorMessage(result.data, 'Upload failed. Please check your image and try again.')
+      )
     }
     const data = result.data?.data || result.data
     openClothTaggingModalFromUploadData(data)
@@ -723,11 +726,19 @@ async function handleClothUploadConfirm({ itemId, payload }) {
       createdItemIdForEdit.value = null
       loadClothingData({ showSkeleton: false })
     } else {
-      uni.showToast({ title: result.data?.message || 'Save failed', icon: 'none' })
+      uni.showToast({
+        title: formatApiErrorMessage(result.data, 'Could not save changes. Please try again.'),
+        icon: 'none',
+        duration: 3500
+      })
     }
   } catch (err) {
     uni.hideLoading()
-    uni.showToast({ title: err.message || err.errMsg || 'Network error', icon: 'none' })
+    uni.showToast({
+      title: err.message || err.errMsg || 'Network error. Check your connection and try again.',
+      icon: 'none',
+      duration: 3500
+    })
   }
 }
 
@@ -983,7 +994,13 @@ const handleModelUploadConfirm = async (formData) => {
     loadModelPhotos({ showSkeleton: false })
   } catch (error) {
     console.error('uploadModelPhoto failed:', error)
-    uni.showToast({ title: 'Upload failed', icon: 'none' })
+    uni.showToast({
+      title:
+        (error && error.message) ||
+        'Model photo upload failed. Please check your image and try again.',
+      icon: 'none',
+      duration: 3500
+    })
   } finally {
     uni.hideLoading()
   }
@@ -1003,7 +1020,9 @@ const performModelUpload = async (filePath, formData) => {
     }
   })
   if (result.statusCode !== 200 || !result.data?.success) {
-    throw new Error(result.data?.message || 'Upload failed')
+    throw new Error(
+      formatApiErrorMessage(result.data, 'Model photo upload failed. Please try again.')
+    )
   }
   return result
 }
@@ -1573,7 +1592,11 @@ const handleItemUpdate = async ({ id, field, value }) => {
 		if (res.statusCode !== 200 || !res.data?.success) {
 			clothes.value[idx] = prev
 			selectedItem.value = { ...prev }
-			uni.showToast({ title: res.data?.message || 'Update failed', icon: 'none' })
+			uni.showToast({
+				title: formatApiErrorMessage(res.data, 'Could not update item. Please try again.'),
+				icon: 'none',
+				duration: 3500
+			})
 		}
 	} catch (err) {
 		clothes.value[idx] = prev

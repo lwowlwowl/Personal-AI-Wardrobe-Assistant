@@ -179,7 +179,7 @@ async def get_clothing_items(
         print(f"clothing list error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取衣物列表时发生错误: {str(e)}"
+            detail=f"Could not load clothing list: {str(e)}"
         )
 
 
@@ -211,7 +211,7 @@ async def get_clothing_detail(
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="衣物不存在或无权访问"
+                detail="Item not found or access denied."
             )
 
         # 刷新对象以加载关联的标签等延迟加载属性
@@ -228,7 +228,7 @@ async def get_clothing_detail(
         print(f"clothing detail error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取衣物详情时发生错误: {str(e)}"
+            detail=f"Could not load clothing details: {str(e)}"
         )
 
 
@@ -286,7 +286,7 @@ async def update_clothing_item(
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="衣物不存在或无权访问"
+                detail="Item not found or access denied."
             )
 
         # 更新图片（如果有新图片）
@@ -322,7 +322,7 @@ async def update_clothing_item(
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="购买日期格式错误，请使用YYYY-MM-DD格式"
+                    detail="Invalid purchase date. Use YYYY-MM-DD."
                 )
 
         # 构建更新数据对象
@@ -359,7 +359,7 @@ async def update_clothing_item(
 
         return {
             "success": True,
-            "message": "衣物更新成功",
+            "message": "Item updated.",
             "data": updated_item
         }
 
@@ -374,7 +374,7 @@ async def update_clothing_item(
         print(f"clothing update error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"更新衣物时发生错误: {str(e)}"
+            detail=f"Could not update item: {str(e)}"
         )
 
 
@@ -406,7 +406,7 @@ async def delete_clothing_item(
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="衣物不存在或无权访问"
+                detail="Item not found or access denied."
             )
 
         # 删除衣物记录（会级联删除相关标签等）
@@ -428,7 +428,7 @@ async def delete_clothing_item(
 
         return {
             "success": True,
-            "message": "衣物删除成功"
+            "message": "Item deleted."
         }
 
     except HTTPException:
@@ -437,7 +437,7 @@ async def delete_clothing_item(
         print(f"clothing delete error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"删除衣物时发生错误: {str(e)}"
+            detail=f"Could not delete item: {str(e)}"
         )
 
 
@@ -469,7 +469,7 @@ async def toggle_favorite(
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="衣物不存在或无权访问"
+                detail="Item not found or access denied."
             )
 
         # 切换收藏等级：0->1->2->3->0 循环
@@ -491,7 +491,7 @@ async def toggle_favorite(
 
         return {
             "success": True,
-            "message": f"已{'取消' if next_val == 0 else '设置'}收藏",
+            "message": f"Favorite {'cleared' if next_val == 0 else 'updated'}.",
             "data": {
                 "is_favorite": updated_item.is_favorite
             }
@@ -503,7 +503,7 @@ async def toggle_favorite(
         print(f"clothing toggle-favorite error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"切换收藏状态时发生错误: {str(e)}"
+            detail=f"Could not update favorite: {str(e)}"
         )
 
 
@@ -535,7 +535,7 @@ async def record_clothing_wear(
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="衣物不存在或无权访问"
+                detail="Item not found or access denied."
             )
 
         # 记录穿着（增加穿着次数，更新最后穿着日期为今天）
@@ -552,7 +552,7 @@ async def record_clothing_wear(
 
         return {
             "success": True,
-            "message": "穿着记录已更新",
+            "message": "Wear record updated.",
             "data": {
                 "wear_count": updated_item.wear_count,
                 "last_worn_date": updated_item.last_worn_date
@@ -565,7 +565,7 @@ async def record_clothing_wear(
         print(f"clothing record-wear error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"记录穿着时发生错误: {str(e)}"
+            detail=f"Could not save wear record: {str(e)}"
         )
 
 
@@ -637,7 +637,7 @@ async def search_by_tags(
         print(f"clothing tags/search error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"标签搜索时发生错误: {str(e)}"
+            detail=f"Tag search failed: {str(e)}"
         )
 
 
@@ -688,7 +688,7 @@ async def get_popular_tags(
         print(f"clothing tags/popular error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取热门标签时发生错误: {str(e)}"
+            detail=f"Could not load popular tags: {str(e)}"
         )
 
 
@@ -727,7 +727,7 @@ async def get_all_tags(
         print(f"clothing tags/all error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取所有标签时发生错误: {str(e)}"
+            detail=f"Could not load tags: {str(e)}"
         )
 
 
@@ -764,7 +764,7 @@ async def get_clothing_stats(
         print(f"clothing stats error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取统计数据时发生错误: {str(e)}"
+            detail=f"Could not load stats: {str(e)}"
         )
 
 
@@ -799,7 +799,7 @@ async def get_filter_options(
         print(f"clothing filters error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取筛选选项时发生错误: {str(e)}"
+            detail=f"Could not load filter options: {str(e)}"
         )
 
 # ============ 分类和枚举API ============
@@ -880,7 +880,7 @@ async def get_clothing_categories():
         print(f"clothing categories error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取分类选项时发生错误: {str(e)}"
+            detail=f"Could not load category options: {str(e)}"
         )
 
 
@@ -907,7 +907,7 @@ async def batch_delete_clothing(
         if not clothing_ids:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="请选择要删除的衣物"
+                detail="Select at least one item to delete."
             )
 
         # 获取要删除的衣物信息（用于后续删除图片文件）
@@ -920,7 +920,7 @@ async def batch_delete_clothing(
         if len(items) != len(clothing_ids):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="部分衣物不存在或无权访问"
+                detail="Some items were not found or access was denied."
             )
 
         # 执行批量删除
@@ -944,7 +944,7 @@ async def batch_delete_clothing(
 
         return {
             "success": True,
-            "message": f"成功删除 {deleted_count} 件衣物"
+            "message": f"Deleted {deleted_count} item(s)."
         }
 
     except HTTPException:
@@ -953,7 +953,7 @@ async def batch_delete_clothing(
         print(f"clothing batch/delete error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"批量删除时发生错误: {str(e)}"
+            detail=f"Bulk delete failed: {str(e)}"
         )
 
 
@@ -980,13 +980,13 @@ async def batch_update_clothing(
         if not clothing_ids:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="请选择要更新的衣物"
+                detail="Select at least one item to update."
             )
 
         if not update_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="请提供更新数据"
+                detail="Provide fields to update."
             )
 
         # 执行批量更新
@@ -1005,7 +1005,7 @@ async def batch_update_clothing(
 
         return {
             "success": True,
-            "message": f"成功更新 {updated_count} 件衣物"
+            "message": f"Updated {updated_count} item(s)."
         }
 
     except HTTPException:
@@ -1014,7 +1014,7 @@ async def batch_update_clothing(
         print(f"clothing batch/update error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"批量更新时发生错误: {str(e)}"
+            detail=f"Bulk update failed: {str(e)}"
         )
 
 

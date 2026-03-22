@@ -271,6 +271,7 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import AddOutfitPanel from './AddOutfitPanel.vue'
 import { getCalendarOutfits, saveCalendarOutfits, API_BASE_URL } from '@/api/calendarApi.js'
+import { formatApiErrorMessage } from '@/utils/apiErrors.js'
 
 /** 将年月日转换为日期键字符串（格式：YYYY-MM-DD） */
 function toDateKey(y, m, d) {
@@ -607,7 +608,11 @@ async function fetchMonthOutfits() {
 		}
 	} catch (e) {
 		outfitsByDate.value = {}
-		uni.showToast({ title: 'Failed to load calendar.', icon: 'none' })
+		uni.showToast({
+			title: e?.message || 'Could not load calendar. Check your connection and try again.',
+			icon: 'none',
+			duration: 3500
+		})
 	}
 }
 
@@ -857,11 +862,18 @@ async function handleAddOutfitConfirm(selectedItems) {
 				outfitsByDate.value = { ...outfitsByDate.value, [key]: items }
 			}
 		} else {
-			// 优先展示后端返回的 detail（例如「穿着日期不能是未来日期」）
-			uni.showToast({ title: res.data?.message || res.data?.detail || 'Failed to save outfit.', icon: 'none' })
+			uni.showToast({
+				title: formatApiErrorMessage(res.data, 'Could not save outfit. Please try again.'),
+				icon: 'none',
+				duration: 4000
+			})
 		}
 	} catch (e) {
-		uni.showToast({ title: 'Failed to save outfit.', icon: 'none' })
+		uni.showToast({
+			title: e?.message || 'Could not save outfit. Check your network and try again.',
+			icon: 'none',
+			duration: 3500
+		})
 	}
 	showAddPanel.value = false
 }
@@ -907,10 +919,18 @@ async function removeOutfit(dateKey, index) {
 	try {
 		const res = await saveCalendarOutfits({ token, date: dateKey, items: payload })
 		if (!(res.statusCode === 200 && res.data && res.data.success)) {
-			uni.showToast({ title: res.data?.message || res.data?.detail || 'Failed to remove outfit.', icon: 'none' })
+			uni.showToast({
+				title: formatApiErrorMessage(res.data, 'Could not update outfits. Please try again.'),
+				icon: 'none',
+				duration: 4000
+			})
 		}
 	} catch (e) {
-		uni.showToast({ title: 'Failed to remove outfit.', icon: 'none' })
+		uni.showToast({
+			title: e?.message || 'Could not update outfits. Check your network and try again.',
+			icon: 'none',
+			duration: 3500
+		})
 	}
 }
 
@@ -943,10 +963,18 @@ function clearAllOutfits() {
 				delete next[selectedDateKey.value]
 				outfitsByDate.value = next
 			} else {
-				uni.showToast({ title: res.data?.message || res.data?.detail || 'Failed to clear outfits.', icon: 'none' })
+				uni.showToast({
+					title: formatApiErrorMessage(res.data, 'Could not clear outfits. Please try again.'),
+					icon: 'none',
+					duration: 4000
+				})
 			}
 		} catch (e) {
-			uni.showToast({ title: 'Failed to clear outfits.', icon: 'none' })
+			uni.showToast({
+				title: e?.message || 'Could not clear outfits. Check your network and try again.',
+				icon: 'none',
+				duration: 3500
+			})
 		}
 		setTimeout(() => { isClearing.value = false }, 100)
 	}, totalItemAnimation)

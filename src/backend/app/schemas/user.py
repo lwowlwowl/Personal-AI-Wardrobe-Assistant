@@ -16,24 +16,34 @@ class UserCreate(UserBase):
     confirm_password: str = Field(..., description="确认密码")
 
     @validator('username')
-    def username_alphanumeric(cls, v):
-        """验证用户名只包含字母和数字"""
-        if not v.isalnum():
-            raise ValueError('用户名只能包含字母和数字')
-        return v
+    def username_chars(cls, v):
+        """Trim ends; allow Unicode letters, digits, and spaces (no other symbols)."""
+        s = (v or "").strip()
+        if len(s) < 3:
+            raise ValueError(
+                "Username must be at least 3 characters (leading/trailing spaces are ignored)."
+            )
+        for ch in s:
+            if ch == " ":
+                continue
+            if not ch.isalnum():
+                raise ValueError(
+                    "Username may only contain letters, numbers, and spaces."
+                )
+        return s
 
     @validator('confirm_password')
     def passwords_match(cls, v, values):
         """验证两次输入的密码是否一致"""
         if 'password' in values and v != values['password']:
-            raise ValueError('两次输入的密码不一致')
+            raise ValueError('Passwords do not match.')
         return v
 
     @validator('password')
     def password_strength(cls, v):
         """验证密码强度"""
         if len(v) < 6:
-            raise ValueError('密码至少需要6个字符')
+            raise ValueError('Password must be at least 6 characters.')
         return v
 
 
@@ -57,3 +67,23 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None  # 全名
     avatar_url: Optional[str] = None  # 头像URL
+
+    @validator("username")
+    def username_chars_optional(cls, v):
+        if v is None:
+            return v
+        s = v.strip()
+        if not s:
+            return None
+        if len(s) < 3:
+            raise ValueError(
+                "Username must be at least 3 characters (leading/trailing spaces are ignored)."
+            )
+        for ch in s:
+            if ch == " ":
+                continue
+            if not ch.isalnum():
+                raise ValueError(
+                    "Username may only contain letters, numbers, and spaces."
+                )
+        return s

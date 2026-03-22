@@ -180,6 +180,407 @@
 	color: #999;
 	font-size: 28rpx;
 }
+
+/* ---------- 空狀態通用：虛線槽 + 玻璃底（避免 <text> 行內擠成一行） ---------- */
+.wardrobe-analysis-bento .bento-empty-slot {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	box-sizing: border-box;
+	padding: 28rpx 24rpx;
+	min-height: 160rpx;
+	border: 1rpx dashed rgba(255, 255, 255, 0.42);
+	border-radius: 16rpx;
+	background: rgba(255, 255, 255, 0.28);
+}
+
+@keyframes bento-breathe {
+	0%, 100% { opacity: 0.5; }
+	50% { opacity: 1; }
+}
+
+.wardrobe-analysis-bento .loading-state--breathe .loading-text {
+	animation: bento-breathe 2.2s ease-in-out infinite;
+}
+
+/* Total Items：空衣櫥引導 */
+.wardrobe-analysis-bento .bento-total {
+	position: relative;
+}
+.wardrobe-analysis-bento .bento-total--empty .bg-number {
+	font-size: 160rpx;
+	opacity: 0.04;
+	right: 8rpx;
+	bottom: -24rpx;
+}
+.wardrobe-analysis-bento .total-empty-watermark {
+	position: absolute;
+	left: 50%;
+	top: 52%;
+	transform: translate(-50%, -50%);
+	width: 220rpx;
+	height: 220rpx;
+	opacity: 0.05;
+	z-index: 0;
+	pointer-events: none;
+}
+.wardrobe-analysis-bento .total-trend-empty {
+	gap: 16rpx;
+	min-height: 200rpx;
+	text-align: center;
+}
+.wardrobe-analysis-bento .total-trend-empty-dash {
+	display: block;
+	width: 100%;
+	font-size: 88rpx;
+	font-weight: 200;
+	line-height: 1.15;
+	color: #1d1d1f;
+	opacity: 0.28;
+}
+.wardrobe-analysis-bento .total-trend-empty-title {
+	display: block;
+	width: 100%;
+	font-size: 30rpx;
+	font-weight: 700;
+	color: #1d1d1f;
+	line-height: 1.35;
+}
+.wardrobe-analysis-bento .total-trend-empty-sub {
+	display: block;
+	width: 100%;
+	max-width: 440rpx;
+	font-size: 24rpx;
+	color: #8e8e93;
+	line-height: 1.5;
+}
+/* 三處統一：Add items 瓷光藥丸 + 掃光 + hover（Total / Category / Suggested） */
+@keyframes bento-add-pill-shine {
+	0%, 100% { transform: translateX(0) skewX(-14deg); opacity: 0; }
+	10% { opacity: 0.5; }
+	34% { transform: translateX(260%) skewX(-14deg); opacity: 0; }
+}
+
+.wardrobe-analysis-bento .bento-add-pill {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	margin-top: 20rpx;
+	padding: 18rpx 44rpx;
+	border-radius: 999rpx;
+	overflow: hidden;
+	background: linear-gradient(
+		168deg,
+		rgba(255, 255, 255, 0.97) 0%,
+		rgba(253, 249, 244, 0.84) 40%,
+		rgba(247, 241, 235, 0.92) 100%
+	);
+	backdrop-filter: blur(22px);
+	-webkit-backdrop-filter: blur(22px);
+	border: 1rpx solid rgba(255, 255, 255, 1);
+	box-shadow:
+		0 6rpx 26rpx rgba(141, 110, 99, 0.11),
+		0 2rpx 8rpx rgba(0, 0, 0, 0.04),
+		inset 0 1rpx 0 rgba(255, 255, 255, 1),
+		inset 0 -1rpx 0 rgba(141, 110, 99, 0.07);
+	transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.38s ease, border-color 0.32s ease;
+}
+.wardrobe-analysis-bento .bento-add-pill::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -48%;
+	width: 58%;
+	height: 100%;
+	background: linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.72) 46%, transparent 80%);
+	animation: bento-add-pill-shine 5.2s ease-in-out infinite;
+	pointer-events: none;
+}
+@media (hover: hover) and (pointer: fine) {
+	.wardrobe-analysis-bento .bento-add-pill:hover {
+		transform: translateY(-6rpx) scale(1.03);
+		box-shadow:
+			0 16rpx 44rpx rgba(141, 110, 99, 0.17),
+			0 6rpx 22rpx rgba(212, 175, 55, 0.15),
+			inset 0 1rpx 0 rgba(255, 255, 255, 1),
+			inset 0 -1rpx 0 rgba(141, 110, 99, 0.05);
+		border-color: rgba(255, 252, 246, 1);
+	}
+	.wardrobe-analysis-bento .bento-add-pill:hover::before {
+		animation-duration: 3.4s;
+	}
+}
+.wardrobe-analysis-bento .bento-add-pill:active,
+.wardrobe-analysis-bento .bento-add-pill--pressed {
+	transform: translateY(-1rpx) scale(0.97);
+	box-shadow:
+		0 3rpx 14rpx rgba(141, 110, 99, 0.12),
+		inset 0 2rpx 10rpx rgba(141, 110, 99, 0.09);
+}
+@media (hover: hover) and (pointer: fine) {
+	.wardrobe-analysis-bento .bento-add-pill:active:hover,
+	.wardrobe-analysis-bento .bento-add-pill--pressed:hover {
+		transform: translateY(-3rpx) scale(0.98);
+	}
+}
+.wardrobe-analysis-bento .bento-add-pill-text {
+	position: relative;
+	z-index: 1;
+	font-size: 24rpx;
+	font-weight: 600;
+	color: #5d4037;
+	letter-spacing: 0.04em;
+}
+
+/* Most Worn：骨架 + 文案分行 */
+.wardrobe-analysis-bento .worn-empty-state {
+	align-items: stretch;
+	gap: 20rpx;
+	min-height: 240rpx;
+}
+.wardrobe-analysis-bento .worn-skeleton-list {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 22rpx;
+}
+.wardrobe-analysis-bento .worn-skeleton-row {
+	display: flex;
+	align-items: center;
+	gap: 16rpx;
+	width: 100%;
+}
+@keyframes silk-shimmer {
+	0% { background-position: 200% 0; }
+	100% { background-position: -200% 0; }
+}
+
+.wardrobe-analysis-bento .worn-skel-dot {
+	width: 28rpx;
+	height: 28rpx;
+	border-radius: 50%;
+	flex-shrink: 0;
+	background: rgba(141, 110, 99, 0.11);
+}
+.wardrobe-analysis-bento .worn-skel-bar {
+	flex: 1;
+	height: 18rpx;
+	border-radius: 10rpx;
+	overflow: hidden;
+	background: linear-gradient(
+		90deg,
+		rgba(141, 110, 99, 0.04) 25%,
+		rgba(141, 110, 99, 0.12) 50%,
+		rgba(141, 110, 99, 0.04) 75%
+	);
+	background-size: 200% 100%;
+	animation: silk-shimmer 2.5s infinite cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+.wardrobe-analysis-bento .worn-skeleton-row:nth-child(2) .worn-skel-bar {
+	animation-delay: 0.2s;
+}
+.wardrobe-analysis-bento .worn-skeleton-row:nth-child(3) .worn-skel-bar {
+	animation-delay: 0.4s;
+}
+.wardrobe-analysis-bento .worn-skel-meta {
+	width: 108rpx;
+	height: 16rpx;
+	border-radius: 8rpx;
+	flex-shrink: 0;
+	overflow: hidden;
+	background: linear-gradient(
+		90deg,
+		rgba(141, 110, 99, 0.04) 25%,
+		rgba(141, 110, 99, 0.12) 50%,
+		rgba(141, 110, 99, 0.04) 75%
+	);
+	background-size: 200% 100%;
+	animation: silk-shimmer 2.5s infinite cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+.wardrobe-analysis-bento .worn-skeleton-row:nth-child(2) .worn-skel-meta {
+	animation-delay: 0.28s;
+}
+.wardrobe-analysis-bento .worn-skeleton-row:nth-child(3) .worn-skel-meta {
+	animation-delay: 0.45s;
+}
+.wardrobe-analysis-bento .worn-empty-title {
+	display: block;
+	width: 100%;
+	font-size: 26rpx;
+	font-weight: 600;
+	color: #1d1d1f;
+	text-align: center;
+	line-height: 1.4;
+}
+.wardrobe-analysis-bento .worn-empty-hint {
+	display: block;
+	width: 100%;
+	font-size: 22rpx;
+	color: #8e8e93;
+	text-align: center;
+	line-height: 1.45;
+}
+/* Most Worn：雜誌風連結 + 精緻 hover（僅精細指標裝置啟用浮起與底線延展） */
+.wardrobe-analysis-bento .worn-empty-cta {
+	align-self: center;
+	margin-top: 12rpx;
+	padding: 8rpx 16rpx 12rpx;
+	cursor: pointer;
+	position: relative;
+	transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.wardrobe-analysis-bento .worn-empty-cta::after {
+	content: '';
+	position: absolute;
+	left: 50%;
+	bottom: 2rpx;
+	width: 88%;
+	max-width: 300rpx;
+	height: 2rpx;
+	transform: translateX(-50%) scaleX(0.42);
+	transform-origin: center;
+	background: linear-gradient(90deg, transparent, rgba(139, 122, 107, 0.5), transparent);
+	border-radius: 2rpx;
+	opacity: 0.75;
+	transition:
+		transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+		background 0.4s ease,
+		box-shadow 0.5s ease,
+		opacity 0.35s ease;
+	pointer-events: none;
+}
+.wardrobe-analysis-bento .worn-empty-cta-text {
+	display: inline-block;
+	font-size: 20rpx;
+	font-weight: 700;
+	color: #8b7a6b;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	padding-bottom: 2rpx;
+	transition:
+		color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+		letter-spacing 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+		opacity 0.2s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+	.wardrobe-analysis-bento .worn-empty-cta:hover {
+		transform: translateY(-5rpx);
+	}
+	.wardrobe-analysis-bento .worn-empty-cta:hover .worn-empty-cta-text {
+		color: #5d4037;
+		letter-spacing: 0.11em;
+	}
+	.wardrobe-analysis-bento .worn-empty-cta:hover::after {
+		transform: translateX(-50%) scaleX(1);
+		background: linear-gradient(
+			90deg,
+			rgba(156, 107, 47, 0.12),
+			rgba(93, 64, 55, 0.92),
+			rgba(156, 107, 47, 0.12)
+		);
+		box-shadow: 0 2rpx 16rpx rgba(156, 107, 47, 0.28);
+		opacity: 1;
+	}
+	.wardrobe-analysis-bento .worn-empty-cta:active:hover {
+		transform: translateY(-2rpx) scale(0.98);
+	}
+}
+.wardrobe-analysis-bento .worn-empty-cta:active {
+	transform: translateY(0) scale(0.98);
+}
+.wardrobe-analysis-bento .worn-empty-cta:active .worn-empty-cta-text {
+	opacity: 0.62;
+}
+
+/* Suggested：極光核心待機 + 文案 + 玻璃按鈕 */
+.wardrobe-analysis-bento .suggest-locked-state {
+	align-items: center;
+	gap: 10rpx;
+	padding: 28rpx 28rpx 36rpx;
+	min-height: 200rpx;
+}
+.wardrobe-analysis-bento .ai-core-sleeping {
+	position: relative;
+	width: 64rpx;
+	height: 64rpx;
+	margin-bottom: 12rpx;
+	border-radius: 50%;
+	background: linear-gradient(135deg, rgba(212, 175, 55, 0.42), rgba(141, 110, 99, 0.22));
+	box-shadow:
+		0 0 28rpx rgba(212, 175, 55, 0.18),
+		0 8rpx 24rpx rgba(141, 110, 99, 0.08);
+	animation: core-levitate 4s ease-in-out infinite;
+}
+.wardrobe-analysis-bento .ai-core-glow {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 120%;
+	height: 120%;
+	border-radius: 50%;
+	background: conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.55), transparent, rgba(168, 212, 168, 0.25), transparent);
+	animation: core-spin 6s linear infinite;
+	filter: blur(8rpx);
+	pointer-events: none;
+}
+@keyframes core-levitate {
+	0%, 100% { transform: translateY(0) scale(1); }
+	50% { transform: translateY(-8rpx) scale(1.05); }
+}
+@keyframes core-spin {
+	from { transform: translate(-50%, -50%) rotate(0deg); }
+	to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+.wardrobe-analysis-bento .suggest-locked-title {
+	display: block;
+	width: 100%;
+	text-align: center;
+	font-size: 30rpx;
+	font-weight: 700;
+	color: #1d1d1f;
+	line-height: 1.4;
+	letter-spacing: -0.02em;
+}
+.wardrobe-analysis-bento .suggest-locked-sub {
+	display: block;
+	width: 100%;
+	text-align: center;
+	font-size: 24rpx;
+	color: #8b7a6b;
+	line-height: 1.5;
+	margin-top: 4rpx;
+	white-space: nowrap;
+	box-sizing: border-box;
+}
+/* Suggested 區塊：按鈕與上方極光核心間距略加大 */
+.wardrobe-analysis-bento .suggest-locked-state .bento-add-pill {
+	margin-top: 26rpx;
+}
+.wardrobe-analysis-bento .suggest-soft-empty {
+	gap: 12rpx;
+	min-height: 160rpx;
+}
+.wardrobe-analysis-bento .suggest-soft-title {
+	display: block;
+	width: 100%;
+	text-align: center;
+	font-size: 26rpx;
+	font-weight: 600;
+	color: #1d1d1f;
+}
+.wardrobe-analysis-bento .suggest-soft-sub {
+	display: block;
+	width: 100%;
+	text-align: center;
+	font-size: 22rpx;
+	color: #8e8e93;
+	max-width: 480rpx;
+	line-height: 1.45;
+}
+
 .wardrobe-analysis-bento .chart-stats {
 	margin-top: 20rpx;
 	display: flex;
@@ -676,6 +1077,72 @@
 	box-sizing: border-box;
 }
 
+/* Category：占位圓環 + 右側文案（桌面橫排、窄屏可換行） */
+.wardrobe-analysis-bento .donut-empty-state-v2 {
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 32rpx 40rpx;
+}
+.wardrobe-analysis-bento .placeholder-donut-wrap {
+	width: 240rpx;
+	height: 240rpx;
+	flex-shrink: 0;
+}
+.wardrobe-analysis-bento .placeholder-donut-svg {
+	width: 100%;
+	height: 100%;
+	display: block;
+	transform-origin: center center;
+	overflow: visible;
+}
+
+@keyframes spin-clockwise {
+	to { transform: rotate(360deg); }
+}
+@keyframes spin-counter {
+	to { transform: rotate(-360deg); }
+}
+
+.wardrobe-analysis-bento .placeholder-donut-svg .orbital-track {
+	transform-origin: 0 0;
+}
+.wardrobe-analysis-bento .orbital-track--cw {
+	animation: spin-clockwise 20s linear infinite;
+}
+.wardrobe-analysis-bento .orbital-track--ccw {
+	animation: spin-counter 15s linear infinite;
+}
+.wardrobe-analysis-bento .orbital-track--slow {
+	animation: spin-clockwise 28s linear infinite;
+}
+.wardrobe-analysis-bento .donut-empty-copy {
+	flex: 1;
+	min-width: 220rpx;
+	max-width: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 12rpx;
+}
+.wardrobe-analysis-bento .donut-empty-title {
+	display: block;
+	width: 100%;
+	text-align: center;
+	font-size: 30rpx;
+	font-weight: 700;
+	color: #1d1d1f;
+}
+.wardrobe-analysis-bento .donut-empty-sub {
+	display: block;
+	width: 100%;
+	text-align: center;
+	font-size: 24rpx;
+	color: #8e8e93;
+	line-height: 1.45;
+}
 .wardrobe-analysis-bento .donut-container {
 	flex: 1;
 	position: relative;

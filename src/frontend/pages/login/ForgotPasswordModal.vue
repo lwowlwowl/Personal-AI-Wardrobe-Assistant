@@ -116,6 +116,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { resetPasswordByIdentity } from '@/api/userApi.js'
+import { formatApiErrorMessage } from '@/utils/apiErrors.js'
 
 const props = defineProps({
 	visible: { type: Boolean, default: false }
@@ -189,14 +190,6 @@ function clearSubmitError() {
 	submitError.value = ''
 }
 
-function detailToMessage(detail) {
-	if (detail == null) return ''
-	if (typeof detail === 'string') return detail
-	if (Array.isArray(detail) && detail[0]?.msg) return detail.map((x) => x.msg).join(' ')
-	if (typeof detail === 'object' && detail.msg) return detail.msg
-	return ''
-}
-
 async function onSubmit() {
 	submitError.value = ''
 	const e = (form.value.email || '').trim()
@@ -246,9 +239,13 @@ async function onSubmit() {
 			return
 		}
 
-		const d = res.data?.detail ?? res.data?.message
-		submitError.value =
-			detailToMessage(d) || (res.statusCode === 400 ? 'Email and username do not match our records.' : 'Failed to reset password.')
+		const fallback =
+			res.statusCode === 400
+				? 'Email and username do not match our records.'
+				: res.statusCode >= 500
+					? 'Server error. Please try again later.'
+					: 'Could not reset password. Please try again.'
+		submitError.value = formatApiErrorMessage(res.data, fallback)
 	} catch {
 		uni.hideLoading()
 		submitting.value = false

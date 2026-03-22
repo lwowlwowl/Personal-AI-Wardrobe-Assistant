@@ -311,6 +311,10 @@ const setActiveMenu = (menu) => {
 	}
 }
 
+provide('openWardrobeTab', () => {
+	setActiveMenu('wardrobe')
+})
+
 const toggleSidebar = () => {
 	isCollapsed.value = !isCollapsed.value
 }

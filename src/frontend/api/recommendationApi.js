@@ -4,6 +4,7 @@
  */
 
 import { API_BASE_URL, request } from '@/utils/request.js'
+import { formatApiErrorMessage } from '@/utils/apiErrors.js'
 
 export { API_BASE_URL }
 
@@ -25,8 +26,11 @@ export function chatRecommendation(query, history = []) {
   }).then(async (res) => {
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}))
-      const msg = errData.detail || errData.message || `HTTP ${res.status}`
-      throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg))
+      const msg = formatApiErrorMessage(
+        errData,
+        `Recommendation request failed (HTTP ${res.status}). Please try again.`
+      )
+      throw new Error(msg)
     }
     const reader = res.body.getReader()
     const decoder = new TextDecoder()

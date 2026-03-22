@@ -56,7 +56,7 @@ class AIConversationCRUD:
                 AIConversation.user_id == user_id
             ).first()
             if not conv:
-                return None, "对话不存在"
+                return None, "Conversation not found."
             if title is not None:
                 conv.title = title[:200] if len(title) > 200 else title
             if messages is not None:
@@ -77,7 +77,7 @@ class AIConversationCRUD:
                 AIConversation.user_id == user_id
             ).first()
             if not conv:
-                return False, "对话不存在"
+                return False, "Conversation not found."
             db.delete(conv)
             db.commit()
             return True, None

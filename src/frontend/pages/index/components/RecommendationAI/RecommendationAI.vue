@@ -622,11 +622,16 @@ const handleRegenerate = async (msgIdx) => {
 		const res = await chatRecommendation(query, history)
 		await finishRegenerate(res)
 	} catch (err) {
+		const reason = (err && err.message) || 'Network or server error.'
 		await finishRegenerate({
 			role: 'ai',
-			content: 'Request failed: ' + (err && err.message ? err.message : 'Network error')
+			content: 'Request failed: ' + reason
 		})
-		uni.showToast({ title: 'Regenerate failed', icon: 'none' })
+		uni.showToast({
+			title: reason.length > 120 ? reason.slice(0, 117) + '…' : reason,
+			icon: 'none',
+			duration: 4000
+		})
 	}
 }
 
@@ -694,11 +699,16 @@ const handleSearch = async () => {
 		const res = await chatRecommendation(query, history)
 		await finishLoading(res)
 	} catch (err) {
+		const reason = (err && err.message) || 'Network or server error.'
 		await finishLoading({
 			role: 'ai',
-			content: 'Request failed: ' + (err && err.message ? err.message : 'Network error')
+			content: 'Request failed: ' + reason
 		})
-		uni.showToast({ title: 'Recommendation request failed', icon: 'none' })
+		uni.showToast({
+			title: reason.length > 120 ? reason.slice(0, 117) + '…' : reason,
+			icon: 'none',
+			duration: 4000
+		})
 	}
 }
 

@@ -18,7 +18,7 @@ class WearHistoryBase(BaseModel):
     def wear_date_not_future(cls, v):
         """验证穿着日期不是未来日期"""
         if v > date.today():
-            raise ValueError('穿着日期不能是未来日期')
+            raise ValueError('Wear date cannot be in the future.')
         return v
 
 

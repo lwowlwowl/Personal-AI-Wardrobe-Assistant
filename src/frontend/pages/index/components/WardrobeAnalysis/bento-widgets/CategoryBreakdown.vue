@@ -12,8 +12,28 @@
 		<view v-else-if="loadingCategory" class="loading-state donut-empty-state">
 			<text class="loading-text">Loading...</text>
 		</view>
-		<view v-else-if="!hasCategoryDonutData" class="loading-state donut-empty-state">
-			<text class="loading-text">No category data yet</text>
+		<view v-else-if="!hasCategoryDonutData" class="donut-empty-state donut-empty-state-v2 bento-empty-slot">
+			<view class="placeholder-donut-wrap">
+				<svg viewBox="-100 -100 200 200" class="placeholder-donut-svg" aria-hidden="true">
+					<g class="orbital-track orbital-track--cw">
+						<circle cx="0" cy="0" r="70" fill="none" stroke="rgba(141, 110, 99, 0.05)" stroke-width="1" />
+					</g>
+					<g class="orbital-track orbital-track--ccw">
+						<circle cx="0" cy="0" r="66" fill="none" stroke="rgba(200, 195, 188, 0.35)" stroke-width="2" stroke-dasharray="2 6" />
+					</g>
+					<g class="orbital-track orbital-track--cw orbital-track--slow">
+						<circle cx="0" cy="0" r="56" fill="none" stroke="rgba(141, 110, 99, 0.08)" stroke-width="8" class="placeholder-ring--outer" />
+					</g>
+					<circle cx="0" cy="0" r="47" fill="rgba(255, 254, 251, 0.98)" />
+				</svg>
+			</view>
+			<view class="donut-empty-copy">
+				<text class="donut-empty-title">Closet is empty</text>
+				<text class="donut-empty-sub">Visualize your style balance.</text>
+				<view v-if="openWardrobeTab" class="bento-add-pill" hover-class="bento-add-pill--pressed" @click="goToWardrobe">
+					<text class="bento-add-pill-text">Add items +</text>
+				</view>
+			</view>
 		</view>
 		<view v-else class="donut-container">
 			<svg viewBox="-100 -100 200 200" class="donut-svg" aria-hidden="true" @mouseleave="hoveredSegmentIndex = null">
@@ -58,7 +78,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, inject } from 'vue'
+
+const openWardrobeTab = inject('openWardrobeTab', null)
+function goToWardrobe() {
+	if (typeof openWardrobeTab === 'function') openWardrobeTab()
+}
 
 const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false },

@@ -57,6 +57,7 @@
 			<BentoSuggestedAdditions
 				:is-logged-in="isLoggedIn"
 				:loading-suggested="loadingSuggested"
+				:wardrobe-item-count="totalItemsCount"
 				:suggested-texts="suggestedTexts"
 				@refresh="refreshSuggestedAdditions"
 			/>

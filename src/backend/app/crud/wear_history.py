@@ -63,7 +63,7 @@ class WearHistoryCRUD:
         except Exception as e:
             db.rollback()
             print(f"创建穿着记录错误: {e}")
-            return None, f"创建穿着记录失败: {str(e)}"
+            return None, f"Could not save wear record: {str(e)}"
 
     @staticmethod
     def get_wear_history(

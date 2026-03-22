@@ -74,7 +74,7 @@ async def upload_model_photo(
 
         return {
             "success": True,
-            "message": "模特照片上传成功",
+            "message": "Model photo uploaded.",
             "data": model_photo
         }
 
@@ -84,7 +84,7 @@ async def upload_model_photo(
         print(f"上传模特照片错误: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"上传模特照片时发生错误: {str(e)}"
+            detail=f"Could not upload model photo: {str(e)}"
         )
 
 
@@ -151,7 +151,7 @@ async def get_model_photos(
         print(f"获取模特照片列表错误: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取模特照片列表时发生错误: {str(e)}"
+            detail=f"Could not load model photos: {str(e)}"
         )
 
 
@@ -185,7 +185,7 @@ async def get_primary_model_photo(
         if not photo:
             return {
                 "success": True,
-                "message": "用户尚未设置主要模特照片",
+                "message": "No primary model photo is set yet.",
                 "data": None
             }
 
@@ -200,7 +200,7 @@ async def get_primary_model_photo(
         print(f"获取主要模特照片错误: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取主要模特照片时发生错误: {str(e)}"
+            detail=f"Could not load primary model photo: {str(e)}"
         )
 
 
@@ -237,7 +237,7 @@ async def get_model_photo_detail(
         if not photo:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="模特照片不存在或无权访问"
+                detail="Model photo not found or access denied."
             )
 
         return {
@@ -251,7 +251,7 @@ async def get_model_photo_detail(
         print(f"获取模特照片详情错误: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取模特照片详情时发生错误: {str(e)}"
+            detail=f"Could not load model photo details: {str(e)}"
         )
 
 
@@ -291,7 +291,7 @@ async def update_model_photo(
         if error or not photo:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="模特照片不存在或无权访问"
+                detail="Model photo not found or access denied."
             )
 
         # 更新图片（如果有新图片）
@@ -343,7 +343,7 @@ async def update_model_photo(
 
         return {
             "success": True,
-            "message": "模特照片更新成功",
+            "message": "Model photo updated.",
             "data": updated_photo
         }
 
@@ -353,7 +353,7 @@ async def update_model_photo(
         print(f"更新模特照片错误: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"更新模特照片时发生错误: {str(e)}"
+            detail=f"Could not update model photo: {str(e)}"
         )
 
 
@@ -387,7 +387,7 @@ async def delete_model_photo(
         if error or not photo:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="模特照片不存在或无权访问"
+                detail="Model photo not found or access denied."
             )
 
         # 根据参数选择删除方式
@@ -418,7 +418,7 @@ async def delete_model_photo(
 
         return {
             "success": True,
-            "message": f"模特照片{'永久' if hard_delete else ''}删除成功"
+            "message": f"Model photo {'permanently ' if hard_delete else ''}deleted."
         }
 
     except HTTPException:
@@ -427,7 +427,7 @@ async def delete_model_photo(
         print(f"删除模特照片错误: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"删除模特照片时发生错误: {str(e)}"
+            detail=f"Could not delete model photo: {str(e)}"
         )
 
 
@@ -459,7 +459,7 @@ async def set_primary_model_photo(
         if error or not photo:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="模特照片不存在或无权访问"
+                detail="Model photo not found or access denied."
             )
 
         # 更新为主要照片（会自动更新其他照片的is_primary状态）
@@ -477,7 +477,7 @@ async def set_primary_model_photo(
 
         return {
             "success": True,
-            "message": "已设置为主要模特照片",
+            "message": "Set as primary model photo.",
             "data": updated_photo
         }
 
@@ -487,7 +487,7 @@ async def set_primary_model_photo(
         print(f"设置主要模特照片错误: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"设置主要模特照片时发生错误: {str(e)}"
+            detail=f"Could not set primary model photo: {str(e)}"
         )
 
 
