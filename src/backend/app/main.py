@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import sys
+import traceback
 from pathlib import Path as PathLib
 
 from fastapi import FastAPI, HTTPException, status
@@ -17,10 +18,7 @@ import app.models as models
 from app.api.router import api_router
 from app.core.database import engine
 from app.core.exceptions import AppError
-from app.core.logging import get_logger
 from app.services.file_service import UPLOAD_DIR, UPLOAD_URL_PREFIX
-
-_log = get_logger(__name__)
 
 # backend/（本檔位於 backend/app/main.py）
 BACKEND_DIR = PathLib(__file__).resolve().parent.parent
@@ -36,12 +34,12 @@ try:
     _comfy_addr = os.environ.get("COMFYUI_SERVER", "http://127.0.0.1:8118").rstrip("/")
     comfyui_client.server_address = _comfy_addr
     COMFYUI_AVAILABLE = True
-    _log.info("ComfyUI 虚拟试穿已启用，地址: %s", comfyui_client.server_address)
+    print(f"ComfyUI virtual try-on enabled, server: {comfyui_client.server_address}")
 except ImportError as _e:
     comfyui_client = None  # type: ignore
     build_virtual_tryon_workflow = None  # type: ignore
     COMFYUI_AVAILABLE = False
-    _log.warning("ComfyUI 虚拟试穿未启用（缺少依赖或 app.services.comfyui_client）: %s", _e)
+    print(f"ComfyUI virtual try-on disabled (missing deps or app.services.comfyui_client): {_e}")
 
 from app import runtime as app_runtime
 
@@ -102,7 +100,7 @@ async def http_exception_handler(request, exc):
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
-    _log.exception("未处理的异常: %s", exc)
+    print(f"Unhandled exception: {exc}\n{traceback.format_exc()}")
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={

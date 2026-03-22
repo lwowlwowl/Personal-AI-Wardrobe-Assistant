@@ -2,7 +2,6 @@
 ComfyUI HTTP 客戶端與虛擬試穿工作流構建（資源：app/resources/qwen_edit_v1.json）。
 """
 import json
-import logging
 import time
 import uuid
 from pathlib import Path
@@ -10,8 +9,6 @@ from typing import Any, Dict, Optional
 
 import requests
 from fastapi import HTTPException
-
-logger = logging.getLogger(__name__)
 
 # app/services/ -> app/resources/
 _RESOURCES_DIR = Path(__file__).resolve().parent.parent / "resources"
@@ -39,7 +36,7 @@ class ComfyUIClient:
                 return response.json().get("prompt_id")
             return None
         except Exception as e:
-            logger.error(f"提交任务失败: {str(e)}")
+            print(f"ComfyUI queue_prompt failed: {e}")
             raise HTTPException(status_code=503, detail="ComfyUI服务连接失败")
 
     def get_history(self, prompt_id: str) -> Optional[Dict[str, Any]]:
@@ -70,10 +67,10 @@ class ComfyUIClient:
             if response.status_code == 200:
                 return response.json()
             else:
-                logger.error(f"上传图片失败，状态码: {response.status_code}")
+                print(f"ComfyUI upload_image failed, status={response.status_code}")
                 return None
         except Exception as e:
-            logger.error(f"上传图片异常: {str(e)}")
+            print(f"ComfyUI upload_image error: {e}")
             return None
 
     def wait_for_completion(self, prompt_id: str, timeout: int = 600) -> Optional[Dict[str, Any]]:
@@ -102,7 +99,7 @@ def build_virtual_tryon_workflow(
         with open(template_path, "r", encoding="utf-8") as f:
             workflow = json.load(f)
     except Exception as e:
-        logger.error(f"加载模板失败: {str(e)}")
+        print(f"ComfyUI workflow template load failed: {e}")
         raise HTTPException(status_code=500, detail="工作流模板丢失")
 
     # --- 映射图片输入 ---

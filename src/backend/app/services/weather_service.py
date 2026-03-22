@@ -1,8 +1,8 @@
 """天氣查詢業務邏輯（QWeather、地理快取、短時快取）；路由層只負責轉 HTTP。"""
 from __future__ import annotations
 
-import logging
 import os
+import traceback
 import time
 from typing import Any, Dict, Optional, Union
 
@@ -17,8 +17,6 @@ from AIwardrobe.utils.fetch_weather_json import (
 )
 
 from app.core.exceptions import AppError
-
-_log = logging.getLogger(__name__)
 
 _WEATHER_CACHE_TTL_SEC = 30 * 60
 _weather_cache: Dict[str, Dict[str, Any]] = {}
@@ -91,7 +89,7 @@ def fetch_weather_now(lat: float, lon: float, token: Optional[str]) -> Dict[str,
     except RuntimeError as e:
         raise AppError(status_code=400, message=str(e)) from e
     except Exception as e:
-        _log.exception("天气接口异常")
+        print(f"fetch_weather_now unexpected error:\n{traceback.format_exc()}")
         detail = f"天气服务异常: {str(e)}"
         if "403" in str(e):
             detail += "。和风 403 常见原因：请将 QWEATHER_API_HOST 改为控制台「API Host」中的专属域名（如 xxx.def.qweatherapi.com），勿用 api.qweather.com；或检查账户额度与 JWT 凭据。"

@@ -75,7 +75,7 @@ def create_user(db: Session, user_data: dict) -> Tuple[Optional[models.User], Op
         Tuple[用户对象, 错误信息] - 成功时返回用户对象，失败时返回错误信息
     """
     try:
-        print(f"创建用户: {user_data}")
+        print(f"create_user: username={user_data.get('username')}")
 
         # 检查用户名是否已存在
         if get_user_by_username(db, user_data["username"]):
@@ -103,12 +103,12 @@ def create_user(db: Session, user_data: dict) -> Tuple[Optional[models.User], Op
         db.commit()
         db.refresh(db_user)
 
-        print(f"用户创建成功: {db_user.username}")
+        print(f"create_user: success username={db_user.username}")
         return db_user, None
 
     except Exception as e:
         db.rollback()
-        print(f"创建用户错误: {e}")
+        print(f"create_user error:\n{traceback.format_exc()}")
         return None, f"创建用户失败: {str(e)}"
 
 
@@ -127,9 +127,6 @@ def authenticate_user(db: Session, username: str, password: str) -> Tuple[Option
     try:
         from sqlalchemy import or_
 
-        print(f"[DEBUG] 开始验证用户: {username}")
-
-        # 通过用户名或邮箱查找用户
         user = db.query(models.User).filter(
             or_(
                 models.User.username == username,
@@ -138,22 +135,15 @@ def authenticate_user(db: Session, username: str, password: str) -> Tuple[Option
         ).first()
 
         if not user:
-            print(f"[DEBUG] 用户不存在: {username}")
             return None, "用户名或密码错误"
 
-        print(f"[DEBUG] 找到用户: {user.username}, ID: {user.id}")
-        print(f"[DEBUG] 数据库密码哈希: {user.hashed_password[:30]}...")
-
-        # 使用正确的密码验证方法
         if not verify_password(password, user.hashed_password):
-            print(f"[DEBUG] 密码验证失败: {username}")
             return None, "用户名或密码错误"
 
-        print(f"[DEBUG] 认证成功: {user.username}")
         return user, None
 
     except Exception as e:
-        print(f"[ERROR] authenticate_user错误: {traceback.format_exc()}")
+        print(f"authenticate_user error:\n{traceback.format_exc()}")
         return None, f"认证过程中发生错误: {str(e)}"
 
 
@@ -179,11 +169,11 @@ def update_user_password(db: Session, email: str, new_password: str) -> Tuple[bo
         user.updated_at = datetime.now()
 
         db.commit()
-        print(f"密码更新成功: {email}")
+        print(f"update_user_password: success email={email}")
         return True, None
 
     except Exception as e:
         db.rollback()
-        print(f"更新密码错误: {e}")
+        print(f"update_user_password error:\n{traceback.format_exc()}")
         return False, f"更新密码失败: {str(e)}"
 
