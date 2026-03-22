@@ -17,8 +17,8 @@ from typing import Any, Iterator, Optional
 from sqlalchemy import inspect
 from sqlalchemy.orm import Session, load_only
 
-from database import SessionLocal
-from models import (
+from app.core.database import SessionLocal
+from app.models import (
     ClothingItem,
     ClothingTag,
     ModelPhoto,

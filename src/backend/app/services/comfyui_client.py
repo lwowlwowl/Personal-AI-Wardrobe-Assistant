@@ -1,13 +1,20 @@
+"""
+ComfyUI HTTP 客戶端與虛擬試穿工作流構建（資源：app/resources/qwen_edit_v1.json）。
+"""
 import json
-import requests
+import logging
 import time
 import uuid
-import os
-from typing import Dict, Any, Optional
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import requests
 from fastapi import HTTPException
-import logging
 
 logger = logging.getLogger(__name__)
+
+# app/services/ -> app/resources/
+_RESOURCES_DIR = Path(__file__).resolve().parent.parent / "resources"
 
 
 class ComfyUIClient:
@@ -26,7 +33,7 @@ class ComfyUIClient:
                 f"{self.server_address}/prompt",
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=10 # 增加超时保护
+                timeout=10  # 增加超时保护
             )
             if response.status_code == 200:
                 return response.json().get("prompt_id")
@@ -54,7 +61,8 @@ class ComfyUIClient:
 
     def upload_image(self, image_data: bytes, filename: str = None, type: str = "input") -> Optional[Dict[str, str]]:
         try:
-            if not filename: filename = f"upload_{int(time.time())}.png"
+            if not filename:
+                filename = f"upload_{int(time.time())}.png"
             files = {"image": (filename, image_data)}
             data = {"type": type}
             # ⬇️ 这里改用 self.session.post
@@ -88,8 +96,7 @@ def build_virtual_tryon_workflow(
     """
     根据 Qwen-Image-Edit 工作流构建任务
     """
-    # 加载你提供的 JSON 模板 (建议保存为 qwen_edit_v1.json)
-    template_path = os.path.join(os.path.dirname(__file__), "qwen_edit_v1.json")
+    template_path = _RESOURCES_DIR / "qwen_edit_v1.json"
 
     try:
         with open(template_path, "r", encoding="utf-8") as f:
@@ -100,10 +107,12 @@ def build_virtual_tryon_workflow(
 
     # --- 映射图片输入 ---
     # 78: 人物图 (Image 1)
-    if "78" in workflow: workflow["78"]["inputs"]["image"] = person_image
+    if "78" in workflow:
+        workflow["78"]["inputs"]["image"] = person_image
 
     # 106: 衣物图 (Image 2)
-    if "106" in workflow: workflow["106"]["inputs"]["image"] = clothing_image
+    if "106" in workflow:
+        workflow["106"]["inputs"]["image"] = clothing_image
 
     # 108: 配饰图 (Image 3)
     # 如果没有传配饰图，为了保证工作流不报错，通常保持原样或指向一个空白图
@@ -125,8 +134,10 @@ def build_virtual_tryon_workflow(
     # --- 映射模型参数 ---
     # 如果 model_type 是 "2509" (对应你 JSON 中的 safetensors)
     if model_type == "2509":
-        if "37" in workflow: workflow["37"]["inputs"]["unet_name"] = "qwen_image_edit_2509_fp8_e4m3fn.safetensors"
-        if "89" in workflow: workflow["89"]["inputs"]["lora_name"] = "Qwen-Image-Edit-Lightning-4steps-V1.0.safetensors"
+        if "37" in workflow:
+            workflow["37"]["inputs"]["unet_name"] = "qwen_image_edit_2509_fp8_e4m3fn.safetensors"
+        if "89" in workflow:
+            workflow["89"]["inputs"]["lora_name"] = "Qwen-Image-Edit-Lightning-4steps-V1.0.safetensors"
 
     # 设置保存前缀
     if "60" in workflow:
