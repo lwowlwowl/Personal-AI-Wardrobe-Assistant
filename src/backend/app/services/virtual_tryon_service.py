@@ -4,7 +4,6 @@
 """
 from __future__ import annotations
 
-import base64
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +24,13 @@ class JsonEnvelope:
 
     status_code: int
     body: Dict[str, Any]
+
+
+@dataclass(frozen=True)
+class PngBytesResult:
+    """生成成功：由路由返回原始 PNG 字节（与前端 arraybuffer 解析一致，避免超大 JSON base64）。"""
+
+    data: bytes
 
 
 def clean_token(raw: Optional[str]) -> str:
@@ -163,7 +169,7 @@ async def run_upload_virtual_tryon_image(
 def run_generate_virtual_tryon(
     body: schemas.VirtualTryOnGenerateRequest,
     db: Session,
-) -> Union[dict, JsonEnvelope]:
+) -> Union[JsonEnvelope, PngBytesResult]:
     if (
         not app_runtime.COMFYUI_AVAILABLE
         or not app_runtime.comfyui_client
@@ -243,15 +249,7 @@ def run_generate_virtual_tryon(
         except OSError as werr:
             print(f"virtual_tryon: could not write debug_result.png: {werr}")
 
-        b64 = base64.b64encode(img_bytes).decode("ascii")
-        data_url = f"data:image/png;base64,{b64}"
-        return {
-            "success": True,
-            "data": {
-                "result_image": data_url,
-                "image_size_bytes": len(img_bytes),
-            },
-        }
+        return PngBytesResult(data=img_bytes)
     except HTTPException as he:
         return JsonEnvelope(200, {"success": False, "message": str(he.detail)})
     except Exception as e:

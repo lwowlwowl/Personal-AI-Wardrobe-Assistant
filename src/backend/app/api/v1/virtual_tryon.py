@@ -1,13 +1,14 @@
 from app.core.database import get_db
 from app.services.virtual_tryon_service import (
     JsonEnvelope,
+    PngBytesResult,
     run_generate_virtual_tryon,
     run_upload_virtual_tryon_from_storage,
     run_upload_virtual_tryon_image,
 )
 import app.schemas as schemas
 from fastapi import APIRouter, Depends, File, Form, UploadFile
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 
 router = APIRouter(tags=["virtual-try-on"])
@@ -53,11 +54,14 @@ async def generate_virtual_tryon(
     out = run_generate_virtual_tryon(body, db)
     if isinstance(out, JsonEnvelope):
         return JSONResponse(status_code=out.status_code, content=out.body)
-    if isinstance(out, dict) and out.get("success") and isinstance(out.get("data"), dict):
-        nbytes = out["data"].get("image_size_bytes")
-        if isinstance(nbytes, int):
-            return JSONResponse(
-                content=out,
-                headers={"X-Result-Image-Bytes": str(nbytes)},
-            )
+    if isinstance(out, PngBytesResult):
+        nbytes = len(out.data)
+        return Response(
+            content=out.data,
+            media_type="image/png",
+            headers={
+                "X-Result-Image-Bytes": str(nbytes),
+                "Content-Length": str(nbytes),
+            },
+        )
     return out

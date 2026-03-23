@@ -390,9 +390,41 @@ export function uploadVirtualTryOnImage(filePath, imageType) {
   })
 }
 
+function isPngMagic(u8) {
+  return (
+    u8 &&
+    u8.length >= 8 &&
+    u8[0] === 0x89 &&
+    u8[1] === 0x50 &&
+    u8[2] === 0x4e &&
+    u8[3] === 0x47 &&
+    u8[4] === 0x0d &&
+    u8[5] === 0x0a &&
+    u8[6] === 0x1a &&
+    u8[7] === 0x0a
+  )
+}
+
+/** 大圖時避免 String.fromCharCode.apply 爆棧；優先用 uni API */
+function arrayBufferToBase64DataUrl(ab) {
+  if (typeof uni.arrayBufferToBase64 === 'function') {
+    return `data:image/png;base64,${uni.arrayBufferToBase64(ab)}`
+  }
+  const u8 = new Uint8Array(ab)
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < u8.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, u8.subarray(i, i + chunk))
+  }
+  return `data:image/png;base64,${btoa(binary)}`
+}
+
 /**
+ * 與 frontend_yuchen 一致：後端成功時回傳原始 PNG；錯誤仍為 JSON。
+ * 同時相容舊版後端（JSON 內含 data.result_image base64）。
+ *
  * @param {{ person_image: string, clothing_image: string, token: string, model_type?: string }} body
- * @returns {Promise<string>} result_image (URL or data URL)
+ * @returns {Promise<string>} result_image（data URL）
  */
 export function generateVirtualTryOn(body) {
   const { person_image, clothing_image, token, model_type = '2509' } = body
@@ -401,6 +433,7 @@ export function generateVirtualTryOn(body) {
       url: `${API_BASE_URL}/api/virtual-try-on/generate`,
       method: 'POST',
       header: { 'content-type': 'application/json' },
+      responseType: 'arraybuffer',
       data: {
         person_image,
         clothing_image,
@@ -408,38 +441,68 @@ export function generateVirtualTryOn(body) {
         model_type
       },
       success: (res) => {
-        let payload = res.data
-        if (typeof payload === 'string') {
-          try {
-            payload = JSON.parse(payload)
-          } catch {
-            reject(
-              new Error(
-                `Generation returned non-JSON (HTTP ${res.statusCode}). Is the API URL correct?`
-              )
-            )
-            return
-          }
+        const code = res.statusCode
+        const raw = res.data
+        if (raw == null) {
+          reject(new Error('Generation returned empty body'))
+          return
         }
-        if (
-          res.statusCode === 200 &&
-          payload?.success &&
-          payload?.data?.result_image
-        ) {
+
+        let ab
+        if (raw instanceof ArrayBuffer) {
+          ab = raw
+        } else if (ArrayBuffer.isView(raw)) {
+          ab = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength)
+        } else {
+          reject(new Error('Unexpected response body type from generate API'))
+          return
+        }
+        if (!ab || ab.byteLength === 0) {
+          reject(new Error('Generation returned empty body'))
+          return
+        }
+
+        const u8 = new Uint8Array(ab)
+
+        if (code === 200 && isPngMagic(u8)) {
+          console.log('[virtualTryOnApi] PNG bytes', u8.byteLength)
+          resolve(arrayBufferToBase64DataUrl(ab))
+          return
+        }
+
+        let text
+        try {
+          text = new TextDecoder('utf-8').decode(u8)
+        } catch (e) {
+          reject(new Error('Unable to decode server response'))
+          return
+        }
+
+        let payload
+        try {
+          payload = JSON.parse(text)
+        } catch {
+          reject(
+            new Error(
+              `Generation returned non-JSON (HTTP ${code}). Is the API URL correct?`
+            )
+          )
+          return
+        }
+
+        if (code === 200 && payload?.success && payload?.data?.result_image) {
           const nbytes = payload?.data?.image_size_bytes
           if (typeof nbytes === 'number') {
             console.log('[virtualTryOnApi] image_size_bytes', nbytes)
           }
           resolve(payload.data.result_image)
-        } else {
-          const backendMsg = extractBackendMessage(payload)
-          reject(
-            new Error(
-              backendMsg ||
-                `Generation failed (HTTP ${res.statusCode})`
-            )
-          )
+          return
         }
+
+        const backendMsg = extractBackendMessage(payload)
+        reject(
+          new Error(backendMsg || `Generation failed (HTTP ${code})`)
+        )
       },
       fail: (err) => reject(new Error(`Generation request failed: ${parseUniError(err)}`))
     })
