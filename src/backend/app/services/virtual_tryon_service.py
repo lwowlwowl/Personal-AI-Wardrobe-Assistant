@@ -1,6 +1,6 @@
 """
-虛擬試穿業務編排；路由層僅處理 UploadFile 讀取與 JSONResponse 包裝。
-回應形狀與狀態碼與重構前 virtual_tryon 路由一致。
+虚拟试穿业务编排；路由层仅处理 UploadFile 读取与 JSONResponse 包装。
+响应形状与状态码与重构前 virtual_tryon 路由一致。
 """
 from __future__ import annotations
 
@@ -9,17 +9,19 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
+from urllib.parse import urlparse
 
 import app.crud as crud
 import app.schemas as schemas
 from app import runtime as app_runtime
+from app.services.file_service import UPLOAD_DIR, UPLOAD_URL_PREFIX
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 
 @dataclass(frozen=True)
 class JsonEnvelope:
-    """需以 JSONResponse(status_code, content=body) 回傳（與原路由一致）。"""
+    """需以 JSONResponse(status_code, content=body) 返回（与原路由一致）。"""
 
     status_code: int
     body: Dict[str, Any]
@@ -30,6 +32,88 @@ def clean_token(raw: Optional[str]) -> str:
         return ""
     s = str(raw).strip().strip('"').strip("'")
     return s
+
+
+def _resolve_storage_path_from_image_ref(image_ref: str) -> Optional[Path]:
+    """将前端传入的衣柜静态 URL 解析为本机 uploads 内安全路径。"""
+    s = (image_ref or "").strip()
+    if not s:
+        return None
+    if s.startswith("http://") or s.startswith("https://"):
+        s = urlparse(s).path or ""
+    if not s.startswith(UPLOAD_URL_PREFIX + "/"):
+        return None
+    rel = s[len(UPLOAD_URL_PREFIX) + 1 :].lstrip("/")
+    if not rel or ".." in rel.replace("\\", "/"):
+        return None
+    base = UPLOAD_DIR.resolve()
+    candidate = (UPLOAD_DIR / rel).resolve()
+    try:
+        candidate.relative_to(base)
+    except ValueError:
+        return None
+    if not candidate.is_file():
+        return None
+    return candidate
+
+
+def run_upload_virtual_tryon_from_storage(
+    body: schemas.VirtualTryOnUploadFromStorageRequest,
+    db: Session,
+) -> Union[dict, JsonEnvelope]:
+    """
+    從本機 uploads 讀取圖片並上傳到 ComfyUI，避免前端 uni.downloadFile 失敗（小程序域名等）。
+    """
+    if not app_runtime.COMFYUI_AVAILABLE or not app_runtime.comfyui_client:
+        return JsonEnvelope(
+            status_code=503,
+            body={
+                "success": False,
+                "message": "虚拟试穿未启用：请确认 app/services/comfyui_client.py 可用，且 app/resources/qwen_edit_v1.json 存在",
+            },
+        )
+
+    t = clean_token(body.token)
+    payload = crud.verify_access_token(t) if t else None
+    if not payload:
+        raise HTTPException(status_code=401, detail="未授权：Token 失效")
+
+    user = crud.get_user_by_id(db, payload.get("user_id"))
+    if not user or not user.is_active:
+        raise HTTPException(status_code=403, detail="账号状态异常")
+
+    path = _resolve_storage_path_from_image_ref(body.image_ref)
+    if path is None:
+        raise HTTPException(
+            status_code=400,
+            detail="无效的图片路径：请使用衣柜/模特图的有效地址（Personal-AI-Wardrobe-Assistant/uploads/...）",
+        )
+
+    rel_under_upload = path.relative_to(UPLOAD_DIR.resolve())
+    parts = str(rel_under_upload).replace("\\", "/").split("/")
+    if parts and str(user.id) != parts[0]:
+        raise HTTPException(status_code=403, detail="无权访问该图片文件")
+
+    try:
+        file_content = path.read_bytes()
+    except OSError as e:
+        raise HTTPException(status_code=400, detail=f"读取图片失败: {e}") from e
+
+    cc = app_runtime.comfyui_client
+    try:
+        res = cc.upload_image(file_content, filename=path.name)
+        if not res:
+            raise HTTPException(
+                status_code=503,
+                detail="ComfyUI 未响应，请确认 ComfyUI 已启动且地址正确（可用环境变量 COMFYUI_SERVER 配置）",
+            )
+        name = res.get("name")
+        return {"success": True, "filename": name, "data": {"filename": name}}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"virtual_tryon upload-from-storage error:\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}") from e
 
 
 async def run_upload_virtual_tryon_image(

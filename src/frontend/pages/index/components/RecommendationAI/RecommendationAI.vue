@@ -199,7 +199,7 @@ import LoadingPanel from './chat-content/LoadingPanel.vue'
 import InputBar from './InputBar.vue'
 import { chatRecommendation, getWeatherNow, getAuthToken } from '@/api/recommendationApi.js'
 import { getClothingList, getPrimaryModelPhoto } from '@/api/wardrobe.js'
-import { resolveWardrobeImageUrl } from '@/api/wardrobeMedia.js'
+import { resolveWardrobeImageUrl, isPlaceholderWardrobeUrl } from '@/api/wardrobeMedia.js'
 import { getCalendarOutfits, saveCalendarOutfits } from '@/api/calendarApi.js'
 import { getOutfitTryOnSortIndex, buildOutfitTryOnStepLabel } from './utils/rec/outfitOrder.js'
 
@@ -427,7 +427,8 @@ async function fetchPrimaryModelImageUrl() {
 		const photo = res.data.data
 		const raw = photo.image_url || photo.imageUrl || ''
 		const url = buildImageUrl(raw)
-		return url || null
+		if (!raw || !url || isPlaceholderWardrobeUrl(url)) return null
+		return url
 	} catch {
 		return null
 	}

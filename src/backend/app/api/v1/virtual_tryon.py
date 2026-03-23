@@ -1,5 +1,10 @@
 from app.core.database import get_db
-from app.services.virtual_tryon_service import JsonEnvelope, run_generate_virtual_tryon, run_upload_virtual_tryon_image
+from app.services.virtual_tryon_service import (
+    JsonEnvelope,
+    run_generate_virtual_tryon,
+    run_upload_virtual_tryon_from_storage,
+    run_upload_virtual_tryon_image,
+)
 import app.schemas as schemas
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from fastapi.responses import JSONResponse
@@ -23,6 +28,18 @@ async def upload_virtual_tryon_image(
         image_type=image_type,
         db=db,
     )
+    if isinstance(out, JsonEnvelope):
+        return JSONResponse(status_code=out.status_code, content=out.body)
+    return out
+
+
+@router.post("/api/virtual-try-on/upload-from-storage")
+async def upload_virtual_tryon_from_storage(
+    body: schemas.VirtualTryOnUploadFromStorageRequest,
+    db: Session = Depends(get_db),
+):
+    """由本机 uploads 路径直接转 ComfyUI，避免前端 downloadFile 跨域/白名单问题。"""
+    out = run_upload_virtual_tryon_from_storage(body, db)
     if isinstance(out, JsonEnvelope):
         return JSONResponse(status_code=out.status_code, content=out.body)
     return out

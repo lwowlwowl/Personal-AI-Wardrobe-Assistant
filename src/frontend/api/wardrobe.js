@@ -259,5 +259,6 @@ export function updateModelPhoto(token, photoId, updateData) {
 export {
   resolveWardrobeImageUrl,
   applyClothingImageUrlFixes,
-  isClothingDeleteNotFoundResponse
+  isClothingDeleteNotFoundResponse,
+  isPlaceholderWardrobeUrl
 } from './wardrobeMedia.js'

@@ -9,7 +9,16 @@ const PLACEHOLDER =
   'https://placehold.co/400x500/f5f0e6/8c7b60?text=No+Image'
 
 /**
- * Normalize image URL from API (relative path -> full URL under base).
+ * 列表占位图（勿用于需上传到 ComfyUI 的流程）
+ */
+export function isPlaceholderWardrobeUrl(imageUrl) {
+  if (imageUrl == null || imageUrl === '') return true
+  const s = String(imageUrl)
+  return s.includes('placehold.co') || s.includes('placeholder')
+}
+
+/**
+ * 将 API 返回的图片路径规范为完整 URL（相对路径 -> 基于 base 的绝对地址）
  */
 export function resolveWardrobeImageUrl(imageUrl, baseUrl = API_BASE_URL) {
   if (imageUrl == null || imageUrl === '') return PLACEHOLDER

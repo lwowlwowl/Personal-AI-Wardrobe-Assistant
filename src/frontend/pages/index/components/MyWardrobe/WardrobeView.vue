@@ -517,7 +517,8 @@ import {
   updateModelPhoto,
   resolveWardrobeImageUrl,
   applyClothingImageUrlFixes,
-  isClothingDeleteNotFoundResponse
+  isClothingDeleteNotFoundResponse,
+  isPlaceholderWardrobeUrl
 } from '@/api/wardrobe.js'
 
 const emit = defineEmits(['switch-to-tryon'])
@@ -1555,7 +1556,10 @@ const handleImageError = (_event, item) => {
 const handleVirtualTryOn = (item) => {
 	showModal.value = false
 	const defaultModel = defaultModelId.value ? models.value.find((m) => m.id === defaultModelId.value) : null
-	const defaultModelImage = defaultModel?.image ?? null
+	let defaultModelImage = defaultModel?.image ?? null
+	if (defaultModelImage && isPlaceholderWardrobeUrl(defaultModelImage)) {
+		defaultModelImage = null
+	}
 	emit('switch-to-tryon', item, defaultModelImage)
 }
 

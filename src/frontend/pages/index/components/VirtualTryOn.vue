@@ -186,13 +186,27 @@ const clothingImg = ref('')
 const personImgName = ref('')
 const clothingImgName = ref('')
 
-watch(() => props.initialClothingImage, (url) => {
-  if (url) clothingImg.value = url
-}, { immediate: true })
+watch(
+  () => props.initialClothingImage,
+  (url, prev) => {
+    if (url) {
+      clothingImg.value = url
+      if (url !== prev) clothingImgName.value = ''
+    }
+  },
+  { immediate: true }
+)
 
-watch(() => props.initialPersonImage, (url) => {
-  if (url) personImg.value = url
-}, { immediate: true })
+watch(
+  () => props.initialPersonImage,
+  (url, prev) => {
+    if (url) {
+      personImg.value = url
+      if (url !== prev) personImgName.value = ''
+    }
+  },
+  { immediate: true }
+)
 
 const resultImg = ref('')
 const lastDebugBlobUrl = ref(null)
@@ -312,8 +326,10 @@ const uploadImage = (type) => {
     const tempFilePath = res.tempFilePaths[0]
     if (type === 'person') {
      personImg.value = tempFilePath
+     personImgName.value = ''
     } else {
      clothingImg.value = tempFilePath
+     clothingImgName.value = ''
     }
    }
   })
@@ -340,8 +356,10 @@ const handleDrop = (event, type) => {
     const url = URL.createObjectURL(file)
     if (type === 'person') {
      personImg.value = url
+     personImgName.value = ''
     } else {
      clothingImg.value = url
+     clothingImgName.value = ''
     }
    } else {
     uni.showToast({ title: 'Please drop an image file', icon: 'none' })
@@ -380,14 +398,50 @@ function dataUrlToBlobUrl(dataUrl) {
   return URL.createObjectURL(blob)
 }
 
-function ensureUploadablePath(src, revokeList) {
-  if (!src) throw new Error('Missing image')
-  if (typeof src === 'string' && src.startsWith('data:')) {
-   const u = dataUrlToBlobUrl(src)
-   if (Array.isArray(revokeList)) revokeList.push(u)
-   return u
+/**
+ * 尽量还原可读错误；避免只剩默认「Render failed / Outfit try-on failed」。
+ * uni / 网络层常抛出无 message 的对象或空字符串。
+ */
+function errorMessage(err, fallback) {
+  if (err === null || err === undefined) return fallback
+
+  if (typeof err === 'string') {
+    const t = err.trim()
+    return t || fallback
   }
-  return src
+
+  if (err instanceof Error) {
+    const m = String(err.message || '').trim()
+    if (m) return m
+    if (err.stack) {
+      const first = String(err.stack).split('\n')[0].trim()
+      if (first) return first
+    }
+  }
+
+  const pick = [
+    err.errMsg,
+    err.message,
+    err.msg,
+    err.detail,
+    err.reason,
+    err.statusCode != null ? `status ${err.statusCode}` : ''
+  ]
+    .map((x) => (x == null ? '' : String(x).trim()))
+    .filter(Boolean)
+  if (pick.length) return pick.join(' · ')
+
+  if (typeof err.toString === 'function') {
+    const s = String(err.toString()).trim()
+    if (s && s !== '[object Object]') return s
+  }
+
+  try {
+    const j = JSON.stringify(err)
+    if (j && j !== '{}') return j
+  } catch (_) {}
+
+  return fallback
 }
 
 function applyResultImageWithDomFlush(dataUrl) {
@@ -446,8 +500,6 @@ async function runOutfitPipeline() {
   isLoading.value = true
   resultImg.value = ''
 
-  const blobUrlsToRevoke = []
-
   try {
    for (let i = 0; i < q.length; i++) {
     outfitPipelineStepIndex.value = i
@@ -464,11 +516,8 @@ async function runOutfitPipeline() {
 
     await nextTick()
 
-    const personPath = ensureUploadablePath(personSrc, blobUrlsToRevoke)
-    const clothPath = ensureUploadablePath(clothSrc, blobUrlsToRevoke)
-
-    const personName = await uploadVirtualTryOnImage(personPath, 'person')
-    const clothName = await uploadVirtualTryOnImage(clothPath, 'clothing')
+    const personName = await uploadVirtualTryOnImage(personSrc, 'person')
+    const clothName = await uploadVirtualTryOnImage(clothSrc, 'clothing')
 
     const resultDataUrl = await generateVirtualTryOn({
      person_image: personName,
@@ -477,7 +526,7 @@ async function runOutfitPipeline() {
      model_type: '2509'
     })
 
-    await applyResultImageWithDomFlush(resultDataUrl)
+    resultImg.value = resultDataUrl
     personSrc = resultDataUrl
    }
 
@@ -489,13 +538,15 @@ async function runOutfitPipeline() {
    outfitPipelineStepIndex.value = q.length
    uni.showToast({ title: 'Full outfit complete!', icon: 'success' })
   } catch (e) {
-   console.error('[VirtualTryOn] outfit pipeline', e)
-   uni.showToast({ title: e?.message || 'Outfit try-on failed', icon: 'none' })
+   const msg = errorMessage(e, 'Outfit try-on failed')
+   console.error('[VirtualTryOn] outfit pipeline failed', msg, e)
+   uni.showToast({
+    title: msg.length > 120 ? `${msg.slice(0, 117)}...` : msg,
+    icon: 'none',
+    duration: 3500
+   })
    outfitPipelineStepIndex.value = -1
   } finally {
-   blobUrlsToRevoke.forEach((u) => {
-    try { URL.revokeObjectURL(u) } catch (_) {}
-   })
    isLoading.value = false
    outfitProgressText.value = ''
    isPipelineRunning.value = false
@@ -545,11 +596,26 @@ const handleGenerate = async () => {
     return
    }
 
-   if (!personImgName.value || personImg.value.includes('blob:')) {
+   /** 远端 / 易变来源必须重新上传；本地临时且已有后端文件名才可跳过 */
+   const needsUpload = (src, cachedName) => {
+    if (!cachedName) return true
+    if (!src || typeof src !== 'string') return true
+    return (
+     src.includes('blob:') ||
+     src.startsWith('data:') ||
+     /^https?:\/\//i.test(src) ||
+     src.startsWith('//') ||
+     (src.startsWith('/') && !src.startsWith('//')) ||
+     /^uploads\//i.test(src) ||
+     /^static\//i.test(src)
+    )
+   }
+
+   if (needsUpload(personImg.value, personImgName.value)) {
     personImgName.value = await uploadVirtualTryOnImage(personImg.value, 'person')
    }
 
-   if (!clothingImgName.value || clothingImg.value.includes('blob:')) {
+   if (needsUpload(clothingImg.value, clothingImgName.value)) {
     clothingImgName.value = await uploadVirtualTryOnImage(clothingImg.value, 'clothing')
    }
 
@@ -572,8 +638,18 @@ const handleGenerate = async () => {
 
    uni.showToast({ title: 'Success!', icon: 'success' })
   } catch (error) {
-   console.error('Process Error:', error)
-   uni.showToast({ title: error?.message || 'Render failed', icon: 'none' })
+   const msg = errorMessage(error, 'Render failed')
+   console.error('[VirtualTryOn] handleGenerate failed', msg, error)
+   try {
+    console.error('[VirtualTryOn] error payload', JSON.stringify(error, Object.getOwnPropertyNames(error)))
+   } catch (_) {
+    console.error('[VirtualTryOn] error (not serializable)', error)
+   }
+   uni.showToast({
+    title: msg.length > 120 ? `${msg.slice(0, 117)}...` : msg,
+    icon: 'none',
+    duration: 3500
+   })
   } finally {
    isLoading.value = false
   }

@@ -56,7 +56,10 @@ from app.schemas.outfit import (
     OutfitUpdate,
 )
 from app.schemas.user import UserBase, UserCreate, UserResponse, UserUpdate
-from app.schemas.virtual_tryon import VirtualTryOnGenerateRequest
+from app.schemas.virtual_tryon import (
+    VirtualTryOnGenerateRequest,
+    VirtualTryOnUploadFromStorageRequest,
+)
 from app.schemas.weather import WeatherLatLonParams
 from app.schemas.wear_history import (
     CalendarOutfitItem,
@@ -123,5 +126,6 @@ __all__ = [
     "AIConversationUpdate",
     "AIConversationResponse",
     "VirtualTryOnGenerateRequest",
+    "VirtualTryOnUploadFromStorageRequest",
     "WeatherLatLonParams",
 ]
