@@ -39,10 +39,10 @@ function parseVirtualTryUploadResponse(res, imageType) {
       const code = res.statusCode
       if (code === 503 || code === 502) {
         throw new Error(
-          `上传失败：服务不可用 (HTTP ${code})。请确认 ComfyUI 已启动且 COMFYUI_SERVER 地址正确`
+          `Upload failed: service unavailable (HTTP ${code}). Please ensure ComfyUI is running and COMFYUI_SERVER is correct`
         )
       }
-      throw new Error(`上传响应无效 (${imageType})：HTTP ${res.statusCode}`)
+      throw new Error(`Invalid upload response (${imageType}): HTTP ${res.statusCode}`)
     }
   }
   const data = payload || {}
@@ -56,7 +56,7 @@ function parseVirtualTryUploadResponse(res, imageType) {
     return name
   }
   if (backendMsg) throw new Error(backendMsg)
-  throw new Error(`上传失败 (${imageType})：HTTP ${res.statusCode || 'unknown'}`)
+  throw new Error(`Upload failed (${imageType}): HTTP ${res.statusCode || 'unknown'}`)
 }
 
 function joinBaseUrl(path) {
@@ -113,7 +113,7 @@ function requestUploadFromStorage(imageRef, imageType, token) {
         }
       },
       fail: (err) =>
-        reject(new Error(`上传失败 (${imageType})：${parseUniError(err)}`))
+        reject(new Error(`Upload failed (${imageType}): ${parseUniError(err)}`))
     })
   })
 }
@@ -181,22 +181,22 @@ function downloadToTempFile(url) {
         if (code === 503 || code === 502 || code === 504) {
           reject(
             new Error(
-              `服务暂时不可用 (HTTP ${code})。请确认后端与 ComfyUI 已启动，且 API 地址 (${API_BASE_URL}) 正确`
+              `Service temporarily unavailable (HTTP ${code}). Please ensure backend and ComfyUI are running, and API URL (${API_BASE_URL}) is correct`
             )
           )
           return
         }
         reject(
           new Error(
-            `无法下载图片 (HTTP ${code})。请检查图片网址、网络或 CORS；若仅 ComfyUI 未开，请先启动 ComfyUI 再试`
+            `Unable to download image (HTTP ${code}). Check image URL, network, or CORS; if ComfyUI is not running, start it and try again`
           )
         )
       },
       fail: (err) => {
-        const base = parseUniError(err, '无法下载图片')
+        const base = parseUniError(err, 'Unable to download image')
         reject(
           new Error(
-            `${base}。若后端/ComfyUI 未启动或 API 地址错误，也会无法加载图片`
+            `${base}. This can also happen if backend/ComfyUI is not running or the API URL is incorrect`
           )
         )
       }
@@ -286,7 +286,7 @@ function resolveLocalFilePathForUpload(src) {
   const s = src.trim()
   if (isPlaceholderImageUrl(s)) {
     return Promise.reject(
-      new Error('图片为占位或无效，请上传实拍图或在衣柜设置有效默认模特')
+      new Error('Image is a placeholder or invalid. Please upload a real photo or set a valid default model in My Wardrobe')
     )
   }
 
@@ -380,7 +380,7 @@ export function uploadVirtualTryOnImage(filePath, imageType) {
           fail: (err) => {
             reject(
               new Error(
-                `上传失败 (${imageType})：${parseUniError(err)}。若 ComfyUI 未启动，请先启动后再试`
+                `Upload failed (${imageType}): ${parseUniError(err)}. If ComfyUI is not running, start it and try again`
               )
             )
           }
@@ -436,7 +436,7 @@ export function generateVirtualTryOn(body) {
           reject(
             new Error(
               backendMsg ||
-                `生成失败 (HTTP ${res.statusCode})`
+                `Generation failed (HTTP ${res.statusCode})`
             )
           )
         }

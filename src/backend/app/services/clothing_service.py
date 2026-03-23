@@ -84,7 +84,7 @@ def run_upload_clothing_item(
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="购买日期格式错误，请使用YYYY-MM-DD格式",
+                    detail="Invalid purchase date format. Use YYYY-MM-DD.",
                 )
 
         label_result: Optional[Dict[str, Any]] = None
@@ -116,7 +116,7 @@ def run_upload_clothing_item(
                     delete_file(image_url)
                     raise HTTPException(
                         status_code=status.HTTP_502_BAD_GATEWAY,
-                        detail=f"图片自动打标失败: {str(e)}",
+                        detail=f"Automatic image labeling failed: {str(e)}",
                     )
 
         resolved: Dict[str, Any] = {
@@ -164,7 +164,7 @@ def run_upload_clothing_item(
             delete_file(image_url)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="缺少 category，且自动打标未返回可用分类",
+                detail="Missing category, and auto-labeling did not return a usable category",
             )
         resolved["category"] = normalize_category(resolved["category"])
         if not resolved["name"]:
@@ -190,7 +190,7 @@ def run_upload_clothing_item(
 
         return {
             "success": True,
-            "message": "衣物上传成功",
+            "message": "Clothing item uploaded successfully.",
             "data": {
                 "id": clothing_item.id,
                 "name": clothing_item.name,
@@ -212,5 +212,5 @@ def run_upload_clothing_item(
         print(f"run_upload_clothing_item error:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"上传衣物时发生错误: {str(e)}",
+            detail=f"Error occurred while uploading clothing item: {str(e)}",
         )

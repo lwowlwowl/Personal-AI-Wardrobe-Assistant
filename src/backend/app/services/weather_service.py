@@ -50,9 +50,10 @@ def fetch_weather_now(lat: float, lon: float, token: Optional[str]) -> Dict[str,
         raise AppError(
             status_code=400,
             message=(
-                "QWEATHER_API_HOST 不能使用 api.qweather.com（会 403）。"
-                "请登录 https://dev.qweather.com 控制台，在项目/认证里复制「API Host」专属域名（形如 https://xxx.def.qweatherapi.com），"
-                "填到 backend/.env 的 QWEATHER_API_HOST，保存后重启后端。"
+                "QWEATHER_API_HOST cannot use api.qweather.com (it causes HTTP 403). "
+                "Sign in to https://dev.qweather.com, copy your dedicated 'API Host' domain "
+                "(for example, https://xxx.def.qweatherapi.com), put it into backend/.env as "
+                "QWEATHER_API_HOST, then restart the backend."
             ),
         )
 
@@ -60,7 +61,7 @@ def fetch_weather_now(lat: float, lon: float, token: Optional[str]) -> Dict[str,
     if token:
         payload = crud.verify_access_token(token)
         if not payload or not payload.get("user_id"):
-            raise AppError(status_code=401, message="无效或过期的token")
+            raise AppError(status_code=401, message="Invalid or expired token")
         cache_user_id = payload["user_id"]
 
     location = get_cached_location_by_coords(cache_user_id, lat, lon, lang="en")
@@ -70,12 +71,12 @@ def fetch_weather_now(lat: float, lon: float, token: Optional[str]) -> Dict[str,
         except (RuntimeError, ValueError) as e:
             raise AppError(status_code=400, message=str(e)) from e
         if not location:
-            raise AppError(status_code=400, message="未匹配到该经纬度位置，请检查坐标")
+            raise AppError(status_code=400, message="No location matched these coordinates. Please check latitude/longitude")
         set_user_location_cache(cache_user_id, lat, lon, location, lang="en")
 
     location_id = location.get("id")
     if not location_id:
-        raise AppError(status_code=400, message="未匹配到该经纬度位置，请检查坐标")
+        raise AppError(status_code=400, message="No location matched these coordinates. Please check latitude/longitude")
 
     cache_key = location_id
     now_ts = time.time()
@@ -90,9 +91,13 @@ def fetch_weather_now(lat: float, lon: float, token: Optional[str]) -> Dict[str,
         raise AppError(status_code=400, message=str(e)) from e
     except Exception as e:
         print(f"fetch_weather_now unexpected error:\n{traceback.format_exc()}")
-        detail = f"天气服务异常: {str(e)}"
+        detail = f"Weather service error: {str(e)}"
         if "403" in str(e):
-            detail += "。和风 403 常见原因：请将 QWEATHER_API_HOST 改为控制台「API Host」中的专属域名（如 xxx.def.qweatherapi.com），勿用 api.qweather.com；或检查账户额度与 JWT 凭据。"
+            detail += (
+                ". Common QWeather 403 causes: set QWEATHER_API_HOST to your dedicated "
+                "'API Host' domain from the dashboard (for example, xxx.def.qweatherapi.com) "
+                "instead of api.qweather.com, and check account quota and JWT credentials."
+            )
         raise AppError(status_code=500, message=detail) from e
 
     now = data.get("now") or {}

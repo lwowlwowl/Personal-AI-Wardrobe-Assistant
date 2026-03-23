@@ -1,21 +1,15 @@
 """衣物 CRUD。"""
-from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
-from sqlalchemy import asc, desc, func, or_
+from sqlalchemy import asc, desc, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import ClothingItem, ClothingTag, WearHistory
+from app.models import ClothingItem, ClothingTag
 from app.schemas import ClothingItemCreate, ClothingItemUpdate
 
 class ClothingCRUD:
     """服装相关CRUD操作类"""
-
-    @staticmethod
-    def get_clothing_item(db: Session, clothing_id: int) -> Optional[ClothingItem]:
-        """获取单个衣物（不检查用户权限）。路由层请使用 get_clothing_item_by_user 做权限校验。"""
-        return db.query(ClothingItem).filter(ClothingItem.id == clothing_id).first()
 
     @staticmethod
     def get_clothing_item_by_user(
@@ -199,7 +193,7 @@ class ClothingCRUD:
         except Exception as e:
             db.rollback()
             print(f"创建衣物错误: {e}")
-            return None, f"创建衣物失败: {str(e)}"
+            return None, f"Failed to create clothing item: {str(e)}"
 
     @staticmethod
     def update_clothing_item(
@@ -256,7 +250,7 @@ class ClothingCRUD:
         except Exception as e:
             db.rollback()
             print(f"更新衣物错误: {e}")
-            return None, f"更新衣物失败: {str(e)}"
+            return None, f"Failed to update clothing item: {str(e)}"
 
     @staticmethod
     def delete_clothing_item(db: Session, clothing_id: int) -> Tuple[bool, Optional[str]]:
@@ -273,7 +267,7 @@ class ClothingCRUD:
         try:
             item = db.query(ClothingItem).filter(ClothingItem.id == clothing_id).first()
             if not item:
-                return False, "衣物不存在"
+                return False, "Clothing item does not exist"
 
             db.delete(item)
             db.commit()
@@ -282,194 +276,5 @@ class ClothingCRUD:
         except Exception as e:
             db.rollback()
             print(f"删除衣物错误: {e}")
-            return False, f"删除衣物失败: {str(e)}"
+            return False, f"Failed to delete clothing item: {str(e)}"
 
-    @staticmethod
-    def record_clothing_wear(
-            db: Session,
-            clothing_id: int
-    ) -> Tuple[Optional[ClothingItem], Optional[str]]:
-        """
-        记录衣物穿着（增加穿着次数并更新最后穿着日期）
-
-        参数:
-            db: 数据库会话
-            clothing_id: 衣物ID
-
-        返回:
-            Tuple[更新后的衣物对象, 错误信息]
-        """
-        try:
-            item = db.query(ClothingItem).filter(ClothingItem.id == clothing_id).first()
-            if not item:
-                return None, "衣物不存在"
-
-            # 更新穿着统计
-            item.wear_count += 1
-            item.last_worn_date = date.today()
-            db.add(item)
-            db.commit()
-            db.refresh(item)
-
-            return item, None
-
-        except Exception as e:
-            db.rollback()
-            print(f"记录穿着错误: {e}")
-            return None, f"记录穿着失败: {str(e)}"
-
-    @staticmethod
-    def get_clothing_stats(db: Session, user_id: int) -> Dict[str, Any]:
-        """
-        获取衣物统计信息
-
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-
-        返回:
-            包含各种统计信息的字典
-        """
-        try:
-            # 基本统计：总数、总花费、平均价格
-            total_query = db.query(
-                func.count(ClothingItem.id).label('total_items'),
-                func.coalesce(func.sum(ClothingItem.price), 0).label('total_cost'),
-                func.coalesce(func.avg(ClothingItem.price), 0).label('avg_price')
-            ).filter(ClothingItem.user_id == user_id).first()
-
-            # 分类统计
-            category_stats = db.query(
-                ClothingItem.category,
-                func.count(ClothingItem.id).label('count')
-            ).filter(ClothingItem.user_id == user_id).group_by(ClothingItem.category).all()
-
-            # 季节统计
-            season_stats = db.query(
-                ClothingItem.season,
-                func.count(ClothingItem.id).label('count')
-            ).filter(ClothingItem.user_id == user_id).group_by(ClothingItem.season).all()
-
-            # 颜色统计
-            color_stats = db.query(
-                ClothingItem.color,
-                func.count(ClothingItem.id).label('count')
-            ).filter(
-                ClothingItem.user_id == user_id,
-                ClothingItem.color.isnot(None)
-            ).group_by(ClothingItem.color).all()
-
-            # 最常穿着（前5件）
-            most_worn = db.query(ClothingItem).filter(
-                ClothingItem.user_id == user_id,
-                ClothingItem.wear_count > 0
-            ).order_by(desc(ClothingItem.wear_count)).limit(5).all()
-
-            # 最近添加（前5件）
-            recently_added = db.query(ClothingItem).filter(
-                ClothingItem.user_id == user_id
-            ).order_by(desc(ClothingItem.created_at)).limit(5).all()
-
-            # 穿着频率（最近30天）
-            thirty_days_ago = date.today() - timedelta(days=30)
-            wear_frequency = db.query(
-                WearHistory.wear_date,
-                func.count(WearHistory.id).label('count')
-            ).filter(
-                WearHistory.user_id == user_id,
-                WearHistory.wear_date >= thirty_days_ago
-            ).group_by(WearHistory.wear_date).all()
-
-            # 组织返回数据
-            return {
-                "total_items": total_query.total_items or 0,
-                "total_cost": float(total_query.total_cost or 0),
-                "avg_price": float(total_query.avg_price or 0),
-                "by_category": {stat.category.value: stat.count for stat in category_stats},
-                "by_season": {stat.season.value: stat.count for stat in season_stats if stat.season},
-                "by_color": {stat.color: stat.count for stat in color_stats if stat.color},
-                "most_worn": [
-                    {
-                        "id": item.id,
-                        "name": item.name,
-                        "image_url": item.image_url,
-                        "wear_count": item.wear_count
-                    }
-                    for item in most_worn
-                ],
-                "recently_added": [
-                    {
-                        "id": item.id,
-                        "name": item.name,
-                        "image_url": item.image_url,
-                        "created_at": item.created_at
-                    }
-                    for item in recently_added
-                ],
-                "wear_frequency": {str(stat.wear_date): stat.count for stat in wear_frequency}
-            }
-
-        except Exception as e:
-            print(f"获取统计信息错误: {e}")
-            return {}
-
-    @staticmethod
-    def get_filter_options(db: Session, user_id: int) -> Dict[str, List[str]]:
-        """
-        获取筛选选项（用于前端下拉框等）
-
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-
-        返回:
-            包含各种筛选选项的字典
-        """
-        try:
-            # 分类选项
-            categories = db.query(ClothingItem.category).filter(
-                ClothingItem.user_id == user_id
-            ).distinct().all()
-
-            # 季节选项
-            seasons = db.query(ClothingItem.season).filter(
-                ClothingItem.user_id == user_id,
-                ClothingItem.season.isnot(None)
-            ).distinct().all()
-
-            # 颜色选项
-            colors = db.query(ClothingItem.color).filter(
-                ClothingItem.user_id == user_id,
-                ClothingItem.color.isnot(None)
-            ).distinct().all()
-
-            # 品牌选项
-            brands = db.query(ClothingItem.brand).filter(
-                ClothingItem.user_id == user_id,
-                ClothingItem.brand.isnot(None)
-            ).distinct().all()
-
-            # 尺码选项
-            sizes = db.query(ClothingItem.size).filter(
-                ClothingItem.user_id == user_id,
-                ClothingItem.size.isnot(None)
-            ).distinct().all()
-
-            # 材质选项
-            materials = db.query(ClothingItem.material).filter(
-                ClothingItem.user_id == user_id,
-                ClothingItem.material.isnot(None)
-            ).distinct().all()
-
-            return {
-                "categories": [c.category.value for c in categories if c.category],
-                "seasons": [s.season.value for s in seasons if s.season],
-                "colors": [c.color for c in colors if c.color],
-                "brands": [b.brand for b in brands if b.brand],
-                "sizes": [s.size for s in sizes if s.size],
-                "materials": [m.material for m in materials if m.material]
-            }
-
-        except Exception as e:
-            print(f"获取筛选选项错误: {e}")
-            return {}

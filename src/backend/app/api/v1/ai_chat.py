@@ -159,14 +159,17 @@ async def ai_chat_stream(
                 if not content:
                     continue
                 if role == "user":
-                    history_lines.append(f"用户: {content}")
+                    history_lines.append(f"User: {content}")
                 elif role == "ai":
-                    history_lines.append(f"助手: {content}")
+                    history_lines.append(f"Assistant: {content}")
 
             full_query = req.query or ""
             if history_lines:
                 history_text = "\n".join(history_lines[-10:])
-                full_query = f"以下是历史对话，请结合上下文回答：\n{history_text}\n\n当前问题：{req.query}"
+                full_query = (
+                    f"Conversation history (use context when answering):\n{history_text}\n\n"
+                    f"Current question: {req.query}"
+                )
 
             previous_text = ""
             final_full_text = ""

@@ -51,7 +51,7 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Personal AI Wardrobe Assistant API",
-    description="个人AI衣柜助手后端API",
+    description="Backend API for Personal AI Wardrobe Assistant",
     version="1.0.0",
 )
 
@@ -105,7 +105,7 @@ async def general_exception_handler(request, exc):
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "success": False,
-            "message": "服务器内部错误",
+            "message": "Internal server error",
             "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
         },
     )

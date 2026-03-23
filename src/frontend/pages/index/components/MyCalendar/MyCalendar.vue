@@ -861,7 +861,6 @@ async function handleAddOutfitConfirm(selectedItems) {
 			} else {
 				outfitsByDate.value = { ...outfitsByDate.value, [key]: items }
 			}
-			/* Update 成功後關閉整側面板，只保留日曆 */
 			closePanel()
 		} else {
 			uni.showToast({

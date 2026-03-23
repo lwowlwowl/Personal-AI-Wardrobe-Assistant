@@ -331,16 +331,16 @@ def run_most_worn_items(db: Session, user_id: int, time_range: str, limit: int) 
 
         if time_range == "yearly":
             start_date = date(now.year, 1, 1)
-            date_range_text = f"今年 ({now.year}年)"
+            date_range_text = f"This year ({now.year})"
         elif time_range == "monthly":
             start_date = date(now.year, now.month, 1)
-            date_range_text = f"本月 ({now.year}年{now.month}月)"
+            date_range_text = f"This month ({now.year}-{now.month:02d})"
         elif time_range == "weekly":
             start_date = today - timedelta(days=7)
-            date_range_text = f"近7天 ({start_date.isoformat()} 起)"
+            date_range_text = f"Last 7 days (since {start_date.isoformat()})"
         else:
             start_date = today
-            date_range_text = f"今天 ({today.isoformat()})"
+            date_range_text = f"Today ({today.isoformat()})"
 
         items = (
             db.query(
@@ -427,12 +427,12 @@ def run_most_worn_items(db: Session, user_id: int, time_range: str, limit: int) 
             "success": True,
             "data": {
                 "items": [
-                    {"name": "示例物品1", "wears": 10, "color": "blue"},
-                    {"name": "示例物品2", "wears": 8, "color": "black"},
-                    {"name": "示例物品3", "wears": 5, "color": "white"},
+                    {"name": "Sample Item 1", "wears": 10, "color": "blue"},
+                    {"name": "Sample Item 2", "wears": 8, "color": "black"},
+                    {"name": "Sample Item 3", "wears": 5, "color": "white"},
                 ],
                 "time_range": time_range,
-                "note": "返回了示例数据（后端出错）",
+                "note": "Returned sample data due to backend error",
             },
         }
 

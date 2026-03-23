@@ -35,7 +35,7 @@ class BatchCRUD:
             ).all()
 
             if len(items) != len(clothing_ids):
-                return 0, "部分衣物不存在或不属于当前用户"
+                return 0, "Some items do not exist or do not belong to the current user"
 
             # 批量更新（使用synchronize_session=False提高性能）
             updated_count = db.query(ClothingItem).filter(
@@ -48,7 +48,7 @@ class BatchCRUD:
         except Exception as e:
             db.rollback()
             print(f"批量更新错误: {e}")
-            return 0, f"批量更新失败: {str(e)}"
+            return 0, f"Bulk update failed: {str(e)}"
 
     @staticmethod
     def batch_delete_clothing(
@@ -75,7 +75,7 @@ class BatchCRUD:
             ).all()
 
             if len(items) != len(clothing_ids):
-                return 0, "部分衣物不存在或不属于当前用户"
+                return 0, "Some items do not exist or do not belong to the current user"
 
             # 批量删除（使用synchronize_session=False提高性能）
             deleted_count = db.query(ClothingItem).filter(
@@ -88,4 +88,4 @@ class BatchCRUD:
         except Exception as e:
             db.rollback()
             print(f"批量删除错误: {e}")
-            return 0, f"批量删除失败: {str(e)}"
+            return 0, f"Bulk delete failed: {str(e)}"

@@ -3,21 +3,21 @@
 		{
 			"path": "pages/login/login",
 			"style": {
-				"navigationBarTitleText": "登录",
+				"navigationBarTitleText": "Sign In",
 				"navigationStyle": "custom"
 			}
 		},
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "AI虚拟衣橱助手",
+				"navigationBarTitleText": "AI Wardrobe Assistant",
 				"navigationStyle": "custom"
 			}
 		}
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
-		"navigationBarTitleText": "AI虚拟衣橱助手",
+		"navigationBarTitleText": "AI Wardrobe Assistant",
 		"navigationBarBackgroundColor": "#EBE3D5",
 		"backgroundColor": "#EBE3D5"
 	},

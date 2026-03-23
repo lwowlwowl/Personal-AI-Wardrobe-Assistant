@@ -37,7 +37,7 @@ class ComfyUIClient:
             return None
         except Exception as e:
             print(f"ComfyUI queue_prompt failed: {e}")
-            raise HTTPException(status_code=503, detail="ComfyUI服务连接失败")
+            raise HTTPException(status_code=503, detail="Failed to connect to ComfyUI service")
 
     def get_history(self, prompt_id: str) -> Optional[Dict[str, Any]]:
         try:
@@ -80,7 +80,7 @@ class ComfyUIClient:
             if history and history.get("status", {}).get("completed"):
                 return history
             time.sleep(2)
-        raise HTTPException(status_code=408, detail="任务执行超时")
+        raise HTTPException(status_code=408, detail="Task execution timed out")
 
 
 def build_virtual_tryon_workflow(
@@ -100,7 +100,7 @@ def build_virtual_tryon_workflow(
             workflow = json.load(f)
     except Exception as e:
         print(f"ComfyUI workflow template load failed: {e}")
-        raise HTTPException(status_code=500, detail="工作流模板丢失")
+        raise HTTPException(status_code=500, detail="Workflow template is missing")
 
     # --- 映射图片输入 ---
     # 78: 人物图 (Image 1)
@@ -119,7 +119,10 @@ def build_virtual_tryon_workflow(
     # --- 映射提示词 ---
     # 111: 正向提示词编码
     if "111" in workflow:
-        default_prompt = "把图片2中的衣服穿到图片1中人物身上，戴上图3的耳饰，尺寸很小。保留图片1中人物其他特征"
+        default_prompt = (
+            "Put the clothing from image 2 onto the person in image 1, "
+            "add earrings from image 3 in a subtle size, and preserve all other person features from image 1."
+        )
         workflow["111"]["inputs"]["prompt"] = prompt_text if prompt_text else default_prompt
 
     # 110: 负向提示词 (同步图片引用，确保 Qwen 模型上下文正确)

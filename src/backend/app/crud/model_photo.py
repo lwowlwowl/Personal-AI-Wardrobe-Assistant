@@ -56,7 +56,7 @@ class ModelPhotoCRUD:
             return model_photo, None
         except Exception as e:
             db.rollback()
-            return None, f"创建模特照片失败: {str(e)}"
+            return None, f"Failed to create model photo: {str(e)}"
 
     @staticmethod
     def get_model_photos_by_user(db: Session, user_id: int,
@@ -90,7 +90,7 @@ class ModelPhotoCRUD:
 
             return photos, total, None
         except Exception as e:
-            return [], 0, f"获取模特照片列表失败: {str(e)}"
+            return [], 0, f"Failed to get model photo list: {str(e)}"
 
     @staticmethod
     def get_model_photo_by_id(db: Session, user_id: int, photo_id: int):
@@ -114,7 +114,7 @@ class ModelPhotoCRUD:
 
             return photo, None
         except Exception as e:
-            return None, f"获取模特照片失败: {str(e)}"
+            return None, f"Failed to get model photo: {str(e)}"
 
     @staticmethod
     def get_primary_model_photo(db: Session, user_id: int):
@@ -137,7 +137,7 @@ class ModelPhotoCRUD:
 
             return photo, None
         except Exception as e:
-            return None, f"获取主要模特照片失败: {str(e)}"
+            return None, f"Failed to get primary model photo: {str(e)}"
 
     @staticmethod
     def update_model_photo(db: Session, db_photo: ModelPhoto,
@@ -175,7 +175,7 @@ class ModelPhotoCRUD:
             return db_photo, None
         except Exception as e:
             db.rollback()
-            return None, f"更新模特照片失败: {str(e)}"
+            return None, f"Failed to update model photo: {str(e)}"
 
     @staticmethod
     def delete_model_photo(db: Session, photo_id: int):
@@ -192,7 +192,7 @@ class ModelPhotoCRUD:
         try:
             photo = db.query(ModelPhoto).filter(ModelPhoto.id == photo_id).first()
             if not photo:
-                return False, "模特照片不存在"
+                return False, "Model photo does not exist"
 
             # 软删除：设置is_active为False
             photo.is_active = False
@@ -201,7 +201,7 @@ class ModelPhotoCRUD:
             return True, None
         except Exception as e:
             db.rollback()
-            return False, f"删除模特照片失败: {str(e)}"
+            return False, f"Failed to delete model photo: {str(e)}"
 
     @staticmethod
     def hard_delete_model_photo(db: Session, photo_id: int):
@@ -218,7 +218,7 @@ class ModelPhotoCRUD:
         try:
             photo = db.query(ModelPhoto).filter(ModelPhoto.id == photo_id).first()
             if not photo:
-                return False, "模特照片不存在"
+                return False, "Model photo does not exist"
 
             # 硬删除：从数据库彻底删除
             db.delete(photo)
@@ -227,4 +227,4 @@ class ModelPhotoCRUD:
             return True, None
         except Exception as e:
             db.rollback()
-            return False, f"永久删除模特照片失败: {str(e)}"
+            return False, f"Failed to permanently delete model photo: {str(e)}"

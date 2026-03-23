@@ -49,7 +49,7 @@ class TrendDataService:
             end_date = now
 
         else:
-            raise ValueError(f"不支持的视图类型: {view_by}")
+            raise ValueError(f"Unsupported view type: {view_by}")
 
         return start_date, end_date
 
@@ -389,14 +389,14 @@ def run_export_trend_data(
     )
 
     if not trend_response.get("success"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="获取趋势数据失败")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to fetch trend data")
 
     trend_data = trend_response["data"]
 
     if format == "csv":
         output = StringIO()
         writer = csv.writer(output)
-        writer.writerow(["时间", "新增数量", "累计总数"])
+        writer.writerow(["Time", "New Items", "Total Items"])
         for i in range(len(trend_data["labels"])):
             writer.writerow(
                 [

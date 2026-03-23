@@ -21,14 +21,14 @@ def save_upload_file(file: UploadFile, user_id: int, file_type: str = "clothing"
     if file_ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"不支持的文件类型，请上传 {', '.join(ALLOWED_EXTENSIONS)} 格式的图片",
+            detail=f"Unsupported file type. Please upload an image in one of: {', '.join(ALLOWED_EXTENSIONS)}",
         )
 
     content = file.file.read()
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"文件大小不能超过 {MAX_FILE_SIZE // (1024 * 1024)}MB",
+            detail=f"File size must not exceed {MAX_FILE_SIZE // (1024 * 1024)}MB",
         )
 
     prefix_map = {

@@ -204,57 +204,6 @@ async def get_primary_model_photo(
         )
 
 
-@router.get("/api/model-photos/{photo_id}")
-async def get_model_photo_detail(
-        photo_id: int = Path(..., ge=1, description="模特照片ID"),
-        token: str = Query(...),
-        db: Session = Depends(get_db)
-):
-    """
-    获取单张模特照片的详细信息
-    参数：
-        photo_id: 模特照片ID
-        token: 用户认证令牌
-        db: 数据库会话
-    返回：
-        模特照片的完整详细信息
-    """
-    try:
-        current_user = get_current_user(token, db)
-
-        photo, error = crud.model_photo_crud.get_model_photo_by_id(
-            db=db,
-            user_id=current_user.id,
-            photo_id=photo_id
-        )
-
-        if error:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error
-            )
-
-        if not photo:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Model photo not found or access denied."
-            )
-
-        return {
-            "success": True,
-            "data": photo
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"获取模特照片详情错误: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Could not load model photo details: {str(e)}"
-        )
-
-
 @router.put("/api/model-photos/{photo_id}")
 async def update_model_photo(
         photo_id: int = Path(..., ge=1, description="模特照片ID"),

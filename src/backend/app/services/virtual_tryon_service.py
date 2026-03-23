@@ -69,35 +69,35 @@ def run_upload_virtual_tryon_from_storage(
             status_code=503,
             body={
                 "success": False,
-                "message": "虚拟试穿未启用：请确认 app/services/comfyui_client.py 可用，且 app/resources/qwen_edit_v1.json 存在",
+                "message": "Virtual try-on is not enabled: ensure app/services/comfyui_client.py is available and app/resources/qwen_edit_v1.json exists",
             },
         )
 
     t = clean_token(body.token)
     payload = crud.verify_access_token(t) if t else None
     if not payload:
-        raise HTTPException(status_code=401, detail="未授权：Token 失效")
+        raise HTTPException(status_code=401, detail="Unauthorized: token is invalid or expired")
 
     user = crud.get_user_by_id(db, payload.get("user_id"))
     if not user or not user.is_active:
-        raise HTTPException(status_code=403, detail="账号状态异常")
+        raise HTTPException(status_code=403, detail="Account status is abnormal")
 
     path = _resolve_storage_path_from_image_ref(body.image_ref)
     if path is None:
         raise HTTPException(
             status_code=400,
-            detail="无效的图片路径：请使用衣柜/模特图的有效地址（Personal-AI-Wardrobe-Assistant/uploads/...）",
+            detail="Invalid image path: use a valid wardrobe/model image URL under Personal-AI-Wardrobe-Assistant/uploads/...",
         )
 
     rel_under_upload = path.relative_to(UPLOAD_DIR.resolve())
     parts = str(rel_under_upload).replace("\\", "/").split("/")
     if parts and str(user.id) != parts[0]:
-        raise HTTPException(status_code=403, detail="无权访问该图片文件")
+        raise HTTPException(status_code=403, detail="No permission to access this image file")
 
     try:
         file_content = path.read_bytes()
     except OSError as e:
-        raise HTTPException(status_code=400, detail=f"读取图片失败: {e}") from e
+        raise HTTPException(status_code=400, detail=f"Failed to read image: {e}") from e
 
     cc = app_runtime.comfyui_client
     try:
@@ -105,7 +105,7 @@ def run_upload_virtual_tryon_from_storage(
         if not res:
             raise HTTPException(
                 status_code=503,
-                detail="ComfyUI 未响应，请确认 ComfyUI 已启动且地址正确（可用环境变量 COMFYUI_SERVER 配置）",
+                detail="ComfyUI did not respond. Ensure ComfyUI is running and COMFYUI_SERVER is configured correctly",
             )
         name = res.get("name")
         return {"success": True, "filename": name, "data": {"filename": name}}
@@ -113,7 +113,7 @@ def run_upload_virtual_tryon_from_storage(
         raise
     except Exception as e:
         print(f"virtual_tryon upload-from-storage error:\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}") from e
 
 
 async def run_upload_virtual_tryon_image(
@@ -130,18 +130,18 @@ async def run_upload_virtual_tryon_image(
             status_code=503,
             body={
                 "success": False,
-                "message": "虚拟试穿未启用：请确认 app/services/comfyui_client.py 可用，且 app/resources/qwen_edit_v1.json 存在",
+                "message": "Virtual try-on is not enabled: ensure app/services/comfyui_client.py is available and app/resources/qwen_edit_v1.json exists",
             },
         )
 
     t = clean_token(token)
     payload = crud.verify_access_token(t) if t else None
     if not payload:
-        raise HTTPException(status_code=401, detail="未授权：Token 失效")
+        raise HTTPException(status_code=401, detail="Unauthorized: token is invalid or expired")
 
     user = crud.get_user_by_id(db, payload.get("user_id"))
     if not user or not user.is_active:
-        raise HTTPException(status_code=403, detail="账号状态异常")
+        raise HTTPException(status_code=403, detail="Account status is abnormal")
 
     cc = app_runtime.comfyui_client
     try:
@@ -149,7 +149,7 @@ async def run_upload_virtual_tryon_image(
         if not res:
             raise HTTPException(
                 status_code=503,
-                detail="ComfyUI 未响应，请确认 ComfyUI 已启动且地址正确（可用环境变量 COMFYUI_SERVER 配置）",
+                detail="ComfyUI did not respond. Ensure ComfyUI is running and COMFYUI_SERVER is configured correctly",
             )
         name = res.get("name")
         return {"success": True, "filename": name, "data": {"filename": name}}
@@ -157,7 +157,7 @@ async def run_upload_virtual_tryon_image(
         raise
     except Exception as e:
         print(f"virtual_tryon upload-image error:\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}") from e
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}") from e
 
 
 def run_generate_virtual_tryon(
@@ -171,18 +171,18 @@ def run_generate_virtual_tryon(
     ):
         return JsonEnvelope(
             status_code=503,
-            body={"success": False, "message": "虚拟试穿未启用"},
+            body={"success": False, "message": "Virtual try-on is not enabled"},
         )
 
     t = clean_token(body.token)
     if not t:
-        return JsonEnvelope(200, {"success": False, "message": "请先登录"})
+        return JsonEnvelope(200, {"success": False, "message": "Please sign in first"})
     payload = crud.verify_access_token(t)
     if not payload:
-        return JsonEnvelope(200, {"success": False, "message": "未授权：Token 失效"})
+        return JsonEnvelope(200, {"success": False, "message": "Unauthorized: token is invalid or expired"})
     user = crud.get_user_by_id(db, payload.get("user_id"))
     if not user or not user.is_active:
-        return JsonEnvelope(200, {"success": False, "message": "账号状态异常"})
+        return JsonEnvelope(200, {"success": False, "message": "Account status is abnormal"})
 
     cc = app_runtime.comfyui_client
     bwf = app_runtime.build_virtual_tryon_workflow
@@ -199,7 +199,7 @@ def run_generate_virtual_tryon(
         if not prompt_id:
             return JsonEnvelope(
                 200,
-                {"success": False, "message": "ComfyUI 队列满或连接失败"},
+                {"success": False, "message": "ComfyUI queue is full or connection failed"},
             )
 
         result = cc.wait_for_completion(prompt_id)
@@ -209,7 +209,7 @@ def run_generate_virtual_tryon(
                 200,
                 {
                     "success": False,
-                    "message": "未能生成图片结果（工作流输出节点 60 无数据）",
+                    "message": "Failed to generate image result (workflow output node 60 has no data)",
                 },
             )
 
@@ -217,7 +217,7 @@ def run_generate_virtual_tryon(
         if not images:
             return JsonEnvelope(
                 200,
-                {"success": False, "message": "未能生成图片结果"},
+                {"success": False, "message": "Failed to generate image result"},
             )
 
         img_info = images[0]
@@ -232,7 +232,7 @@ def run_generate_virtual_tryon(
             )
             return JsonEnvelope(
                 200,
-                {"success": False, "message": "无法读取生成图片"},
+                {"success": False, "message": "Unable to read generated image"},
             )
 
         fn = img_info.get("filename", "")
@@ -258,5 +258,5 @@ def run_generate_virtual_tryon(
         print(f"virtual_tryon generate error:\n{traceback.format_exc()}")
         return JsonEnvelope(
             200,
-            {"success": False, "message": f"生成失败: {str(e)}"},
+            {"success": False, "message": f"Generation failed: {str(e)}"},
         )

@@ -106,7 +106,7 @@ class WearHistoryCRUD:
         try:
             history = db.query(WearHistory).filter(WearHistory.id == history_id).first()
             if not history:
-                return False, "记录不存在"
+                return False, "Record does not exist"
 
             clothing_id = history.clothing_id
             user_id = history.user_id
@@ -120,7 +120,7 @@ class WearHistoryCRUD:
         except Exception as e:
             db.rollback()
             print(f"删除穿着记录错误: {e}")
-            return False, f"删除穿着记录失败: {str(e)}"
+            return False, f"Failed to delete wear record: {str(e)}"
 
     @staticmethod
     def recompute_clothing_after_removal(
