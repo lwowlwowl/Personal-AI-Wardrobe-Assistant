@@ -135,7 +135,7 @@ class OutfitCRUD:
 
                 if not clothing:
                     db.rollback()
-                    return None, f"衣物 {item_in.clothing_id} 不存在或不属于当前用户"
+                    return None, f"Clothing item {item_in.clothing_id} does not exist or does not belong to the current user"
 
                 # 创建搭配项
                 outfit_item = OutfitItem(
@@ -154,7 +154,7 @@ class OutfitCRUD:
         except Exception as e:
             db.rollback()
             print(f"创建搭配错误: {e}")
-            return None, f"创建搭配失败: {str(e)}"
+            return None, f"Failed to create outfit: {str(e)}"
 
     @staticmethod
     def update_outfit(
@@ -191,7 +191,7 @@ class OutfitCRUD:
         except Exception as e:
             db.rollback()
             print(f"更新搭配错误: {e}")
-            return None, f"更新搭配失败: {str(e)}"
+            return None, f"Failed to update outfit: {str(e)}"
 
     @staticmethod
     def delete_outfit(db: Session, outfit_id: int) -> Tuple[bool, Optional[str]]:
@@ -208,7 +208,7 @@ class OutfitCRUD:
         try:
             outfit = db.query(Outfit).filter(Outfit.id == outfit_id).first()
             if not outfit:
-                return False, "搭配不存在"
+                return False, "Outfit does not exist"
 
             db.delete(outfit)
             db.commit()
@@ -217,7 +217,7 @@ class OutfitCRUD:
         except Exception as e:
             db.rollback()
             print(f"删除搭配错误: {e}")
-            return False, f"删除搭配失败: {str(e)}"
+            return False, f"Failed to delete outfit: {str(e)}"
 
     @staticmethod
     def record_outfit_wear(
@@ -237,7 +237,7 @@ class OutfitCRUD:
         try:
             outfit = db.query(Outfit).filter(Outfit.id == outfit_id).first()
             if not outfit:
-                return None, "搭配不存在"
+                return None, "Outfit does not exist"
 
             # 更新穿着统计
             outfit.wear_count += 1
@@ -251,4 +251,4 @@ class OutfitCRUD:
         except Exception as e:
             db.rollback()
             print(f"记录搭配穿着错误: {e}")
-            return None, f"记录搭配穿着失败: {str(e)}"
+            return None, f"Failed to record outfit wear: {str(e)}"

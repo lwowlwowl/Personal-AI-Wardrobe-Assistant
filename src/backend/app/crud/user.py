@@ -164,6 +164,10 @@ def update_user_password(db: Session, email: str, new_password: str) -> Tuple[bo
         if not user:
             return False, "No account uses this email."
 
+        # For reset flow: reject reusing the current password.
+        if verify_password(new_password, user.hashed_password):
+            return False, "New password must be different from the current password."
+
         # 更新密码和修改时间
         user.hashed_password = hash_password(new_password)
         user.updated_at = datetime.now()

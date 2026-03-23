@@ -98,11 +98,3 @@ async def upload_user_avatar(
     return crud.get_user_by_id(db, current_user.id)
 
 
-@router.post("/api/forgot-password")
-async def forgot_password(email: str, db: Session = Depends(get_db)):
-    return {"message": "If this email is registered, a reset link has been sent."}
-
-
-@router.post("/api/reset-password")
-async def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
-    return {"message": "Password has been reset."}
