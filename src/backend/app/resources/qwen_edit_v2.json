@@ -1,7 +1,7 @@
 {
   "3": {
     "inputs": {
-      "seed": 103254399190098,
+      "seed": 283201087249818,
       "steps": 4,
       "cfg": 1,
       "sampler_name": "euler",
@@ -111,7 +111,7 @@
     },
     "class_type": "CFGNorm",
     "_meta": {
-      "title": "CFGNorm"
+      "title": "CFG归一化"
     }
   },
   "78": {
@@ -177,6 +177,15 @@
       "title": "加载图像"
     }
   },
+  "108": {
+    "inputs": {
+      "image": ""
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
   "110": {
     "inputs": {
       "prompt": "",
@@ -195,11 +204,15 @@
       "image2": [
         "106",
         0
+      ],
+      "image3": [
+        "108",
+        0
       ]
     },
     "class_type": "TextEncodeQwenImageEditPlus",
     "_meta": {
-      "title": "TextEncodeQwenImageEditPlus"
+      "title": "文本编码（QwenImageEditPlus）"
     }
   },
   "111": {
@@ -220,11 +233,15 @@
       "image2": [
         "106",
         0
+      ],
+      "image3": [
+        "108",
+        0
       ]
     },
     "class_type": "TextEncodeQwenImageEditPlus",
     "_meta": {
-      "title": "TextEncodeQwenImageEditPlus"
+      "title": "文本编码（QwenImageEditPlus）"
     }
   },
   "112": {

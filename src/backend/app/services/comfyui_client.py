@@ -129,7 +129,6 @@ def build_virtual_tryon_workflow(
     if "110" in workflow:
         workflow["110"]["inputs"]["image1"] = workflow["111"]["inputs"]["image1"]
         workflow["110"]["inputs"]["image2"] = workflow["111"]["inputs"]["image2"]
-        workflow["110"]["inputs"]["image3"] = workflow["111"]["inputs"]["image3"]
 
     # --- 映射模型参数 ---
     # 如果 model_type 是 "2509" (对应你 JSON 中的 safetensors)
