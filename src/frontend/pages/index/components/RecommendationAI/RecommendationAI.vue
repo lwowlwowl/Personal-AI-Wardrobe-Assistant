@@ -102,25 +102,20 @@
 									strip-wardrobe-hash-ids
 								/>
 								<view class="cards-area">
-									<swiper
-										v-if="getRecommendations(msg).length > 1"
-										class="recommend-swiper"
-										:indicator-dots="true"
-										indicator-active-color="#9D8B70"
-									>
-										<swiper-item v-for="(rec, ri) in getRecommendations(msg)" :key="ri">
-											<RecommendationCard
-												:recommendation="rec"
-												:show-regenerate="shouldShowRegenerateOnRecommendation(msg, ri)"
-												:locale="msg.locale || 'en'"
-												@regenerate="handleRegenerate(index)"
-												@preview-images="previewImages"
-												@virtual-try-on="handleRecommendationVirtualTryOn"
-												@add-to-calendar="handleAddRecommendationToCalendar"
-												@full-outfit-try-on="handleFullOutfitTryOn"
-											/>
-										</swiper-item>
-									</swiper>
+									<view v-if="getRecommendations(msg).length > 1" class="recommend-list">
+										<RecommendationCard
+											v-for="(rec, ri) in getRecommendations(msg)"
+											:key="ri"
+											:recommendation="rec"
+											:show-regenerate="shouldShowRegenerateOnRecommendation(msg, ri)"
+											:locale="msg.locale || 'en'"
+											@regenerate="handleRegenerate(index)"
+											@preview-images="previewImages"
+											@virtual-try-on="handleRecommendationVirtualTryOn"
+											@add-to-calendar="handleAddRecommendationToCalendar"
+											@full-outfit-try-on="handleFullOutfitTryOn"
+										/>
+									</view>
 									<RecommendationCard
 										v-else-if="getRecommendations(msg).length === 1"
 										:recommendation="getRecommendations(msg)[0]"
@@ -907,6 +902,13 @@ const previewImages = (urls, index = 0) => {
 .recommend-swiper {
 	width: 100%;
 	min-height: 720rpx;
+}
+
+.recommend-list {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 24rpx;
 }
 
 /* 初始状态：整体滚动区（问候语与输入框同步上移） */
