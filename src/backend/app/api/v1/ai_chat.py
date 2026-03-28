@@ -8,19 +8,12 @@ from sqlalchemy.orm import Session
 
 import app.crud as crud
 import app.schemas as schemas
-from AIwardrobe.agent.react_agent import ReactAgent
-from AIwardrobe.agent.tools.agent_tools import (
-    set_agent_request_user_id,
-    reset_agent_request_user_id,
-)
 from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.services.ai_message_service import build_ai_message
 from app.utils.language_policy import decide_reply_language
 
 router = APIRouter(tags=["ai"])
-
-react_agent = ReactAgent()
 
 
 # ============ 推荐 AI 对话持久化（Your conversations） ============
@@ -138,6 +131,11 @@ async def ai_chat_stream(
         current_user = get_current_user(token, db)
 
     async def event_stream():
+        from AIwardrobe.agent.tools.agent_tools import (
+            reset_agent_request_user_id,
+            set_agent_request_user_id,
+        )
+
         context_token = set_agent_request_user_id(current_user.id if current_user else None)
         try:
             query_stripped = (req.query or "").strip()
@@ -148,6 +146,9 @@ async def ai_chat_stream(
                 )
                 yield f"data: {error_payload}\n\n"
                 return
+            from AIwardrobe.agent.react_agent import ReactAgent
+
+            react_agent = ReactAgent()
             # 先根据当前消息与历史判定回复语言（默认英语）
             lang = decide_reply_language(req.query or "", req.history or [])
 

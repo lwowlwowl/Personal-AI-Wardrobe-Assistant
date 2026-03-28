@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.database import get_db
-from app.services.analysis_suggestions_service import run_suggested_additions
 from app.services.analysis_trend_service import (
     run_category_distribution,
     run_export_trend_data,
@@ -226,6 +225,8 @@ async def get_suggested_additions(
     limit: int = Query(3, ge=1, le=3, description="固定返回 3 条建议"),
 ):
     try:
+        from app.services.analysis_suggestions_service import run_suggested_additions
+
         current_user = get_current_user(token, db)
         return await run_suggested_additions(db, current_user.id, limit)
     except HTTPException:

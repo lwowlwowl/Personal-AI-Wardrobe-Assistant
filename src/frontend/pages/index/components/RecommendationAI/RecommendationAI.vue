@@ -14,7 +14,7 @@
 					</view>
 					<view class="greeting-row">
 						<text class="wave-emoji">👋</text>
-						<text class="greeting-text">Hi! Good Afternoon</text>
+						<text class="greeting-text">Hi! {{ timeGreeting }}</text>
 					</view>
 					<view v-if="isLoggedIn" class="weather-card" :class="{ ready: !loadingWeather }">
 						<view class="weather-row">
@@ -197,6 +197,15 @@ import { getClothingList, getPrimaryModelPhoto } from '@/api/wardrobe.js'
 import { resolveWardrobeImageUrl, isPlaceholderWardrobeUrl } from '@/api/wardrobeMedia.js'
 import { getCalendarOutfits, saveCalendarOutfits } from '@/api/calendarApi.js'
 import { getOutfitTryOnSortIndex, buildOutfitTryOnStepLabel } from './utils/rec/outfitOrder.js'
+
+/** 依瀏覽器本地時間顯示問候（原為寫死的 Good Afternoon） */
+const timeGreeting = computed(() => {
+	const h = new Date().getHours()
+	if (h >= 5 && h < 12) return 'Good Morning'
+	if (h >= 12 && h < 17) return 'Good Afternoon'
+	if (h >= 17 && h < 22) return 'Good Evening'
+	return 'Good Night'
+})
 
 const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false },
