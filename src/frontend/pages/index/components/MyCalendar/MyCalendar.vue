@@ -34,9 +34,9 @@
 					DRY CLEAN ONLY · HANDLE WITH CARE
 				</view>
 			</view>
-			<!-- 主体：未选中日历时居中；选中时日历后退失焦，右侧面板悬浮于正前方 -->
+			<!-- Main: centered when no day selected; when selected, calendar shrinks back and right panel floats in front -->
 			<view class="main-wrapper">
-				<!-- 左侧：日历 + This Month（选中时 is-shrunk：缩小宽度，为右侧抽屉腾出空间） -->
+				<!-- Left: calendar + This Month (is-shrunk when selected: narrower to make room for the drawer) -->
 				<view class="main-left" :class="{ 'is-shrunk': selectedDateKey }">
 					<view class="side-panel glass-panel">
 						<text class="side-title">This Month</text>
@@ -128,7 +128,7 @@
 												<text v-if="outfitsByDate[cell.dateKey].length > 1" class="outfit-count">{{ outfitsByDate[cell.dateKey].length }}</text>
 											</view>
 											<view v-if="selectedDateKey === cell.dateKey" class="selected-bar" />
-											<!-- Outfit 预览浮层：hover 时显示 -->
+											<!-- Outfit preview overlay: shown on hover -->
 											<transition name="preview-fade">
 												<view v-if="hoveredDateKey === cell.dateKey && outfitsByDate[cell.dateKey]?.length" class="outfit-preview">
 													<view class="preview-header">
@@ -157,7 +157,7 @@
 					</view>
 				</view>
 
-				<!-- FLIP 共享元素：从日格飞向面板标题的浮层 -->
+				<!-- FLIP shared element: flies from day cell to panel header -->
 				<view
 					v-if="flyVisible"
 					class="fly-date-pill"
@@ -166,7 +166,7 @@
 				>
 					<text class="fly-date-pill-text">{{ flyLabel }}</text>
 				</view>
-				<!-- 右侧：穿搭面板（选中时 absolute 居中悬浮，景深最前） -->
+				<!-- Right: outfit panel (absolute centered when selected, top stacking) -->
 				<transition name="split-panel-fade">
 					<view v-if="selectedDateKey" class="main-right">
 						<view class="outfit-panel glass-panel">
@@ -273,13 +273,13 @@ import AddOutfitPanel from './AddOutfitPanel.vue'
 import { getCalendarOutfits, saveCalendarOutfits, API_BASE_URL } from '@/api/calendarApi.js'
 import { formatApiErrorMessage } from '@/utils/apiErrors.js'
 
-/** 将年月日转换为日期键字符串（格式：YYYY-MM-DD） */
+/** Build date key string YYYY-MM-DD from year, month, day */
 function toDateKey(y, m, d) {
 	const pad = (n) => String(n).padStart(2, '0')
 	return `${y}-${pad(m + 1)}-${pad(d)}`
 }
 
-/** 将后端返回的单品统一为前端格式（image 为完整 URL） */
+/** Normalize backend item to frontend shape (image as absolute URL) */
 function normalizeItem(item) {
 	if (!item) return item
 	let image = item.image || item.image_url || ''
@@ -294,7 +294,7 @@ function normalizeItem(item) {
 	}
 }
 
-/** 依日期月份推算季节（北半球：3–5 春、6–8 夏、9–11 秋、12–2 冬） */
+/** Season from month (Northern hemisphere: Mar–May spring, Jun–Aug summer, Sep–Nov autumn, Dec–Feb winter) */
 function getSeasonForDateKey(dateKey) {
 	const [, m] = dateKey.split('-')
 	const month = parseInt(m, 10)
@@ -305,8 +305,8 @@ function getSeasonForDateKey(dateKey) {
 }
 
 /**
- * 计算连续记录天数（day streak）
- * outfitsByDate: 普通对象 { "YYYY-MM-DD": items[] }
+ * Day streak: consecutive days with at least one outfit in the viewed month.
+ * outfitsByDate: plain object { "YYYY-MM-DD": items[] }
  */
 function calculateStreakFromMap(outfitsByDate, viewYear, viewMonth) {
 	const today = new Date()
@@ -363,7 +363,7 @@ function calculateStreakFromMap(outfitsByDate, viewYear, viewMonth) {
 	return streak
 }
 
-/** 本月穿搭统计（uniqueItems 按 item.id 去重） */
+/** Month stats (uniqueItems deduped by item.id) */
 function computeMonthStats(outfitsByDate, year, month) {
 	const prefix = `${year}-${String(month + 1).padStart(2, '0')}-`
 	let daysRecorded = 0
@@ -379,7 +379,7 @@ function computeMonthStats(outfitsByDate, year, month) {
 	return { daysRecorded, uniqueItems: uniqueIds.size }
 }
 
-/** 生成日历单元格数组（包含当前月、上月末尾、下月开头的日期，共42个单元格） */
+/** Build 42 calendar cells: current month plus leading/trailing padding */
 function buildCalendarCells(year, month) {
 	const first = new Date(year, month, 1)
 	const last = new Date(year, month + 1, 0)
@@ -430,7 +430,7 @@ function buildCalendarCells(year, month) {
 	return cells
 }
 
-/** 格式化日期为面板标题样式（用于 FLIP 飞入文字） */
+/** Format date for panel title (FLIP fly-in label) */
 function formatDateLabel(dateKey) {
 	if (!dateKey) return ''
 	const [y, m, d] = dateKey.split('-')
@@ -438,7 +438,7 @@ function formatDateLabel(dateKey) {
 	return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 }
 
-/** 格式化预览浮层显示的日期 */
+/** Format date shown in hover preview */
 function formatPreviewDate(dateKey) {
 	const [y, m, d] = dateKey.split('-')
 	const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d))
@@ -451,14 +451,14 @@ const userToken = ref(uni.getStorageSync('auth_token') || '')
 const currentDate = new Date()
 const displayYear = ref(currentDate.getFullYear())
 const displayMonth = ref(currentDate.getMonth())
-const slideDirection = ref('right') // 'left' | 'right' - 用于月份切换动画方向
-/** 进入页面时预设不选中，展现完整日历（点选某日后再出现悬浮面板） */
+const slideDirection = ref('right') // 'left' | 'right' — month switch animation direction
+/** No selection on load so full calendar shows first; floating panel after picking a day */
 const selectedDateKey = ref(null)
 const showAddPanel = ref(false)
-const hoveredDateKey = ref(null) // 用于 hover 预览浮层
-const isClearing = ref(false) // 用于清除动画状态（清空当天全部时使用）
+const hoveredDateKey = ref(null) // hover preview overlay
+const isClearing = ref(false) // clearing animation when removing all outfits for a day
 
-// 玻璃态 / 动画 / FLIP
+// Glass / animation / FLIP
 const gridMouseX = ref(null)
 const gridMouseY = ref(null)
 const gridWrapRef = ref(null)
@@ -466,14 +466,14 @@ const panelHeaderRef = ref(null)
 const outfitListRef = ref(null)
 const outfitListScroll = ref(0)
 const emptyIllusRef = ref(null)
-const emptyIllusMouseX = ref(null) // 百分比 0–100，用于空状态卡片反光
+const emptyIllusMouseX = ref(null) // 0–100% for empty-state card sheen
 const emptyIllusMouseY = ref(null)
 const flyVisible = ref(false)
 const flyStyle = ref({})
 const flyLabel = ref('')
 let flyTransitionEndHandler = null
 
-// 磁吸光标：鼠标靠近按钮 20px 时按钮向鼠标偏移，松开后弹簧回弹
+// Magnetic cursor: within 20px of a button, pull toward pointer; spring back on leave
 const MAGNETIC_RADIUS = 20
 const MAGNETIC_MAX_PULL = 10
 const prevMonthBtnRef = ref(null)
@@ -487,7 +487,7 @@ const nextMonthOffset = ref({ x: 0, y: 0 })
 const addBtnPrimaryOffset = ref({ x: 0, y: 0 })
 const emptyAddBtnOffset = ref({ x: 0, y: 0 })
 
-/** 鼠标在日历网格上的样式（用于光晕追踪） */
+/** Calendar grid style for glow tracking (CSS vars) */
 const gridMouseStyle = computed(() => {
 	if (gridMouseX.value == null || gridMouseY.value == null) return {}
 	return {
@@ -496,7 +496,7 @@ const gridMouseStyle = computed(() => {
 	}
 })
 
-/** 空状态卡片上的鼠标位置（百分比，用于全息反光） */
+/** Mouse position on empty-state card (percent) for holographic sheen */
 const emptyIllusMouseStyle = computed(() => {
 	if (emptyIllusMouseX.value == null || emptyIllusMouseY.value == null) {
 		return { '--mouse-x': '50%', '--mouse-y': '50%' }
@@ -507,7 +507,7 @@ const emptyIllusMouseStyle = computed(() => {
 	}
 })
 
-/** 本月天数（用于进度条分母） */
+/** Days in current month (progress bar denominator) */
 const daysInCurrentMonth = computed(() => {
 	const d = new Date(displayYear.value, displayMonth.value + 1, 0)
 	return d.getDate()
@@ -525,12 +525,12 @@ const uniqueItemsPercent = computed(() => {
 	return Math.min(100, Math.round((n / cap) * 100))
 })
 
-/** 每日穿搭记录：{ "2025-02-09": [{ id, name, image, accentColor? }] }，来自后端 GET /api/calendar/outfits */
+/** Outfits by date from GET /api/calendar/outfits: { "2025-02-09": [{ id, name, image, accentColor? }] } */
 const outfitsByDate = ref({})
 
-/** 背景散落卡片 (Moodboard Scatter) - 分区均匀散布：最多 8 张，左 4 右 4，垂直区间错开 */
+/** Background scatter cards (moodboard): up to 8, split left/right, staggered vertically */
 const backgroundScatterItems = computed(() => {
-	// 与当前查看月份绑定，换月时立即重算以触发 transition-group（数据仍可能为上一月直至 fetch 完成）
+	// Tied to viewed month so month change retriggers transition-group (data may lag until fetch completes)
 	displayYear.value
 	displayMonth.value
 
@@ -563,9 +563,9 @@ const backgroundScatterItems = computed(() => {
 		const top = (verticalSlot * slotHeight) + (Math.random() * (slotHeight * 0.4)) + 2
 
 		const rotation = (Math.random() - 0.5) * 30
-		// 缩放范围：0.85 + [0, 0.5) = 0.85 ~ 1.35
+		// Scale: 0.85 + [0, 0.5) → ~0.85–1.35
 		const scale = 0.85 + Math.random() * 0.5
-		// 透明度范围：0.6 + [0, 0.35) = 0.6 ~ 0.95
+		// Opacity: 0.6 + [0, 0.35) → ~0.6–0.95
 		const opacity = 0.6 + Math.random() * 0.35
 
 		return {
@@ -583,7 +583,7 @@ const backgroundScatterItems = computed(() => {
 	})
 })
 
-/** 拉取当前显示月份的穿搭记录 */
+/** Fetch outfits for the displayed month */
 async function fetchMonthOutfits() {
 	const token = userToken.value
 	if (!token) {
@@ -594,7 +594,7 @@ async function fetchMonthOutfits() {
 		const res = await getCalendarOutfits({
 			token,
 			year: displayYear.value,
-			month: displayMonth.value + 1 // API 使用 1–12
+			month: displayMonth.value + 1 // API expects 1–12
 		})
 		if (res.statusCode === 200 && res.data && res.data.success && res.data.data) {
 			const raw = res.data.data.outfits || {}
@@ -616,7 +616,7 @@ async function fetchMonthOutfits() {
 	}
 }
 
-/** 当前选中日期已有的 outfit，用于传递给 AddOutfitPanel */
+/** Existing outfits for selected day (passed to AddOutfitPanel) */
 const existingOutfits = computed(() => {
 	if (!selectedDateKey.value) return []
 	return outfitsByDate.value[selectedDateKey.value] || []
@@ -636,7 +636,7 @@ const selectedDateLabel = computed(() => {
 	return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 })
 
-/** 选中日的摘要：几套穿搭、该日期的季节（依月份，非单品标签） */
+/** Selected day summary: outfit count and season from month (not item tags) */
 const selectedDaySummary = computed(() => {
 	const key = selectedDateKey.value
 	if (!key) return ''
@@ -652,14 +652,14 @@ const currentStreak = computed(() =>
 	calculateStreakFromMap(outfitsByDate.value, displayYear.value, displayMonth.value)
 )
 
-/** 本月穿搭统计（与 MY_CALENDAR.md 口径一致：uniqueItems 按 item.id 去重） */
+/** Month stats (same rules as MY_CALENDAR.md: uniqueItems by item.id) */
 const monthStats = computed(() =>
 	computeMonthStats(outfitsByDate.value, displayYear.value, displayMonth.value)
 )
 
 const calendarCells = computed(() => buildCalendarCells(displayYear.value, displayMonth.value))
 
-/** 切换到上一个月，设置滑动方向为 left（用于动画） */
+/** Previous month; slide direction left for animation */
 function prevMonth() {
 	slideDirection.value = 'left'
 	if (displayMonth.value === 0) {
@@ -670,7 +670,7 @@ function prevMonth() {
 	}
 }
 
-/** 切换到下一个月，设置滑动方向为 right（用于动画） */
+/** Next month; slide direction right for animation */
 function nextMonth() {
 	slideDirection.value = 'right'
 	if (displayMonth.value === 11) {
@@ -686,7 +686,7 @@ watch([displayYear, displayMonth], () => fetchMonthOutfits())
 
 defineExpose({ refetch: fetchMonthOutfits })
 
-/** 日格入场动画：按行列斜向波浪延迟（Spring） */
+/** Day cell enter: diagonal wave delay by row+col (spring feel) */
 function getDayCellStyle(idx) {
 	const row = Math.floor(idx / 7)
 	const col = idx % 7
@@ -694,7 +694,7 @@ function getDayCellStyle(idx) {
 	return { animationDelay: delay + 'ms' }
 }
 
-/** 日历网格鼠标移动：更新 CSS 变量供光晕使用 */
+/** Calendar grid mousemove: update CSS vars for glow */
 function onGridMouseMove(e) {
 	const el = gridWrapRef.value
 	if (!el) return
@@ -710,7 +710,7 @@ function onGridMouseLeave() {
 	gridMouseY.value = null
 }
 
-/** 磁吸：根据按钮 ref 与全局鼠标位置计算偏移 */
+/** Magnetic pull: offset from button ref and global mouse */
 function getMagneticOffset(btnRef) {
 	const mx = globalMouseX.value
 	const my = globalMouseY.value
@@ -750,13 +750,13 @@ function onMagneticMouseLeave() {
 	emptyAddBtnOffset.value = { x: 0, y: 0 }
 }
 
-/** 磁吸按钮的 transform 样式（弹簧回弹由 CSS transition 负责） */
+/** Magnetic button transform (spring return via CSS transition) */
 function magneticStyle(offset) {
 	if (!offset || (offset.x === 0 && offset.y === 0)) return {}
 	return { transform: `translate(${offset.x}px, ${offset.y}px)` }
 }
 
-/** 空状态卡片：鼠标相对于卡片的百分比，供全息反光使用 */
+/** Empty-state card: mouse position % on card for sheen */
 function onEmptyIllusMouseMove(e) {
 	const el = emptyIllusRef.value?.$el ?? emptyIllusRef.value
 	if (!el?.getBoundingClientRect) return
@@ -771,7 +771,7 @@ function onEmptyIllusMouseLeave() {
 	emptyIllusMouseY.value = null
 }
 
-/** 选择日期：FLIP 共享元素飞入 + 若在 Add 模式则退出 */
+/** Select day: FLIP shared element + exit Add mode if open */
 function selectDay(cell, e) {
 	if (showAddPanel.value) {
 		showAddPanel.value = false
@@ -821,7 +821,7 @@ function onOutfitListScroll(e) {
 	outfitListScroll.value = target ? target.scrollTop : 0
 }
 
-/** 右侧列表项：入场延迟 + 滚动视差倾斜（用 --tilt 与入场动画并存） */
+/** Right list item: enter delay + scroll parallax tilt (--tilt with enter animation) */
 function getOutfitItemStyle(i) {
 	const scroll = outfitListScroll.value
 	const base = 80
@@ -834,7 +834,7 @@ function getOutfitItemStyle(i) {
 	}
 }
 
-/** 确认添加 Outfit：调用 POST 全量覆盖，成功后更新本地状态 */
+/** Confirm add outfit: POST full replace, then update local state */
 async function handleAddOutfitConfirm(selectedItems) {
 	if (!selectedDateKey.value) return
 	const token = userToken.value
@@ -880,24 +880,24 @@ async function handleAddOutfitConfirm(selectedItems) {
 	}
 }
 
-/** 打开 Add Outfit 面板 */
+/** Open Add Outfit panel */
 function openAddPanel() {
 	userToken.value = uni.getStorageSync('auth_token') || userToken.value
 	showAddPanel.value = true
 }
 
-/** 关闭 Add Outfit 面板 */
+/** Close Add Outfit panel */
 function closeAddPanel() {
 	showAddPanel.value = false
 }
 
-/** 关闭悬浮面板，让日历重新聚焦 */
+/** Close floating panel; calendar regains focus */
 function closePanel() {
 	selectedDateKey.value = null
 	showAddPanel.value = false
 }
 
-/** 删除指定日期的指定索引的 outfit：本地立即更新，再调用 POST 全量覆盖（保持体感顺滑、无闪回） */
+/** Remove outfit at index for date: optimistic local update then POST full replace */
 async function removeOutfit(dateKey, index) {
 	if (!outfitsByDate.value[dateKey]) return
 	const token = userToken.value
@@ -906,7 +906,7 @@ async function removeOutfit(dateKey, index) {
 		return
 	}
 
-	// 先乐观更新本地状态（用户立即看到结果）
+	// Optimistic local update first
 	const current = outfitsByDate.value[dateKey] || []
 	const arr = current.filter((_, i) => i !== index)
 	if (arr.length === 0) {
@@ -936,7 +936,7 @@ async function removeOutfit(dateKey, index) {
 	}
 }
 
-/** 清除选中日期的所有 outfits：动画后调用 POST items:[] */
+/** Clear all outfits for selected day: after animation, POST items:[] */
 function clearAllOutfits() {
 	if (!selectedDateKey.value) return
 	const items = outfitsByDate.value[selectedDateKey.value] || []

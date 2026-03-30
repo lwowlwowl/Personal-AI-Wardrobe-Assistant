@@ -1,4 +1,4 @@
-"""推薦 AI 對話持久化與串流（路徑與行為與重構前 main 一致）。"""
+"""Recommendation AI: conversation persistence and streaming (legacy-compatible paths)."""
 import json
 from typing import Optional
 
@@ -16,7 +16,7 @@ from app.utils.language_policy import decide_reply_language
 router = APIRouter(tags=["ai"])
 
 
-# ============ 推荐 AI 对话持久化（Your conversations） ============
+# ============ Recommendation AI conversations (Your conversations) ============
 
 
 @router.get("/api/ai/conversations")
@@ -24,7 +24,7 @@ async def list_ai_conversations(
         token: str = Query(...),
         db: Session = Depends(get_db)
 ):
-    """获取当前用户的推荐 AI 对话列表，按更新时间降序"""
+    """List current user's Recommendation AI conversations, newest first."""
     current_user = get_current_user(token, db)
     items, total, error = crud.ai_conversation_crud.list_by_user(db, user_id=current_user.id)
     if error:
@@ -45,7 +45,7 @@ async def get_ai_conversation(
         token: str = Query(...),
         db: Session = Depends(get_db)
 ):
-    """获取单条对话详情"""
+    """Get one conversation by id."""
     current_user = get_current_user(token, db)
     conv, error = crud.ai_conversation_crud.get_by_id_and_user(db, conversation_id=conversation_id, user_id=current_user.id)
     if error or not conv:
@@ -65,7 +65,7 @@ async def create_ai_conversation(
         token: str = Query(...),
         db: Session = Depends(get_db)
 ):
-    """创建一条新对话"""
+    """Create a new conversation."""
     current_user = get_current_user(token, db)
     conv, error = crud.ai_conversation_crud.create(db, user_id=current_user.id, title=body.title, messages=body.messages)
     if error or not conv:
@@ -86,7 +86,7 @@ async def update_ai_conversation(
         token: str = Query(...),
         db: Session = Depends(get_db)
 ):
-    """更新对话标题和/或消息列表"""
+    """Update conversation title and/or messages."""
     current_user = get_current_user(token, db)
     conv, error = crud.ai_conversation_crud.update(
         db, conversation_id=conversation_id, user_id=current_user.id,
@@ -109,7 +109,7 @@ async def delete_ai_conversation(
         token: str = Query(...),
         db: Session = Depends(get_db)
 ):
-    """删除一条对话"""
+    """Delete a conversation."""
     current_user = get_current_user(token, db)
     ok, error = crud.ai_conversation_crud.delete(db, conversation_id=conversation_id, user_id=current_user.id)
     if not ok:
@@ -123,7 +123,7 @@ async def delete_ai_conversation(
 @router.post("/api/ai/chat/stream")
 async def ai_chat_stream(
         req: schemas.ChatReq,
-        token: Optional[str] = Query(None, description="用户认证令牌"),
+        token: Optional[str] = Query(None, description="Auth token"),
         db: Session = Depends(get_db)
 ):
     current_user = None
@@ -149,10 +149,10 @@ async def ai_chat_stream(
             from AIwardrobe.agent.react_agent import ReactAgent
 
             react_agent = ReactAgent()
-            # 先根据当前消息与历史判定回复语言（默认英语）
+            # Reply language from current message + history (default English)
             lang = decide_reply_language(req.query or "", req.history or [])
 
-            # ReactAgent 当前接口仅接收 query；将历史上下文压成文本前缀传入。
+            # ReactAgent only takes query; fold recent history into a text prefix.
             history_lines = []
             for item in req.history or []:
                 role = item.get("role")
@@ -188,9 +188,9 @@ async def ai_chat_stream(
                 payload = json.dumps({"type": "delta", "content": delta}, ensure_ascii=False)
                 yield f"data: {payload}\n\n"
 
-            # 流式结束：先发 final（结构化 message），再发 done（兼容旧前端）
+            # End of stream: final structured message, then done (legacy clients)
             final_message = build_ai_message(final_full_text)
-            # 强制把最终 locale 同步成后端判定语言（防止模型偶尔写错）
+            # Force locale to match server-side language decision
             final_message["locale"] = lang
             try:
                 print("=== [ai_chat_stream] final_full_text ===")
@@ -198,7 +198,7 @@ async def ai_chat_stream(
                 print("=== [ai_chat_stream] final_message ===")
                 print(json.dumps(final_message, ensure_ascii=False))
             except Exception:
-                # 调试日志失败不影响主流程
+                # Debug logging must not break the stream
                 pass
             final_payload = json.dumps({"type": "final", "message": final_message}, ensure_ascii=False)
             yield f"data: {final_payload}\n\n"

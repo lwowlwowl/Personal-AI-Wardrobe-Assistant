@@ -1,4 +1,4 @@
-/** 推荐卡片 / 气泡：去掉 # 编号、中英混排加空格，仅影响展示 */
+/** Recommendation card / bubble display: strip # ids and pad CJK/Latin boundaries (display only). */
 
 const DOUBLE_SPACE = '  '
 
@@ -11,7 +11,7 @@ export function stripWardrobeHashIds(s) {
 }
 
 /**
- * 英文服饰词（≥2 个拉丁字母）与汉字紧贴时，在边界插入两个空格，避免挤在一起
+ * Insert two spaces between Latin words (≥2 letters) and CJK when they touch.
  */
 export function padLatinCjkBoundaries(s) {
 	if (s == null || typeof s !== 'string') return ''
@@ -22,7 +22,7 @@ export function padLatinCjkBoundaries(s) {
 	return t
 }
 
-/** 展示用：先去 # 编号，再中英边界加两格 */
+/** Display helper: strip # ids, then pad CJK/Latin boundaries. */
 export function formatRecommendationDisplay(s) {
 	return padLatinCjkBoundaries(stripWardrobeHashIds(s))
 }

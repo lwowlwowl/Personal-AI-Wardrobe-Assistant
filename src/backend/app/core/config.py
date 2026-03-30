@@ -1,6 +1,6 @@
 """
-集中載入環境變數與應用設定。
-與修改.md Phase 3 對齊；路徑載入順序與原 main.py / database.py 行為相容。
+Load environment variables and application settings.
+Load order matches legacy main.py / database.py behavior.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# backend/ 目錄（本檔位於 backend/app/core/config.py）
+# backend/ root (this file: backend/app/core/config.py)
 _BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 load_dotenv(_BACKEND_DIR / ".env", override=False)
@@ -26,7 +26,7 @@ DATABASE_URL = os.getenv(
 
 SQL_ECHO = os.getenv("SQL_ECHO", "False").lower() == "true"
 
-# 未設定 SECRET_KEY 時與舊 crud 行為一致：每次行程啟動隨機（開發用；生產請設環境變數）
+# If SECRET_KEY is unset, match legacy behavior: random per process (dev only; set in prod)
 SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_urlsafe(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 120

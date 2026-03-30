@@ -1,4 +1,4 @@
-"""搭配 CRUD。"""
+"""Outfit CRUD."""
 from datetime import date
 from typing import List, Optional, Tuple
 
@@ -9,11 +9,11 @@ from app.models import ClothingItem, Outfit, OutfitItem
 from app.schemas import OutfitCreate, OutfitUpdate
 
 class OutfitCRUD:
-    """搭配CRUD操作类"""
+    """CRUD helpers for outfits."""
 
     @staticmethod
     def get_outfit(db: Session, outfit_id: int) -> Optional[Outfit]:
-        """获取单个搭配（包含关联的衣物）"""
+        """Load one outfit with related clothing rows."""
         return db.query(Outfit).options(
             joinedload(Outfit.outfit_items).joinedload(OutfitItem.clothing_item)
         ).filter(Outfit.id == outfit_id).first()
@@ -25,15 +25,15 @@ class OutfitCRUD:
             outfit_id: int
     ) -> Optional[Outfit]:
         """
-        获取用户的单个搭配
+        Load one outfit for a user (with items).
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-            outfit_id: 搭配ID
+        Args:
+            db: DB session
+            user_id: owner id
+            outfit_id: outfit id
 
-        返回:
-            搭配对象，包含关联的衣物信息
+        Returns:
+            Outfit or None.
         """
         return db.query(Outfit).options(
             joinedload(Outfit.outfit_items).joinedload(OutfitItem.clothing_item)
@@ -55,25 +55,21 @@ class OutfitCRUD:
             order_desc: bool = True
     ) -> Tuple[List[Outfit], int]:
         """
-        获取搭配列表（支持过滤、排序、分页）
+        List outfits with filters and pagination.
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-            skip: 跳过的记录数
-            limit: 每页记录数
-            occasion: 场合筛选
-            season: 季节筛选
-            is_public: 是否公开
-            order_by: 排序字段
-            order_desc: 是否降序
+        Args:
+            db: DB session
+            user_id: owner id
+            skip, limit: pagination
+            occasion, season, is_public: filters
+            order_by, order_desc: sort
 
-        返回:
-            Tuple[搭配列表, 总记录数]
+        Returns:
+            (outfits, total)
         """
         query = db.query(Outfit).filter(Outfit.user_id == user_id)
 
-        # 应用过滤器
+        # Filters
         if occasion:
             query = query.filter(Outfit.occasion == occasion)
         if season:
@@ -81,17 +77,16 @@ class OutfitCRUD:
         if is_public is not None:
             query = query.filter(Outfit.is_public == is_public)
 
-        # 获取总数
         total = query.count()
 
-        # 排序
+        # Sort
         order_column = getattr(Outfit, order_by, Outfit.created_at)
         if order_desc:
             query = query.order_by(desc(order_column))
         else:
             query = query.order_by(asc(order_column))
 
-        # 分页并加载关联（预加载搭配项和衣物信息）
+        # Page + eager-load outfit lines and clothing rows
         items = query.options(
             joinedload(Outfit.outfit_items).joinedload(OutfitItem.clothing_item)
         ).offset(skip).limit(limit).all()
@@ -105,18 +100,17 @@ class OutfitCRUD:
             outfit_in: OutfitCreate
     ) -> Tuple[Optional[Outfit], Optional[str]]:
         """
-        创建搭配
+        Create an outfit and its items.
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-            outfit_in: 搭配创建数据
+        Args:
+            db: DB session
+            user_id: owner id
+            outfit_in: create payload
 
-        返回:
-            Tuple[创建的搭配对象, 错误信息]
+        Returns:
+            (outfit, error_message)
         """
         try:
-            # 创建搭配
             db_outfit = Outfit(
                 user_id=user_id,
                 **outfit_in.model_dump(exclude={"clothing_items"})
@@ -125,9 +119,8 @@ class OutfitCRUD:
             db.commit()
             db.refresh(db_outfit)
 
-            # 添加搭配物品
+            # One OutfitItem per slot; each clothing_id must belong to this user.
             for item_in in outfit_in.clothing_items:
-                # 验证衣物属于该用户
                 clothing = db.query(ClothingItem).filter(
                     ClothingItem.id == item_in.clothing_id,
                     ClothingItem.user_id == user_id
@@ -137,7 +130,6 @@ class OutfitCRUD:
                     db.rollback()
                     return None, f"Clothing item {item_in.clothing_id} does not exist or does not belong to the current user"
 
-                # 创建搭配项
                 outfit_item = OutfitItem(
                     outfit_id=db_outfit.id,
                     clothing_id=item_in.clothing_id,
@@ -153,7 +145,7 @@ class OutfitCRUD:
 
         except Exception as e:
             db.rollback()
-            print(f"创建搭配错误: {e}")
+            print(f"create_outfit error: {e}")
             return None, f"Failed to create outfit: {str(e)}"
 
     @staticmethod
@@ -163,21 +155,19 @@ class OutfitCRUD:
             outfit_in: OutfitUpdate
     ) -> Tuple[Optional[Outfit], Optional[str]]:
         """
-        更新搭配
+        Update outfit scalar fields.
 
-        参数:
-            db: 数据库会话
-            db_outfit: 要更新的搭配对象
-            outfit_in: 更新数据
+        Args:
+            db: DB session
+            db_outfit: existing row
+            outfit_in: update payload
 
-        返回:
-            Tuple[更新后的搭配对象, 错误信息]
+        Returns:
+            (outfit, error_message)
         """
         try:
-            # 获取更新数据，排除未设置的字段
             update_data = outfit_in.model_dump(exclude_unset=True)
 
-            # 更新搭配属性
             for field, value in update_data.items():
                 if value is not None:
                     setattr(db_outfit, field, value)
@@ -190,20 +180,20 @@ class OutfitCRUD:
 
         except Exception as e:
             db.rollback()
-            print(f"更新搭配错误: {e}")
+            print(f"update_outfit error: {e}")
             return None, f"Failed to update outfit: {str(e)}"
 
     @staticmethod
     def delete_outfit(db: Session, outfit_id: int) -> Tuple[bool, Optional[str]]:
         """
-        删除搭配
+        Delete an outfit.
 
-        参数:
-            db: 数据库会话
-            outfit_id: 搭配ID
+        Args:
+            db: DB session
+            outfit_id: outfit id
 
-        返回:
-            Tuple[是否成功, 错误信息]
+        Returns:
+            (success, error_message)
         """
         try:
             outfit = db.query(Outfit).filter(Outfit.id == outfit_id).first()
@@ -216,7 +206,7 @@ class OutfitCRUD:
 
         except Exception as e:
             db.rollback()
-            print(f"删除搭配错误: {e}")
+            print(f"delete_outfit error: {e}")
             return False, f"Failed to delete outfit: {str(e)}"
 
     @staticmethod
@@ -225,21 +215,20 @@ class OutfitCRUD:
             outfit_id: int
     ) -> Tuple[Optional[Outfit], Optional[str]]:
         """
-        记录搭配穿着（增加穿着次数并更新最后穿着日期）
+        Increment wear_count and set last_worn_date to today.
 
-        参数:
-            db: 数据库会话
-            outfit_id: 搭配ID
+        Args:
+            db: DB session
+            outfit_id: outfit id
 
-        返回:
-            Tuple[更新后的搭配对象, 错误信息]
+        Returns:
+            (outfit, error_message)
         """
         try:
             outfit = db.query(Outfit).filter(Outfit.id == outfit_id).first()
             if not outfit:
                 return None, "Outfit does not exist"
 
-            # 更新穿着统计
             outfit.wear_count += 1
             outfit.last_worn_date = date.today()
             db.add(outfit)
@@ -250,5 +239,5 @@ class OutfitCRUD:
 
         except Exception as e:
             db.rollback()
-            print(f"记录搭配穿着错误: {e}")
+            print(f"record_outfit_wear error: {e}")
             return None, f"Failed to record outfit wear: {str(e)}"

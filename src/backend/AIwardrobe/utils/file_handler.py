@@ -3,20 +3,20 @@ from AIwardrobe.utils.logger_handler import logger
 from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 
-def get_file_md5_hex(filepath: str):    # 获取文件的md5的十六进制字符串
+def get_file_md5_hex(filepath: str):    # Return MD5 hex digest of file contents
     if not os.path.exists(filepath):
-        logger.error(f"[md5计算]文件{filepath}不存在")
+        logger.error(f"[md5] file not found: {filepath}")
         return
 
     if not os.path.isfile(filepath):
-        logger.error(f"[md5计算]路径{filepath}不是文件")
+        logger.error(f"[md5] path is not a file: {filepath}")
         return
 
     md5_obj = hashlib.md5()
 
-    chunk_size = 4096     # 4KB分片，避免文件过大爆内存
+    chunk_size = 4096     # 4KB reads to bound memory on large files
     try:
-        with open(filepath, "rb") as f:     # 必须二进制读取
+        with open(filepath, "rb") as f:     # Binary mode required for hashing
             while chunk := f.read(chunk_size):
                 md5_obj.update(chunk)
 
@@ -24,14 +24,14 @@ def get_file_md5_hex(filepath: str):    # 获取文件的md5的十六进制字�
             return md5_hex
 
     except Exception as e:
-        logger.error(f"计算文件{filepath}md5失败,{str(e)}")
+        logger.error(f"[md5] failed for {filepath}: {e}")
         return None
 
-def listdir_with_allowed_type(path: str, allowed_types: tuple[str]):   # 返回文件夹内的文件列表（允许的文件后缀）
+def listdir_with_allowed_type(path: str, allowed_types: tuple[str]):   # List files under path matching suffix tuple
     files = []
 
     if not os.path.isdir(path):
-        logger.error(f"[listdir_with_allowed_type]{path}不是文件夹")
+        logger.error(f"[listdir_with_allowed_type] not a directory: {path}")
         return allowed_types
 
     for f in os.listdir(path):

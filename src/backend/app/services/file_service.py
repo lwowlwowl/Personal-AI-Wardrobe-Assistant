@@ -1,10 +1,10 @@
-"""上傳目錄與檔案儲存（與原 main.py 邏輯一致）。"""
+"""Upload directory layout and file persistence (same behavior as legacy main)."""
 import uuid
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile, status
 
-# backend/app/services/file_service.py → parents[4] = 專案根（與 main.py 中 BASE_DIR 一致）
+# parents[4] = repo root (same idea as BASE_DIR in legacy main)
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 
 UPLOAD_URL_PREFIX = "/Personal-AI-Wardrobe-Assistant/uploads"

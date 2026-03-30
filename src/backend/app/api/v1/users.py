@@ -40,7 +40,7 @@ async def read_users_me(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"获取用户信息错误详情: {traceback.format_exc()}")
+        print(f"get user profile error: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not load profile: {str(e)}",

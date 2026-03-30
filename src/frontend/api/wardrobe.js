@@ -1,26 +1,26 @@
 /**
- * 衣柜与后端联调 API 模块
- * 衣物、模特照片等接口。用户/认证相关见 userApi.js
+ * Wardrobe-to-backend integration API module.
+ * Includes clothing/model-photo endpoints. User/auth endpoints are in userApi.js.
  */
 
 import { API_BASE_URL, request } from '@/utils/request.js'
 
 export { API_BASE_URL, request }
 
-// ============ 健康检查 ============
+// ============ Health Check ============
 
 /**
- * 后端健康检查
+ * Backend health check.
  * @returns {Promise<{ statusCode, data }>}
  */
 export function healthCheck() {
   return request({ url: '/api/health', method: 'GET' })
 }
 
-// ============ 衣物 (Clothing) ============
+// ============ Clothing ============
 
 /**
- * 获取衣物列表（分页、筛选、排序）
+ * Get clothing list (pagination, filters, sorting).
  * @param {Object} params
  * @param {string} params.token
  * @param {number} [params.page=1]
@@ -52,11 +52,11 @@ export function getClothingList(params) {
 }
 
 /**
- * 上传衣物（图片 + 表单字段）
+ * Upload clothing (image + form fields).
  * @param {Object} opts
  * @param {string} opts.token
- * @param {string} [opts.filePath] - 本地暂存图片路径（uni.chooseImage 或 blob URL）
- * @param {File} [opts.file] - 浏览器拖拽时的 File 对象，与 filePath 二选一
+ * @param {string} [opts.filePath] - Local temp image path (uni.chooseImage or blob URL).
+ * @param {File} [opts.file] - File object from browser drag/drop; mutually exclusive with filePath.
  * @param {Object} opts.formData - { name, category, subcategory, color, season, brand, tags, description, price, purchase_date }
  * @returns {Promise<{ statusCode, data }>}
  */
@@ -77,7 +77,7 @@ export function uploadClothing(opts) {
     purchase_date: formData?.purchase_date ?? ''
   }
 
-  // 拖拽等场景：有 File/Blob 时用 FormData + fetch 上传（保证走后端打标）
+  // Drag/drop and similar flows: upload via FormData + fetch when File/Blob exists.
   if (file != null && (file instanceof File || file instanceof Blob)) {
     const fd = new FormData()
     if (file instanceof File) {
@@ -113,7 +113,7 @@ export function uploadClothing(opts) {
 }
 
 /**
- * 删除衣物
+ * Delete clothing.
  * @param {string} token
  * @param {number} clothingId
  * @returns {Promise<{ statusCode, data }>}
@@ -124,7 +124,7 @@ export function deleteClothing(token, clothingId) {
 }
 
 /**
- * 更新衣物（可选字段）
+ * Update clothing (optional fields).
  * @param {string} token
  * @param {number} clothingId
  * @param {Object} updateData - { name, category, color, season, brand, tags, description, price, purchase_date, is_favorite }
@@ -144,10 +144,10 @@ export function updateClothing(token, clothingId, updateData) {
   })
 }
 
-// ============ 模特照片 (Model Photos) ============
+// ============ Model Photos ============
 
 /**
- * 获取模特照片列表
+ * Get model photo list.
  * @param {Object} params
  * @param {string} params.token
  * @param {number} [params.page=1]
@@ -167,7 +167,7 @@ export function getModelPhotos(params) {
 }
 
 /**
- * 获取当前用户的主要模特照片（虚拟试穿默认人像）
+ * Get current user's primary model photo (default portrait for virtual try-on).
  * @param {string} token
  * @returns {Promise<{ statusCode, data }>}
  */
@@ -178,7 +178,7 @@ export function getPrimaryModelPhoto(token) {
 }
 
 /**
- * 上传模特照片
+ * Upload model photo.
  * @param {Object} opts
  * @param {string} opts.token
  * @param {string} opts.filePath
@@ -212,7 +212,7 @@ export function uploadModelPhoto(opts) {
 }
 
 /**
- * 删除模特照片（软删除或硬删除）
+ * Delete model photo (soft delete or hard delete).
  * @param {string} token
  * @param {number} photoId
  * @param {boolean} [hardDelete=false]
@@ -224,7 +224,7 @@ export function deleteModelPhoto(token, photoId, hardDelete = false) {
 }
 
 /**
- * 设为主要模特照片
+ * Set as primary model photo.
  * @param {string} token
  * @param {number} photoId
  * @returns {Promise<{ statusCode, data }>}
@@ -235,7 +235,7 @@ export function setModelPhotoPrimary(token, photoId) {
 }
 
 /**
- * 更新模特照片信息
+ * Update model photo metadata.
  * @param {string} token
  * @param {number} photoId
  * @param {Object} updateData - { photo_name, description, is_primary }

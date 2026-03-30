@@ -1,4 +1,4 @@
-<!-- Recommendation AI 专用：侧栏「新建会话」+「你的对话」列表 + Rename/Delete 弹窗；状态与方法均在此组件内 -->
+<!-- Recommendation AI sidebar: new chat, list, rename/delete modals; state lives here -->
 <template>
 	<view class="conversation-side-block">
 		<view class="btn-new-session" @click="handleNewSession">
@@ -50,7 +50,7 @@ import RenameModal from './RenameModal.vue'
 import DeleteModal from './DeleteModal.vue'
 import { listConversations, createConversation, updateConversation, deleteConversation } from '@/api/recommendationApi.js'
 
-// 仅「点击主内容区关闭选单」需由 index 控制；conversationState 由 index 传入以便 collapse 时不丢失
+// Closing menu by clicking main content is controlled by index; conversationState from index for collapse
 const props = defineProps({
 	conversationState: { type: Object, default: () => ({ conversations: [], currentConversationId: null, currentConversation: null }) },
 	openMenuConvId: { type: String, default: null },
@@ -65,7 +65,7 @@ const openConvMenuId = ref(null)
 const renamingConvId = ref(null)
 const deletingConvId = ref(null)
 
-// 是否为后端返回的 id（数字或数字字符串）
+// Server id: number or numeric string
 function isServerId(id) {
 	if (id == null) return false
 	if (typeof id === 'number') return true
@@ -83,7 +83,7 @@ const renamingInitialTitle = computed(() => {
 	return (conv?.title || 'New conversation').slice(0, 36)
 })
 
-// 同步到 index，供传给 RecommendationAI
+// Push state to index for RecommendationAI
 function syncState() {
 	emit('update:conversationState', {
 		conversations: conversations.value,
@@ -92,7 +92,7 @@ function syncState() {
 	})
 }
 
-// 登入后从后端拉取对话列表
+// After login: fetch conversations from API
 async function loadConversationsFromServer() {
 	if (!props.isLoggedIn) return
 	try {
@@ -102,7 +102,7 @@ async function loadConversationsFromServer() {
 			title: c.title || 'New conversation',
 			messages: Array.isArray(c.messages) ? c.messages : []
 		}))
-		// 登入后拉取列表时不自动进入任一会话，保持主页面（问候语 + 输入框）；若当前选中的对话已不在列表中则清空选中
+		// Do not auto-open a conv after fetch; stay on greeting. Clear selection if id missing from list
 		const stillExists = conversations.value.some(c => c.id === currentConversationId.value)
 		if (!stillExists) {
 			currentConversationId.value = null
@@ -138,7 +138,7 @@ onMounted(() => {
 	}
 })
 
-// 与 index 的 openMenuConvId 双向同步（index 可通过 closeConvMenu 清空）
+// Two-way sync with index openMenuConvId (index can clear via closeConvMenu)
 watch(() => props.openMenuConvId, (v) => { openConvMenuId.value = v ?? null }, { immediate: true })
 watch(openConvMenuId, (v) => { emit('update:openMenuConvId', v ?? null) })
 
@@ -352,7 +352,7 @@ defineExpose({
 	background-color: rgba(157, 139, 112, 0.2);
 }
 
-/* 展开菜单的项置于最前，避免下方项盖住菜单导致无法点击 Rename/Delete */
+/* Open-menu row on top so items below do not cover Rename/Delete */
 .conversation-item.has-menu-open {
 	z-index: 200;
 	position: relative;

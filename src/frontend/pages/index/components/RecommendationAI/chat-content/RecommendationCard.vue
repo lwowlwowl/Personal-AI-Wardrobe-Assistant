@@ -162,7 +162,7 @@ const props = defineProps({
 		default: () => ({})
 	},
 	showRegenerate: { type: Boolean, default: true },
-	/** 后端判定语言，用于展示细节（如标题 i18n） */
+	/** Backend-detected locale, used for display details (e.g. title i18n) */
 	locale: { type: String, default: 'en' }
 })
 
@@ -177,7 +177,7 @@ const displayTags = computed(() => {
 	return [...set].filter(Boolean)
 })
 
-/** 诊断/纯文字卡无 items 时不显示日历与全身试穿，避免误触 */
+/** Hide calendar and full outfit try-on for diagnostic/text-only cards without items to avoid misclicks */
 const hasOutfitItems = computed(() =>
 	Array.isArray(props.recommendation?.items) && props.recommendation.items.length > 0
 )
@@ -278,7 +278,7 @@ watch(
 	box-sizing: border-box;
 }
 
-/* --- 画廊样式 --- */
+/* --- Gallery styles --- */
 .card-header {
 	display: flex;
 	align-items: center;
@@ -333,7 +333,7 @@ watch(
 	height: 100%;
 }
 
-/* --- 正文与标签 --- */
+/* --- Main text and tags --- */
 .message-text {
 	font-size: 30rpx;
 	color: #2C2C2E;
@@ -458,7 +458,7 @@ watch(
 	flex: 1;
 }
 
-/* --- 列表单品带微缩图的布局 (本次优化的核心区域) --- */
+/* --- Layout for list items with thumbnails (core optimized area) --- */
 .outfit-list {
 	margin-top: 40rpx;
 	border-top: 1px solid rgba(0, 0, 0, 0.04);
@@ -597,7 +597,7 @@ watch(
 	background: #F0E6D8;
 	border: 1rpx solid rgba(157, 139, 112, 0.25);
 	transition: opacity 0.18s ease, transform 0.18s ease;
-	/* H5：<text> 默认可选字，光标会变成直线 I；按钮应为手形且不可选字 */
+	/* H5: <text> is selectable by default and shows an I-beam; button should use pointer and disable text selection */
 	cursor: pointer;
 	user-select: none;
 	-webkit-user-select: none;
@@ -646,7 +646,7 @@ watch(
 	line-height: 1.6;
 }
 
-/* --- 下方分析区块（Why this works / Alternatives 标题与正文字号、字体在此改）--- */
+/* --- Lower analysis section (adjust title/body font size and family for Why this works / Alternatives here) --- */
 .why-this-works {
 	margin-top: 40rpx;
 	padding: 32rpx 0 16rpx;

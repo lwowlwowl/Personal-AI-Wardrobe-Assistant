@@ -1,4 +1,4 @@
-/** 消息用何种界面渲染：卡片、计划表或纯文字（供模板调用） */
+/** How to render a message in the UI: cards, plan, or plain text (for templates). */
 
 export function getRecommendations(msg) {
 	if (Array.isArray(msg?.recommendations) && msg.recommendations.length > 0) {
@@ -56,7 +56,7 @@ export function getDisplayContent(msg) {
 	return msg?.content ?? msg?.rawText ?? ''
 }
 
-/** 多条推荐卡片时，「重新生成」按钮只显示在带单品列表的那一张上 */
+/** When multiple recommendation cards exist, show Regenerate only on the card that has item rows. */
 export function shouldShowRegenerateOnRecommendation(msg, ri) {
 	const recs = getRecommendations(msg)
 	if (recs.length <= 1) return true

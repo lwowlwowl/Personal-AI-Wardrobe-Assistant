@@ -1,5 +1,5 @@
 """
-衣櫥分析：閒置、顏色/風格統計、最常穿、本週活躍度（不含 HTTP 路由）。
+Wardrobe insights: idle items, color/style stats, most worn, weekly activity (no HTTP routes).
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 import app.models as models
 
-# 前端 Weekly Activity 分类显示名与图标（与衣橱主分类一致，含 Bag 独立展示）
+# Frontend Weekly Activity labels/icons aligned with main wardrobe categories (Bag shown separately).
 _WEEKLY_ACTIVITY_CATEGORY_MAP = {
     "top": {"name": "Tops", "icon": "👕"},
     "bottom": {"name": "Bottoms", "icon": "👖"},

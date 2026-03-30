@@ -11,7 +11,7 @@ class ClassificationModel:
         self.prompt = load_classify_prompts()
 
     def execute(self, path: str):
-        # 为了方便暂时用的base64编码上传 后期可以改成SSO来上传图片
+        # Temporary: inline base64 data URL; could switch to signed URLs / SSO later
         with open(path, "rb") as f:
             b64 = base64.b64encode(f.read()).decode("utf-8")
 

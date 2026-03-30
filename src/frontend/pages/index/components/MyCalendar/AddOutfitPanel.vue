@@ -192,21 +192,21 @@ const props = defineProps({
 
 const emit = defineEmits(['confirm', 'cancel'])
 
-/** 待加入的单品（多选后确认） */
+/** Items pending addition (confirm after multi-select) */
 const pendingSelection = ref([...props.initialSelection])
 
-// 监听 initialSelection 的变化，当父组件切换日期时更新 pendingSelection
+// Watch initialSelection; update pendingSelection when parent switches date
 watch(() => props.initialSelection, (newVal) => {
 	pendingSelection.value = [...newVal]
 }, { deep: true })
 
-/** 衣柜项目：来自 GET /api/clothing，字段映射 image_url -> image，color 可作 accentColor */
+/** Wardrobe items: from GET /api/clothing, map image_url -> image, color can be used as accentColor */
 const wardrobeItems = ref([])
-/* 初始必须为 true，防止刚进组件时闪烁空状态 */
+/* Must start as true to prevent empty-state flicker on initial mount */
 const wardrobeLoading = ref(true)
 
 async function loadWardrobe() {
-	// 优先用父组件传入的 token，否则从本地存储读取（与「我的衣柜」同源）
+	// Prefer token from parent; otherwise read from local storage (same source as My Wardrobe)
 	const token = props.token || uni.getStorageSync('auth_token') || ''
 	if (!token) {
 		wardrobeItems.value = []
@@ -226,7 +226,7 @@ async function loadWardrobe() {
 			wardrobeItems.value = []
 			return
 		}
-		// 兼容：res.data 可能为已解析对象或 JSON 字符串；后端格式为 { success, data: { items, pagination } }
+		// Compatibility: res.data may be parsed object or JSON string; backend format is { success, data: { items, pagination } }
 		let body = res.data
 		if (typeof body === 'string') {
 			try {
@@ -247,7 +247,7 @@ async function loadWardrobe() {
 				image = `${API_BASE_URL}${image}`
 			}
 
-			// 与 WardrobeView 保持一致：后端 season 可能是数组 ['autumn','winter']，此处统一转成逗号分隔字符串
+			// Keep consistent with WardrobeView: backend season may be array ['autumn','winter']; normalize to comma-separated string
 			const seasonVal = item.season
 			const seasonStr = Array.isArray(seasonVal) ? seasonVal.join(',') : (seasonVal || '')
 
@@ -273,24 +273,24 @@ async function loadWardrobe() {
 onMounted(() => loadWardrobe())
 watch(() => props.token, () => loadWardrobe())
 
-/** Filter 状态 */
-// 应用中的筛选条件（与 WardrobeView 的 applied* 含义一致；空数组表示「全部」）
+/** Filter state */
+// Applied filters (same meaning as WardrobeView applied*; empty array means "all")
 const filterCategory = ref([])
 const filterColor = ref([])
 const filterSeason = ref([])
 const filterSearch = ref('')
 
-// 当前展开的筛选面板名称：'category' | 'color' | 'season' | null
+// Currently opened filter panel: 'category' | 'color' | 'season' | null
 const activeFilter = ref(null)
 
-// 临时选择（下拉展开时编辑的值，点击 Apply 后才同步到已应用条件）
+// Temporary selection (edited in dropdown; sync to applied filters only after Apply)
 const selectedCategory = ref([])
 const selectedColor = ref([])
 const selectedSeason = ref([])
 
-// 下拉选项：
-// - 类别与季节：直接沿用与「我的衣橱」一致的枚举
-// - 颜色：根据实际衣物颜色动态生成，避免出现大量与当前衣橱无关的颜色
+// Dropdown options:
+// - Category & season: reuse enums consistent with My Wardrobe
+// - Color: generated dynamically from actual wardrobe colors to avoid irrelevant options
 const filterCategoryOptions = TYPE_OPTIONS
 const filterSeasonOptions = SEASON_OPTIONS
 const filterColorOptions = computed(() => {
@@ -309,7 +309,7 @@ const filterColorOptions = computed(() => {
 		.map((code) => ({ label: code, value: code }))
 })
 
-/** 点击下拉按钮：展开或收起对应的筛选面板，并把已应用条件同步到临时选择 */
+/** Dropdown button click: toggle the target panel, then sync applied filters into temporary selection */
 function toggleFilterDropdown(type) {
 	if (activeFilter.value === type) {
 		activeFilter.value = null
@@ -321,7 +321,7 @@ function toggleFilterDropdown(type) {
 	if (type === 'season') selectedSeason.value = [...filterSeason.value]
 }
 
-/** 点击选项：只更新临时选择，不立即影响已应用条件 */
+/** Option click: update temporary selection only, do not affect applied filters immediately */
 function handleOptionClick(type, value) {
 	let target
 	if (type === 'category') target = selectedCategory
@@ -336,11 +336,11 @@ function handleOptionClick(type, value) {
 	}
 }
 
-/** 筛选按钮显示的标签：未选中时显示默认文本，选中1项显示该项标签，选中多项显示数量 */
+/** Filter button labels: show default when none selected, selected label for one, count for multiple */
 const filterCategoryLabel = computed(() => {
 	const arr = filterCategory.value
 	if (!arr.length) return 'Clothing type'
-	// 将 code 转换为 label
+	// Convert code to label
 	const labels = arr.map(code => {
 		const opt = TYPE_OPTIONS.find(o => o.value === code)
 		return opt ? opt.label : code
@@ -350,13 +350,13 @@ const filterCategoryLabel = computed(() => {
 const filterColorLabel = computed(() => {
 	const arr = filterColor.value
 	if (!arr.length) return 'Color'
-	// Color 这里使用实际颜色 code 作为 label（与 WardrobeView 保持一致）
+	// For Color, use the actual color code as label (consistent with WardrobeView)
 	return arr.length >= 2 ? `Color (${arr.length})` : arr[0]
 })
 const filterSeasonLabel = computed(() => {
 	const arr = filterSeason.value
 	if (!arr.length) return 'Season'
-	// 将 code 转换为 label
+	// Convert code to label
 	const labels = arr.map(code => {
 		const opt = SEASON_OPTIONS.find(o => o.value === code)
 		return opt ? opt.label : code
@@ -364,7 +364,7 @@ const filterSeasonLabel = computed(() => {
 	return arr.length >= 2 ? `Season (${arr.length})` : labels[0]
 })
 
-// 与 MyWardrobe 的逻辑保持一致：搜索仅做「单词前缀」匹配，而不是任意子串
+// Keep consistent with MyWardrobe logic: search uses word-prefix matching, not arbitrary substring matching
 function nameMatchesSearch(name, searchTerm) {
 	const nameWords = (name || '').toLowerCase().split(/\s+/).filter(Boolean)
 	const searchWords = searchTerm.trim().toLowerCase().split(/\s+/).filter(Boolean)
@@ -374,17 +374,17 @@ function nameMatchesSearch(name, searchTerm) {
 	)
 }
 
-/** 依 filter 筛选后的衣柜列表（多选：空数组＝不筛选该维度） */
+/** Wardrobe list filtered by current filters (multi-select: empty array = no filtering for that dimension) */
 const filteredWardrobeItems = computed(() => {
 	const items = wardrobeItems.value
 	let list = [...items]
 
-	// type/color/season 可能为多选（逗号或斜线分隔），只要有一个命中即显示
+	// type/color/season may be multi-select (comma/slash separated); show item if any code matches
 	const parseItemCodes = (str) => (str || '').split(/[,/]+/).map((s) => s.trim()).filter(Boolean)
 
 	const cat = filterCategory.value
 	if (cat.length) {
-		// Category：下拉使用 code，后端字段多为 label，需将 code 映射回 label 再匹配
+		// Category: dropdown uses codes while backend often stores labels; map code back to label for matching
 		const selectedLabels = cat.map((code) => {
 			const opt = TYPE_OPTIONS.find((o) => o.value === code)
 			return opt ? opt.label : code
@@ -398,14 +398,14 @@ const filteredWardrobeItems = computed(() => {
 
 	const col = filterColor.value
 	if (col.length) {
-		// Color：后端多返回 code，本地直接按 code 匹配
+		// Color: backend usually returns codes; match by code directly
 		const set = new Set(col)
 		list = list.filter((i) => parseItemCodes(i.color).some((code) => set.has(code)))
 	}
 
 	const sea = filterSeason.value
 	if (sea.length) {
-		// Season：优先按 code 匹配，同时兼容部分数据直接存 label 的情况
+		// Season: prefer code matching, while also supporting data that stores labels directly
 		const codeSet = new Set(sea)
 		const labelSet = new Set(
 			sea
@@ -431,12 +431,12 @@ const filteredWardrobeItems = computed(() => {
 	return list
 })
 
-/** 检查单品是否已在待选列表中 */
+/** Check whether an item is already in pending selection */
 function isPending(item) {
 	return pendingSelection.value.some((p) => p.id === item.id)
 }
 
-/** 切换单品的选中状态：如果已选中则移除，未选中则添加 */
+/** Toggle item selection state: remove if selected, add if not selected */
 function togglePending(item) {
 	const idx = pendingSelection.value.findIndex((p) => p.id === item.id)
 	if (idx >= 0) {
@@ -446,7 +446,7 @@ function togglePending(item) {
 	}
 }
 
-/** 确认选择：如果有选中项则发送 confirm 事件，否则发送 cancel 事件 */
+/** Confirm selection: emit confirm if any selected item exists, otherwise emit cancel */
 function handleConfirm() {
 	if (pendingSelection.value.length > 0) {
 		emit('confirm', [...pendingSelection.value])
@@ -455,12 +455,12 @@ function handleConfirm() {
 	}
 }
 
-/** 关闭所有筛选下拉菜单 */
+/** Close all filter dropdowns */
 function closeAllFilters() {
 	activeFilter.value = null
 }
 
-/** Apply：同步临时选择到已应用条件并关闭当前下拉 */
+/** Apply: sync temporary selection to applied filters and close current dropdown */
 function applyFilter(type) {
 	if (type === 'category') filterCategory.value = [...selectedCategory.value]
 	else if (type === 'color') filterColor.value = [...selectedColor.value]
@@ -468,7 +468,7 @@ function applyFilter(type) {
 	activeFilter.value = null
 }
 
-/** Reset：清空指定类型的筛选条件（临时与已应用一并清空），并关闭下拉 */
+/** Reset: clear filters for the specified type (temporary and applied), then close dropdown */
 function resetFilter(type) {
 	if (type === 'category') {
 		filterCategory.value = []
@@ -656,7 +656,7 @@ function resetFilter(type) {
 	transform: translateY(-6rpx) scale(0.97);
 }
 
-/* 右侧面板内「选择衣服」：容器与可滚动列表（替代原底部弹窗） */
+/* "Select clothes" inside right panel: container + scrollable list (replaces old bottom popup) */
 .add-inline {
 	display: flex;
 	flex-direction: column;
@@ -675,7 +675,7 @@ function resetFilter(type) {
 	flex-direction: column;
 }
 
-/* 单品卡片：精品化，hover 浮起，选中勾选 */
+/* Item cards: premium style, lift on hover, checkmark when selected */
 .add-item-card {
 	display: flex;
 	align-items: center;
@@ -744,7 +744,7 @@ function resetFilter(type) {
 	height: 28rpx;
 }
 
-/* 底部确认区 */
+/* Bottom confirmation area */
 .add-panel-footer {
 	display: flex;
 	align-items: center;
@@ -779,7 +779,7 @@ function resetFilter(type) {
 	transform: scale(0.97);
 }
 
-/* Filter 列表切换动画 */
+/* Filter list transition animation */
 .filter-list-fade-enter-active,
 .filter-list-fade-leave-active {
 	transition: opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
@@ -801,7 +801,7 @@ function resetFilter(type) {
 	transform: translateY(0);
 }
 
-/* Filter 列表项进入动画（stagger） */
+/* Filter list item entry animation (staggered) */
 .filter-item-enter {
 	opacity: 0;
 	transform: translateY(16rpx) scale(0.96);
@@ -815,7 +815,7 @@ function resetFilter(type) {
 	}
 }
 
-/* 空状态 */
+/* Empty state */
 .add-empty {
 	padding: 80rpx 40rpx;
 	text-align: center;
@@ -872,10 +872,10 @@ function resetFilter(type) {
 }
 
 /* =========================================
-   高级呼吸骨架屏 (Skeleton Loader)
+   Advanced breathing skeleton loader
 ========================================= */
 .skeleton-card {
-	pointer-events: none; /* 骨架屏不可点击 */
+	pointer-events: none; /* Skeleton loader should not be clickable */
 	background: rgba(255, 255, 255, 0.4);
 	border-color: transparent;
 }
@@ -884,7 +884,7 @@ function resetFilter(type) {
 	width: 88rpx;
 	height: 88rpx;
 	border-radius: 12rpx 16rpx 16rpx 12rpx;
-	background: rgba(184, 107, 31, 0.08); /* 使用品牌主题色作为底色 */
+	background: rgba(184, 107, 31, 0.08); /* Use brand theme color as base */
 	animation: skeleton-pulse 1.5s infinite ease-in-out;
 }
 
@@ -894,7 +894,7 @@ function resetFilter(type) {
 	border-radius: 8rpx;
 	background: rgba(184, 107, 31, 0.08);
 	animation: skeleton-pulse 1.5s infinite ease-in-out;
-	animation-delay: 0.2s; /* 文字比图片晚一点呼吸，增加错落感 */
+	animation-delay: 0.2s; /* Let text pulse slightly after image for layered rhythm */
 }
 
 @keyframes skeleton-pulse {

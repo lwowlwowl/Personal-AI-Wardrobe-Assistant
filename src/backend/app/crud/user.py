@@ -1,4 +1,4 @@
-"""用户 CRUD。"""
+"""User CRUD."""
 import traceback
 from datetime import datetime
 from typing import Optional, Tuple
@@ -8,28 +8,29 @@ from sqlalchemy.orm import Session
 import app.models as models
 from app.core.security import hash_password, verify_password
 
-# ============ 用户CRUD操作 ============
+# ============ User CRUD ============
 
 def get_user_by_username(db: Session, username: str) -> Optional[models.User]:
-    """根据用户名获取用户"""
+    """Get user by username."""
     return db.query(models.User).filter(models.User.username == username).first()
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[models.User]:
-    """根据邮箱获取用户"""
+    """Get user by email."""
     return db.query(models.User).filter(models.User.email == email).first()
 
 
 def get_user_by_id(db: Session, user_id: int) -> Optional[models.User]:
-    """根据ID获取用户"""
+    """Get user by ID."""
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 
 def update_user(db: Session, user_id: int, **kwargs) -> Optional[models.User]:
     """
-    更新用户信息（仅更新传入的非空字段）
-    参数: db, user_id, 以及 User 表可更新字段如 username, email, full_name, avatar_url
-    返回: 更新后的用户对象，不存在则返回 None；若更新 username 且已被占用则抛出 ValueError
+    Update user fields; only non-None passed values are applied.
+
+    Args: db, user_id, plus updatable User fields e.g. username, email, full_name, avatar_url.
+    Returns: updated user, or None if missing; ValueError if username is taken.
     """
     user = get_user_by_id(db, user_id)
     if not user:
@@ -50,8 +51,9 @@ def update_user(db: Session, user_id: int, **kwargs) -> Optional[models.User]:
 
 def change_password(db: Session, user_id: int, current_password: str, new_password: str) -> Tuple[bool, Optional[str]]:
     """
-    修改当前用户密码（需验证当前密码）
-    返回: (成功与否, 错误信息)
+    Change password after verifying the current one.
+
+    Returns: (success, error_message)
     """
     user = get_user_by_id(db, user_id)
     if not user:
@@ -65,31 +67,27 @@ def change_password(db: Session, user_id: int, current_password: str, new_passwo
 
 def create_user(db: Session, user_data: dict) -> Tuple[Optional[models.User], Optional[str]]:
     """
-    创建新用户
+    Create a new user.
 
-    参数:
-        db: 数据库会话
-        user_data: 用户数据字典，包含username、password、email等
+    Args:
+        db: DB session
+        user_data: dict with username, password, email, etc.
 
-    返回:
-        Tuple[用户对象, 错误信息] - 成功时返回用户对象，失败时返回错误信息
+    Returns:
+        (user, error_message) — user on success, error string on failure
     """
     try:
         print(f"create_user: username={user_data.get('username')}")
 
-        # 检查用户名是否已存在
         if get_user_by_username(db, user_data["username"]):
             return None, "That username is already registered."
 
-        # 检查邮箱是否已存在（如果提供了邮箱）
         if user_data.get("email"):
             if get_user_by_email(db, user_data["email"]):
                 return None, "That email is already registered."
 
-        # 加密密码
         hashed_password = hash_password(user_data["password"])
 
-        # 创建用户对象
         db_user = models.User(
             username=user_data["username"],
             email=user_data.get("email"),
@@ -98,7 +96,6 @@ def create_user(db: Session, user_data: dict) -> Tuple[Optional[models.User], Op
             created_at=datetime.now()
         )
 
-        # 保存到数据库
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
@@ -114,15 +111,15 @@ def create_user(db: Session, user_data: dict) -> Tuple[Optional[models.User], Op
 
 def authenticate_user(db: Session, username: str, password: str) -> Tuple[Optional[models.User], Optional[str]]:
     """
-    验证用户登录信息
+    Authenticate login.
 
-    参数:
-        db: 数据库会话
-        username: 用户名或邮箱
-        password: 密码
+    Args:
+        db: DB session
+        username: username or email
+        password: plain password
 
-    返回:
-        Tuple[用户对象, 错误信息] - 认证成功返回用户对象，失败返回错误信息
+    Returns:
+        (user, error_message) — user on success
     """
     try:
         from sqlalchemy import or_
@@ -149,15 +146,15 @@ def authenticate_user(db: Session, username: str, password: str) -> Tuple[Option
 
 def update_user_password(db: Session, email: str, new_password: str) -> Tuple[bool, Optional[str]]:
     """
-    更新用户密码（用于忘记密码功能）
+    Set password by email (forgot-password flow).
 
-    参数:
-        db: 数据库会话
-        email: 用户邮箱
-        new_password: 新密码
+    Args:
+        db: DB session
+        email: user email
+        new_password: new password
 
-    返回:
-        Tuple[是否成功, 错误信息]
+    Returns:
+        (success, error_message)
     """
     try:
         user = get_user_by_email(db, email)
@@ -168,7 +165,6 @@ def update_user_password(db: Session, email: str, new_password: str) -> Tuple[bo
         if verify_password(new_password, user.hashed_password):
             return False, "New password must be different from the current password."
 
-        # 更新密码和修改时间
         user.hashed_password = hash_password(new_password)
         user.updated_at = datetime.now()
 
@@ -180,4 +176,3 @@ def update_user_password(db: Session, email: str, new_password: str) -> Tuple[bo
         db.rollback()
         print(f"update_user_password error:\n{traceback.format_exc()}")
         return False, f"Could not update password: {str(e)}"
-

@@ -17,7 +17,7 @@ async def register(
     db: Session = Depends(get_db),
 ):
     try:
-        print(f"注册请求: {user.username}")
+        print(f"register request: {user.username}")
 
         if not hasattr(crud, "create_user"):
             raise HTTPException(
@@ -27,7 +27,7 @@ async def register(
 
         user_data = user.dict(exclude={"confirm_password"})
         db_user, error = crud.create_user(db, user_data)
-        print(f"authenticate_user返回: user={db_user}, error='{error}'")
+        print(f"create_user returned: user={db_user}, error='{error}'")
 
         if error:
             status_code = status.HTTP_400_BAD_REQUEST
@@ -45,7 +45,7 @@ async def register(
                 },
             )
 
-        print(f"注册成功: {db_user.username}")
+        print(f"register success: {db_user.username}")
         return {
             "success": True,
             "message": "Registration successful.",
@@ -62,7 +62,7 @@ async def register(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"注册错误详情: {traceback.format_exc()}")
+        print(f"register error: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Registration failed: {str(e)}",
@@ -75,28 +75,28 @@ async def login(
     db: Session = Depends(get_db),
 ):
     try:
-        print(f"登录请求: username={login_data.username}")
-        print(f"登录请求完整数据: {login_data.dict()}")
+        print(f"login request: username={login_data.username}")
+        print(f"login payload: {login_data.dict()}")
 
         if not hasattr(crud, "authenticate_user"):
-            print("错误: 缺少authenticate_user函数")
+            print("error: authenticate_user missing on crud")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Server misconfiguration: authenticate_user is missing.",
             )
 
-        print("开始调用authenticate_user...")
+        print("calling authenticate_user...")
         user, error = crud.authenticate_user(db, login_data.username, login_data.password)
-        print(f"authenticate_user返回: user={user}, error='{error}'")
+        print(f"authenticate_user returned: user={user}, error='{error}'")
 
         if error:
-            print(f"认证失败: {error}")
+            print(f"auth failed: {error}")
             return {
                 "success": False,
                 "message": error,
                 "status_code": status.HTTP_401_UNAUTHORIZED,
             }
-        print(f"authenticate_user返回结果: user={user}, error={error}")
+        print(f"authenticate_user result: user={user}, error={error}")
 
         if not user or not user.is_active:
             raise HTTPException(
@@ -135,7 +135,7 @@ async def login(
     except HTTPException as http_err:
         raise http_err
     except Exception as e:
-        print(f"登录错误详情: {traceback.format_exc()}")
+        print(f"login error: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Sign-in failed: {str(e)}",
@@ -241,7 +241,7 @@ async def verify_token(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"验证token错误详情: {traceback.format_exc()}")
+        print(f"verify token error: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not verify session: {str(e)}",

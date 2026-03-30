@@ -34,7 +34,7 @@
 						<text class="worn-empty-cta-text">Add to wardrobe →</text>
 					</view>
 				</view>
-				<!-- :key=时间维度 整块重挂；逐行动画在 scoped 内用 nth-child 错开（不用 transition-group 以免 uni-app 卡更新） -->
+				<!-- :key=viewByWorn remounts block; row stagger via nth-child (no transition-group — uni-app perf) -->
 				<view v-else class="worn-list-items worn-list-items--animate" :key="viewByWorn">
 					<view v-for="item in mostWornWithDot" :key="`${item.name}-${item.wears}`" class="list-item">
 						<view class="dot" :class="{ active: item.dotColor === '#5c6bc0', dark: item.dotColor === '#616161' }" :style="{ background: item.dotColor }"></view>
@@ -100,7 +100,7 @@ const mostWornWithDot = computed(() =>
 	overflow: hidden;
 }
 
-/* 错开入场：对角滑入 + 轻缩放 + 末段微过冲（避免 blur 糊字） */
+/* Staggered enter: diagonal slide + slight scale + soft overshoot (avoid blur on text) */
 .worn-list-items--animate .list-item {
 	opacity: 0;
 	animation: worn-item-reveal 0.58s cubic-bezier(0.16, 1, 0.32, 1) forwards;

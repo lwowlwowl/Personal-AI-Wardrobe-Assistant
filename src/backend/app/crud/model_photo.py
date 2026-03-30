@@ -1,11 +1,12 @@
-"""模特照片 CRUD。"""
+"""CRUD for user model photos (virtual try-on / display)."""
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import ModelPhoto
 
+
 class ModelPhotoCRUD:
-    """模特照片CRUD操作类"""
+    """CRUD helpers for model photo rows."""
 
     @staticmethod
     def create_model_photo(db: Session, user_id: int, photo_name: str,
@@ -13,31 +14,30 @@ class ModelPhotoCRUD:
                            description: str = None, file_size: int = None,
                            file_format: str = None, is_primary: bool = False):
         """
-        创建模特照片记录
+        Insert a model photo row.
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-            photo_name: 照片名称
-            image_url: 图片URL
-            thumbnail_url: 缩略图URL（可选）
-            description: 描述（可选）
-            file_size: 文件大小（可选）
-            file_format: 文件格式（可选）
-            is_primary: 是否为主要照片
+        Args:
+            db: DB session.
+            user_id: owner user id.
+            photo_name: display name.
+            image_url: main image URL.
+            thumbnail_url: thumbnail URL (optional).
+            description: text description (optional).
+            file_size: size in bytes (optional).
+            file_format: file extension / MIME hint (optional).
+            is_primary: when True, this row becomes the default model photo.
 
-        返回:
-            Tuple[创建的模特照片对象, 错误信息]
+        Returns:
+            (model_photo, error_message) — error_message is None on success.
         """
         try:
-            # 如果设置为主要照片，先取消其他主要照片
+            # If this photo is primary, clear primary on all other rows for this user first.
             if is_primary:
                 db.query(ModelPhoto).filter(
                     ModelPhoto.user_id == user_id,
                     ModelPhoto.is_primary == True
                 ).update({"is_primary": False})
 
-            # 创建新照片记录
             model_photo = ModelPhoto(
                 user_id=user_id,
                 photo_name=photo_name,
@@ -63,17 +63,17 @@ class ModelPhotoCRUD:
                                  skip: int = 0, limit: int = 100,
                                  is_active: bool = True):
         """
-        获取用户的模特照片列表
+        List model photos for a user with pagination.
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-            skip: 跳过的记录数
-            limit: 每页记录数
-            is_active: 是否只获取活跃照片
+        Args:
+            db: DB session.
+            user_id: owner user id.
+            skip: offset (number of rows to skip).
+            limit: max rows to return.
+            is_active: when True, only rows with is_active=True.
 
-        返回:
-            Tuple[照片列表, 总记录数, 错误信息]
+        Returns:
+            (photos, total_count, error_message).
         """
         try:
             query = db.query(ModelPhoto).filter(
@@ -82,7 +82,7 @@ class ModelPhotoCRUD:
             )
 
             total = query.count()
-            # 排序：主要照片优先，然后按创建时间降序
+            # Sort: primary photo first, then newest first by created_at.
             photos = query.order_by(
                 ModelPhoto.is_primary.desc(),
                 ModelPhoto.created_at.desc()
@@ -95,15 +95,15 @@ class ModelPhotoCRUD:
     @staticmethod
     def get_model_photo_by_id(db: Session, user_id: int, photo_id: int):
         """
-        根据ID获取模特照片
+        Fetch one model photo by id, scoped to the user.
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-            photo_id: 照片ID
+        Args:
+            db: DB session.
+            user_id: owner user id.
+            photo_id: row id.
 
-        返回:
-            Tuple[照片对象, 错误信息]
+        Returns:
+            (photo, error_message).
         """
         try:
             photo = db.query(ModelPhoto).filter(
@@ -119,14 +119,14 @@ class ModelPhotoCRUD:
     @staticmethod
     def get_primary_model_photo(db: Session, user_id: int):
         """
-        获取用户的主要模特照片
+        Return the user's current primary (default) model photo, if any.
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
+        Args:
+            db: DB session.
+            user_id: owner user id.
 
-        返回:
-            Tuple[主要照片对象, 错误信息]
+        Returns:
+            (photo, error_message).
         """
         try:
             photo = db.query(ModelPhoto).filter(
@@ -143,18 +143,18 @@ class ModelPhotoCRUD:
     def update_model_photo(db: Session, db_photo: ModelPhoto,
                            update_data: dict):
         """
-        更新模特照片信息
+        Update fields on an existing model photo row.
 
-        参数:
-            db: 数据库会话
-            db_photo: 要更新的照片对象
-            update_data: 更新数据字典
+        Args:
+            db: DB session.
+            db_photo: loaded ModelPhoto instance.
+            update_data: dict of field names to new values.
 
-        返回:
-            Tuple[更新后的照片对象, 错误信息]
+        Returns:
+            (photo, error_message).
         """
         try:
-            # 如果设置为主要照片，先取消其他主要照片
+            # Promoting this row to primary: demote other primaries for the same user.
             if update_data.get('is_primary') is True:
                 db.query(ModelPhoto).filter(
                     ModelPhoto.user_id == db_photo.user_id,
@@ -162,12 +162,10 @@ class ModelPhotoCRUD:
                     ModelPhoto.is_primary == True
                 ).update({"is_primary": False})
 
-            # 更新字段
             for field, value in update_data.items():
                 if value is not None:
                     setattr(db_photo, field, value)
 
-            # 更新修改时间
             db_photo.updated_at = func.now()
             db.commit()
             db.refresh(db_photo)
@@ -180,21 +178,20 @@ class ModelPhotoCRUD:
     @staticmethod
     def delete_model_photo(db: Session, photo_id: int):
         """
-        删除模特照片（软删除）
+        Soft-delete a model photo (sets is_active to False).
 
-        参数:
-            db: 数据库会话
-            photo_id: 照片ID
+        Args:
+            db: DB session.
+            photo_id: row id.
 
-        返回:
-            Tuple[是否成功, 错误信息]
+        Returns:
+            (success, error_message).
         """
         try:
             photo = db.query(ModelPhoto).filter(ModelPhoto.id == photo_id).first()
             if not photo:
                 return False, "Model photo does not exist"
 
-            # 软删除：设置is_active为False
             photo.is_active = False
             db.commit()
 
@@ -206,21 +203,20 @@ class ModelPhotoCRUD:
     @staticmethod
     def hard_delete_model_photo(db: Session, photo_id: int):
         """
-        永久删除模特照片
+        Permanently delete a model photo row from the database.
 
-        参数:
-            db: 数据库会话
-            photo_id: 照片ID
+        Args:
+            db: DB session.
+            photo_id: row id.
 
-        返回:
-            Tuple[是否成功, 错误信息]
+        Returns:
+            (success, error_message).
         """
         try:
             photo = db.query(ModelPhoto).filter(ModelPhoto.id == photo_id).first()
             if not photo:
                 return False, "Model photo does not exist"
 
-            # 硬删除：从数据库彻底删除
             db.delete(photo)
             db.commit()
 

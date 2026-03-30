@@ -1,4 +1,4 @@
-"""批量操作 CRUD。"""
+"""Bulk clothing operations CRUD."""
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.models import ClothingItem
 
 class BatchCRUD:
-    """批量操作CRUD类"""
+    """Bulk update/delete for clothing."""
 
     @staticmethod
     def batch_update_clothing(
@@ -16,19 +16,19 @@ class BatchCRUD:
             update_data: Dict[str, Any]
     ) -> Tuple[int, Optional[str]]:
         """
-        批量更新衣物
+        Bulk-update clothing rows.
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-            clothing_ids: 衣物ID列表
-            update_data: 更新数据字典
+        Args:
+            db: DB session
+            user_id: owner id
+            clothing_ids: ids to update
+            update_data: column dict
 
-        返回:
-            Tuple[更新的记录数, 错误信息]
+        Returns:
+            (rows_updated, error_message)
         """
         try:
-            # 验证所有衣物都属于该用户
+            # Every id must exist and belong to this user.
             items = db.query(ClothingItem).filter(
                 ClothingItem.id.in_(clothing_ids),
                 ClothingItem.user_id == user_id
@@ -37,7 +37,7 @@ class BatchCRUD:
             if len(items) != len(clothing_ids):
                 return 0, "Some items do not exist or do not belong to the current user"
 
-            # 批量更新（使用synchronize_session=False提高性能）
+            # Bulk UPDATE; synchronize_session=False is faster for large sets.
             updated_count = db.query(ClothingItem).filter(
                 ClothingItem.id.in_(clothing_ids)
             ).update(update_data, synchronize_session=False)
@@ -47,7 +47,7 @@ class BatchCRUD:
 
         except Exception as e:
             db.rollback()
-            print(f"批量更新错误: {e}")
+            print(f"batch_update_clothing error: {e}")
             return 0, f"Bulk update failed: {str(e)}"
 
     @staticmethod
@@ -57,18 +57,18 @@ class BatchCRUD:
             clothing_ids: List[int]
     ) -> Tuple[int, Optional[str]]:
         """
-        批量删除衣物
+        Bulk-delete clothing rows.
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-            clothing_ids: 衣物ID列表
+        Args:
+            db: DB session
+            user_id: owner id
+            clothing_ids: ids to delete
 
-        返回:
-            Tuple[删除的记录数, 错误信息]
+        Returns:
+            (rows_deleted, error_message)
         """
         try:
-            # 验证所有衣物都属于该用户
+            # Every id must exist and belong to this user.
             items = db.query(ClothingItem).filter(
                 ClothingItem.id.in_(clothing_ids),
                 ClothingItem.user_id == user_id
@@ -77,7 +77,7 @@ class BatchCRUD:
             if len(items) != len(clothing_ids):
                 return 0, "Some items do not exist or do not belong to the current user"
 
-            # 批量删除（使用synchronize_session=False提高性能）
+            # Bulk DELETE; synchronize_session=False avoids loading full rows.
             deleted_count = db.query(ClothingItem).filter(
                 ClothingItem.id.in_(clothing_ids)
             ).delete(synchronize_session=False)
@@ -87,5 +87,5 @@ class BatchCRUD:
 
         except Exception as e:
             db.rollback()
-            print(f"批量删除错误: {e}")
+            print(f"batch_delete_clothing error: {e}")
             return 0, f"Bulk delete failed: {str(e)}"

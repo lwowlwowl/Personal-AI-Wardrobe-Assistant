@@ -1,6 +1,6 @@
 """
-密碼雜湊與 JWT：單一實作，供 crud / API 共用。
-新密碼預設 pbkdf2_sha256；保留 bcrypt 驗證以相容舊 database.py 寫入的雜湊。
+Password hashing and JWT: single implementation shared by crud and APIs.
+New passwords use pbkdf2_sha256; bcrypt kept for verifying legacy hashes.
 """
 from __future__ import annotations
 
@@ -46,23 +46,23 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
             expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode.update({"exp": expire, "iat": datetime.utcnow()})
         encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-        print(f"创建token: {data.get('sub')}")
+        print(f"Created token for sub={data.get('sub')}")
         return encoded_jwt
     except Exception as e:
-        print(f"create_access_token错误: {e}")
+        print(f"create_access_token error: {e}")
         raise
 
 
 def verify_access_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print(f"验证token成功: {payload.get('sub')}")
+        print(f"Token verified sub={payload.get('sub')}")
         return payload
     except jwt.ExpiredSignatureError:
-        print("Token已过期")
+        print("Token expired")
         return None
     except _JWTError as e:
-        print(f"Token验证失败: {e}")
+        print(f"Token verification failed: {e}")
         return None
 
 
@@ -72,7 +72,7 @@ def create_password_reset_token(email: str) -> str:
         to_encode = {"email": email, "exp": expire, "type": "reset"}
         return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     except Exception as e:
-        print(f"创建重置token错误: {e}")
+        print(f"create_password_reset_token error: {e}")
         raise
 
 

@@ -1,4 +1,4 @@
-"""天氣查詢業務邏輯（QWeather、地理快取、短時快取）；路由層只負責轉 HTTP。"""
+"""Weather lookup (QWeather, geo cache, short TTL cache); HTTP is handled in routes only."""
 from __future__ import annotations
 
 import os
@@ -42,8 +42,8 @@ def _wind_scale_to_desc(scale: str) -> str:
 
 def fetch_weather_now(lat: float, lon: float, token: Optional[str]) -> Dict[str, Any]:
     """
-    取得當前天氣摘要（與原 /api/weather/now 回應一致）。
-    失敗時拋 AppError（對應原 HTTPException 的 status 與 detail 文案）。
+    Return current-weather summary (same shape as legacy /api/weather/now).
+    On failure raises AppError (status/detail aligned with former HTTPException).
     """
     host = (os.environ.get("QWEATHER_API_HOST") or "").strip().lower()
     if "api.qweather.com" in host and "qweatherapi.com" not in host:

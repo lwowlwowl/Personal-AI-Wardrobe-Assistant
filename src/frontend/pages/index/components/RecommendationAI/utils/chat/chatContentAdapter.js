@@ -1,11 +1,12 @@
 /**
- * 推荐 AI 聊天内容适配层
- * 目标：
- * 1. 将后端返回统一适配成前端稳定消息结构
- * 2. 把 AI 消息分为 text / recommendation / plan（有推荐内容时统一为 recommendation：上为解读文字，下为推荐卡片）
- * 3. 保留 rawText，方便后续做“查看原始回复”或调试
+ * Recommendation AI chat content adapter.
+ * Goals:
+ * 1. Normalize backend payloads into a stable frontend message shape.
+ * 2. Classify AI messages as text / recommendation / plan (when there is outfit content,
+ *    use recommendation: analysis text above, cards below).
+ * 3. Keep rawText for "view raw reply" or debugging.
  *
- * 输出结构：
+ * Output shape:
  * {
  *   role: 'ai',
  *   renderType: 'text' | 'recommendation' | 'plan',
@@ -27,20 +28,20 @@
  * }
  */
 
-/** 加载过程展示文案（轮播） */
+/** Loading-step copy (rotating). */
 export const LOADING_STEPS = [
 	'Curating your exclusive wardrobe…',
 	'Analyzing weather & occasion…',
 	'Generating your look…'
 ]
 
-/** 去掉 Markdown 粗体符号，便于正则匹配 */
+/** Strip Markdown bold markers for easier regex matching. */
 function stripBold(s) {
 	if (typeof s !== 'string') return ''
 	return s.replace(/\*\*([^*]+)\*\*/g, '$1').trim()
 }
 
-/** -------- plan（多天/计划表）识别与解析 -------- */
+/** -------- Plan (multi-day / schedule) detection & parsing -------- */
 
 const PLAN_KEYWORDS = [
 	'下周',
@@ -79,11 +80,11 @@ function hasAnyKeyword(text, keywords) {
 }
 
 /**
- * 判定 plan：满足任意两条
- * 1. 出现多个日期/星期 token（>=3）
- * 2. 文本按天拆块（出现 >=2 个 day header）
- * 3. 每天都有完整穿搭项（整体出现 >=5 个分类提示词）
- * 4. 明确计划/周安排语义关键词
+ * Detect plan: any two of the following conditions true.
+ * 1. Multiple date/weekday tokens (>=3).
+ * 2. Text splits into day blocks (>=2 day headers).
+ * 3. Enough category hints across categories (>=5).
+ * 4. Explicit schedule/week-plan keywords.
  */
 function detectPlan(rawText) {
 	if (!rawText || typeof rawText !== 'string') return false
@@ -91,7 +92,7 @@ function detectPlan(rawText) {
 	if (text.length < 120) return false
 
 	const cond1 = countMatches(DAY_TOKEN_RE, text) >= 3
-	// 容忍行首出现 emoji / markdown 符号（如：**✅ 周一 | ...**）
+	// Allow leading emoji / markdown markers (e.g. **✅ Monday | ...**).
 	const dayHeaderCount = countMatches(/^[^a-zA-Z0-9\u4e00-\u9fa5]*(?:\s*\|?\s*)?(周[一二三四五六日天]|星期[一二三四五六日天]|礼拜[一二三四五六日天]|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Day\s*\d+|\d{1,2}[./-]\d{1,2})/gmi, text)
 	const cond2 = dayHeaderCount >= 2
 
@@ -175,7 +176,7 @@ function parsePlanDays(rawText) {
 		const trimmed = raw.trim()
 		if (!trimmed) continue
 
-		// 容忍行首出现 emoji / markdown 符号（如：**✅ 周一 | 知性简约风**）
+		// Allow leading emoji / markdown markers on the day header line.
 		const headerMatch = /^[^a-zA-Z0-9\u4e00-\u9fa5]*(?:\|?\s*)?(周[一二三四五六日天]|星期[一二三四五六日天]|礼拜[一二三四五六日天]|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Mon\.?|Tue\.?|Wed\.?|Thu\.?|Fri\.?|Sat\.?|Sun\.?|Day\s*\d+|\d{1,2}[./-]\d{1,2})(?:\s*[\(|（]([^)\n）]+)[\)|）])?/.exec(trimmed)
 		if (headerMatch) {
 			pushCurrent()
@@ -188,7 +189,7 @@ function parsePlanDays(rawText) {
 				weatherText: meta && /(℃|°C|降水|湿度|风|晴|雨|雪)/.test(meta) ? meta : undefined,
 				rawLines: []
 			}
-			// 若 day header 同行包含其它列内容（markdown table / pipe），把剩余内容也纳入解析
+			// If the day header row has extra pipe columns, include the rest for parsing.
 			const rest = trimmed.slice(headerMatch[0].length).trim().replace(/^\|+/, '').trim()
 			if (rest) current.rawLines.push(rest)
 			continue
@@ -217,7 +218,7 @@ function parsePlanFromRawText(rawText) {
 	}
 }
 
-/** 从「xxx」或 "xxx" 中提取风格名 */
+/** Extract style title from 「xxx」 or quoted "xxx". */
 function extractTitleFromHeader(line) {
 	const quoted = /[「\"]([^」\"]+)[」\"]/.exec(line)
 	if (quoted) return quoted[1].trim()
@@ -231,8 +232,8 @@ function extractTitleFromHeader(line) {
 }
 
 /**
- * 解析单品行：`英文名` (中文|描述) 或 层级 | 单品 | 理由
- * 返回 { type, name, subtitle, reason, details, tags }
+ * Parse one item line: `English` (CJK|desc) or Layer | item | reason.
+ * Returns { type, name, subtitle, reason, details, tags }.
  */
 function parseItemLine(line) {
 	const trimmed = stripBold(line).replace(/^[-*]\s*/, '').trim()
@@ -266,8 +267,8 @@ function parseItemLine(line) {
 		let name = tableMatch[2].trim().replace(/^\*\*|\*\*$/g, '')
 		const reason = tableMatch[3].trim().replace(/^\*\*|\*\*$/g, '') || undefined
 
-		// 只删掉中文括号说明（如「（米色针织衫）」），安全保留后面的 (ID: 42)
-		// 精确匹配：找到括号内容，但要求里面不能包含 'id'（忽略大小写）
+		// Remove CJK parenthetical notes only (e.g. (beige knit top)); keep (ID: 42)
+		// Match only when the parenthetical does not contain 'id' (case-insensitive).
 		const cnInName = /[（(](?!\s*id\s*[:：])([^）)]+)[）)]/i.exec(name)
 		let subtitle
 		if (cnInName) {
@@ -313,7 +314,7 @@ function parseItemLine(line) {
 	return null
 }
 
-/** 从「为什么这样搭」段落提取最多 3 条极简要点 */
+/** Extract up to 3 bullet points from the "why this works" style section. */
 function extractWhyThisWorks(block) {
 	const bullets = []
 	const lines = block.split(/\n/)
@@ -338,7 +339,7 @@ function extractWhyThisWorks(block) {
 	return bullets
 }
 
-/** 从全文或块内提取警示句 */
+/** Extract caution lines from the full text or a block. */
 function extractCautions(text) {
 	const list = []
 	const patterns = [
@@ -368,11 +369,11 @@ function extractCautions(text) {
 }
 
 /**
- * 类别映射（与衣橱后端固定的 9 类英文 label 对齐）
- * 取值：Top、Bottom、Dress、Outerwear、Footwear、Accessory、Bag、Underwear、Other
+ * Category mapping (aligned with backend wardrobe 9 English labels).
+ * Values: Top, Bottom, Dress, Outerwear, Footwear, Accessory, Bag, Underwear, Other.
  */
 const LAYER_MAP = {
-	// 中文常见写法
+	// Common Chinese labels
 	上衣: 'Top',
 	下装: 'Bottom',
 	连衣裙: 'Dress',
@@ -390,7 +391,7 @@ const LAYER_MAP = {
 	其他: 'Other',
 	其它: 'Other',
 
-	// 英文/旧字段兼容
+	// English / legacy aliases
 	Top: 'Top',
 	Bottom: 'Bottom',
 	Dress: 'Dress',
@@ -409,7 +410,7 @@ const LAYER_MAP = {
 function normalizeTypeKey(type) {
 	if (!type || typeof type !== 'string') return ''
 	return type
-		.replace(/[（(][^）)]*[）)]/g, '') // 去掉（按需）这类括号说明
+		.replace(/[（(][^）)]*[）)]/g, '') // strip optional parenthetical notes
 		.replace(/\s+/g, ' ')
 		.trim()
 }
@@ -426,7 +427,7 @@ function parseSchemeBlock(block) {
 	let content = ''
 	let temperature = ''
 
-	// 只把行首的「③/3 推荐搭配」视作章节开头；④/⑤ 也必须在新行开头，避免误伤 ID: 42/45 等数字
+	// Only treat section starts at line start with ③/3 "outfit recommendation"; ④/⑤ must start on new lines to avoid IDs like 42/45.
 	let recMatch = block.match(/(?:^|\n)\s*(?:③|3\.?|###)[\s]*\*?\*?\s*(?:推荐搭配|Outfit recommendation(?:s)?|Recommended outfit(?:s)?)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:^|\n)\s*(?:④|4\.?)[\s]*\*?\*?|(?:^|\n)\s*(?:⑤|5\.?)[\s]*\*?\*?|###|$)/i)
 	if (!recMatch) {
 		recMatch = block.match(/\*?\*?\s*(?:推荐搭配|Outfit recommendation(?:s)?|Recommended outfit(?:s)?)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:为什么这样搭|Why this works|Why it works|Styling rationale)|(?:^|\n)\s*(?:④|4\.?)[\s]*\*?\*?|(?:^|\n)\s*(?:⑤|5\.?)[\s]*\*?\*?|###|$)/i)
@@ -444,8 +445,8 @@ function parseSchemeBlock(block) {
 		}
 	}
 
-	// 4. 提取为什么这样搭 (④)
-	// 【修复点】：加入 4\.?
+	// 4. Extract "why this works" (④)
+	// Note: allow optional 4\.?
 	const whyMatch = block.match(/(?:④|4\.?)[\s]*\*?\*?\s*(?:为什么这样搭|Why this works|Why it works|Styling rationale)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=(?:⑤|5\.?|###|$))/i)
 	if (whyMatch) whyThisWorks.push(...extractWhyThisWorks(whyMatch[1]))
 
@@ -457,8 +458,8 @@ function parseSchemeBlock(block) {
 
 	const cautions = extractCautions(block)
 
-	// 5. 提取可替换方案 (⑤) 及底部的问候语
-	// 【修复点】：加入 5\.?
+	// 5. Extract alternatives (⑤) and footer greeting
+	// Note: allow optional 5\.?
 	const altMatch = block.match(/(?:⑤|5\.?)[\s]*\*?\*?\s*(?:可替换方案|Alternatives?|Alternative options?)[^*\n]*\*?\*?[：:]*\s*([\s\S]*?)(?=###|$)/i)
 	const alternatives = []
 	let footer = ''
@@ -468,7 +469,7 @@ function parseSchemeBlock(block) {
 		const paragraphs = rawAltText.split(/\n\n+/)
 		if (paragraphs.length > 1) {
 			const lastPara = paragraphs[paragraphs.length - 1].trim()
-			// 增加英文问候语匹配词：hope, let me know, feel free 等
+			// Also match English closings: hope, let me know, feel free, etc.
 			if (!lastPara.includes('：') && !lastPara.includes(':') || /祝|需要我|期待|随时|hope|let me know|feel free|would you/i.test(lastPara)) {
 				footer = lastPara.replace(/^[-*•→]\s*/, '').trim()
 				paragraphs.pop()
@@ -480,8 +481,8 @@ function parseSchemeBlock(block) {
 	}
 
 	if (!footer) {
-		// 6. 全局保底：如果 AI 连 ⑤ 都没输出
-		// 【修改点】：在 Fallback 匹配中加入英文问候关键词
+		// 6. Fallback: if ⑤ was omitted entirely
+		// Include English greeting keywords in fallback match
 		const fallbackMatch = block.match(/(?:\n\s*|^)(需要我|祝你们?|期待|随时告诉|有什么问题|Let me know|Feel free|Would you|Hope)[\s\S]*$/i)
 		if (fallbackMatch) footer = fallbackMatch[0].replace(/^[-*•→]\s*/, '').trim()
 	}
@@ -506,7 +507,7 @@ function parseRawContentToRecommendations(rawText) {
 	const text = rawText.trim()
 	const recommendations = []
 
-	// 【修复点】：加入 3\.? 兼容 AI 输出的 "3."，并加入 \s* 兼容星号后的空格
+	// Allow 3\.? for AI output like "3." and optional spaces after asterisks.
 	const splitRegex = /(?:\n|^)\s*(?:③|3\.?|###)\s*\*?\*?\s*(?:推荐搭配|Outfit recommendation(?:s)?|Recommended outfit(?:s)?)/i
 	const splitIndex = text.search(splitRegex)
 
@@ -517,7 +518,7 @@ function parseRawContentToRecommendations(rawText) {
 
 	const introRemoved = splitIndex !== -1 ? text.slice(splitIndex) : text
 
-	// 切割块也加入英文兼容
+	// Split blocks with English-compatible headings too.
 	const schemeBlocks = introRemoved.split(/(?=(?:③|3\.?|###)\s*\*?\*?\s*(?:推荐搭配|Outfit recommendation(?:s)?|Recommended outfit(?:s)?))/i)
 
 	for (const blk of schemeBlocks) {
@@ -550,7 +551,7 @@ function buildTextMessage(rawText, content) {
 	}
 }
 
-/** 统一默认消息结构，组件可依此判空 */
+/** Default empty message shape; components can use empty checks. */
 function createBaseMessage() {
 	return {
 		role: 'ai',
@@ -564,15 +565,16 @@ function createBaseMessage() {
 }
 
 /**
- * 规范化后端 / 历史 / 当前消息
- * 优先级：1) 后端结构优先（有 plan.days / recommendations 即按对应类型渲染）
- *         2) 再按 renderType（后端已修正为结构优先，此处双重保险）
- *         3) 旧数据兼容（从 rawText 解析）  4) 纯文本 fallback
+ * Normalize backend / history / current messages.
+ * Priority: 1) structured fields when present (plan.days / recommendations)
+ *           2) renderType (belt-and-suspenders when backend is aligned)
+ *           3) legacy parse from rawText  4) plain text fallback
  */
 
 /**
- * 当顶层未带 recommendations（或为空）但 rawText 是完整协议 JSON 时，从 rawText 合并结构。
- * 避免流式/持久化链路只保留 content+renderType 导致界面只剩「AI Analysis」引言、无卡片。
+ * When top-level recommendations are missing but rawText is full protocol JSON,
+ * merge structure from rawText. Prevents stream/persist paths that only keep
+ * content+renderType from showing intro text without cards.
  */
 function mergeStructuredFieldsFromRawText(apiResponse) {
 	if (!apiResponse || typeof apiResponse !== 'object') return apiResponse
@@ -624,7 +626,7 @@ export function normalizeChatResponse(apiResponse) {
 	const locale = merged.locale || 'en'
 	const renderType = merged.renderType || ''
 
-	// 1. 结构优先：有 plan.days 即按 plan 渲染（不依赖 renderType，防止后端/历史数据声明错误）
+	// 1. Structure wins: if plan.days exists, render plan (ignore wrong renderType).
 	if (
 		role === 'ai' &&
 		merged.plan &&
@@ -643,7 +645,7 @@ export function normalizeChatResponse(apiResponse) {
 		}
 	}
 
-	// 2. 结构优先：有 recommendations 即按 recommendation 渲染（不依赖 renderType）
+	// 2. Structure wins: if recommendations exist, render recommendation (ignore wrong renderType).
 	if (
 		role === 'ai' &&
 		Array.isArray(merged.recommendations) &&
@@ -661,7 +663,7 @@ export function normalizeChatResponse(apiResponse) {
 		}
 	}
 
-	// 3. 无结构内容时，按后端声明的 text 渲染
+	// 3. No structured payload: honor backend-declared text render.
 	if (role === 'ai' && renderType === 'text') {
 		return {
 			...createBaseMessage(),
@@ -675,7 +677,7 @@ export function normalizeChatResponse(apiResponse) {
 		}
 	}
 
-	// 4. 兼容旧数据：必要时才从 rawText 猜
+	// 4. Legacy: parse from rawText only when needed.
 	if (role === 'ai' && rawText && typeof rawText === 'string') {
 		if (detectPlan(rawText)) {
 			const plan = parsePlanFromRawText(rawText)
@@ -708,7 +710,7 @@ export function normalizeChatResponse(apiResponse) {
 		}
 	}
 
-	// 5. 最终 fallback
+	// 5. Final fallback
 	return {
 		...createBaseMessage(),
 		role: 'ai',

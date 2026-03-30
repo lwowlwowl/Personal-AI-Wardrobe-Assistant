@@ -13,10 +13,6 @@ __pycache__/
 *.pyo
 *.pyd
 .pytest_cache/
-.coverage
-coverage.json
-htmlcov/
-
 .mypy_cache/
 .ruff_cache/
 .venv/

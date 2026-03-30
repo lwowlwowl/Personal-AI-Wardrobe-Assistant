@@ -1,1 +1,1 @@
-"""HTTP API 層（路由聚合）。"""
+"""HTTP API package (router aggregation)."""

@@ -399,8 +399,8 @@ function dataUrlToBlobUrl(dataUrl) {
 }
 
 /**
- * 尽量还原可读错误；避免只剩默认「Render failed / Outfit try-on failed」。
- * uni / 网络层常抛出无 message 的对象或空字符串。
+ * Prefer a readable error over the generic "Render failed / Outfit try-on failed".
+ * uni / network layers often throw objects with no message or empty strings.
  */
 function errorMessage(err, fallback) {
   if (err === null || err === undefined) return fallback
@@ -596,7 +596,7 @@ const handleGenerate = async () => {
     return
    }
 
-   /** 远端 / 易变来源必须重新上传；本地临时且已有后端文件名才可跳过 */
+   /** Remote or volatile sources must re-upload; skip only for local temp URLs that already have a backend filename */
    const needsUpload = (src, cachedName) => {
     if (!cachedName) return true
     if (!src || typeof src !== 'string') return true

@@ -12,7 +12,7 @@ function parseUniError(err, fallback = 'Network error') {
   return msg ? `${msg}${status}` : fallback
 }
 
-/** 从 FastAPI / 本项目 JSON 取出错误文案 */
+/** Extract error message from FastAPI / project JSON payload. */
 function extractBackendMessage(data) {
   if (!data || typeof data !== 'object') return ''
   if (typeof data.message === 'string' && data.message.trim()) return data.message.trim()
@@ -28,7 +28,8 @@ function extractBackendMessage(data) {
 }
 
 /**
- * 解析 upload / upload-from-storage 的 JSON 响应，成功返回 ComfyUI 文件名
+ * Parse JSON response for upload / upload-from-storage.
+ * Returns ComfyUI filename on success.
  */
 function parseVirtualTryUploadResponse(res, imageType) {
   let payload = res.data
@@ -65,7 +66,7 @@ function joinBaseUrl(path) {
   return `${base}${p}`
 }
 
-/** 与后端 file_service.UPLOAD_URL_PREFIX 对应的公开路径前缀 */
+/** Public path prefix aligned with backend file_service.UPLOAD_URL_PREFIX. */
 const SERVER_UPLOAD_PATH_PREFIX = '/Personal-AI-Wardrobe-Assistant/uploads'
 
 function isPlaceholderImageUrl(src) {
@@ -92,7 +93,9 @@ function isServerStoredImageRef(src) {
 }
 
 /**
- * 衣柜/模特图已在后端 uploads：走 JSON 由后端读文件再传 ComfyUI，避免 uni.downloadFile 失败。
+ * Wardrobe/model image already stored in backend uploads:
+ * call JSON endpoint so backend reads file and forwards to ComfyUI,
+ * avoiding uni.downloadFile failures.
  */
 function requestUploadFromStorage(imageRef, imageType, token) {
   return new Promise((resolve, reject) => {
@@ -119,7 +122,8 @@ function requestUploadFromStorage(imageRef, imageType, token) {
 }
 
 /**
- * 与 wardrobeMedia.resolveWardrobeImageUrl 对齐：无协议、无前缀的 uploads/xxx 也视为 API 静态资源。
+ * Keep behavior aligned with wardrobeMedia.resolveWardrobeImageUrl:
+ * treat uploads/xxx without scheme/prefix as API static resources.
  */
 function normalizeToDownloadUrl(s) {
   const t = String(s).trim()
@@ -205,7 +209,7 @@ function downloadToTempFile(url) {
 }
 
 /**
- * data URL -> 临时文件（小程序 / App 等无法直接用 blob/data 上传时）
+ * data URL -> temp file (for runtimes where blob/data cannot be uploaded directly).
  */
 function dataUrlToTempFilePath(dataUrl) {
   const m = dataUrl.match(/^data:(.*?);base64,([\s\S]*)$/)
@@ -236,12 +240,13 @@ function dataUrlToTempFilePath(dataUrl) {
     })
   }
 
-  // H5：uni-h5 的 uploadFile 内部会对 data URL 走 base64ToFile，可直接传回
+  // H5: uni-h5 uploadFile internally converts data URL via base64ToFile; safe to return directly.
   return Promise.resolve(dataUrl)
 }
 
 /**
- * blob URL -> 临时文件；无文件系统时返回原 blob URL（H5 由 uni 内部 xhr 拉 blob）
+ * blob URL -> temp file; if no file system is available, return original blob URL
+ * (H5 uses uni internal xhr to fetch blob).
  */
 function blobUrlToTempFilePath(blobUrl) {
   const userPath = getUserDataPath()
@@ -276,8 +281,9 @@ function blobUrlToTempFilePath(blobUrl) {
 }
 
 /**
- * 将任意图片引用转成 uni.uploadFile 可用的本地路径或 H5 支持的 data/blob URL。
- * 解决：http(s) 远端图、站点相对路径、上一轮试穿产生的 data:、blob: 导致 uploadFile:fail file error。
+ * Convert any image reference into a local path for uni.uploadFile,
+ * or H5-compatible data/blob URL.
+ * Handles http(s), site-relative paths, and data:/blob: values from previous try-on results.
  */
 function resolveLocalFilePathForUpload(src) {
   if (!src || typeof src !== 'string') {
@@ -296,7 +302,7 @@ function resolveLocalFilePathForUpload(src) {
   if (s.startsWith('//')) {
     return downloadToTempFile(`https:${s}`)
   }
-  // 站点相对 /uploads/... 或 uploads/...（无前缀）
+  // Site-relative /uploads/... or uploads/... (no prefix).
   if (
     (s.startsWith('/') && !s.startsWith('//')) ||
     /^uploads\//i.test(s) ||
@@ -312,7 +318,7 @@ function resolveLocalFilePathForUpload(src) {
     return blobUrlToTempFilePath(s)
   }
 
-  // wxfile://、本地临时路径等
+  // wxfile:// and other local temp paths.
   return Promise.resolve(s)
 }
 
@@ -405,7 +411,7 @@ function isPngMagic(u8) {
   )
 }
 
-/** 大圖時避免 String.fromCharCode.apply 爆棧；優先用 uni API */
+/** Avoid String.fromCharCode.apply stack overflow on large images; prefer uni API. */
 function arrayBufferToBase64DataUrl(ab) {
   if (typeof uni.arrayBufferToBase64 === 'function') {
     return `data:image/png;base64,${uni.arrayBufferToBase64(ab)}`
@@ -420,11 +426,11 @@ function arrayBufferToBase64DataUrl(ab) {
 }
 
 /**
- * 與 frontend_yuchen 一致：後端成功時回傳原始 PNG；錯誤仍為 JSON。
- * 同時相容舊版後端（JSON 內含 data.result_image base64）。
+ * Aligned with frontend_yuchen: backend returns raw PNG on success, JSON on error.
+ * Also compatible with legacy backend (JSON contains data.result_image base64).
  *
  * @param {{ person_image: string, clothing_image: string, token: string, model_type?: string }} body
- * @returns {Promise<string>} result_image（data URL）
+ * @returns {Promise<string>} result_image (data URL)
  */
 export function generateVirtualTryOn(body) {
   const { person_image, clothing_image, token, model_type = '2509' } = body

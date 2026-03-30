@@ -2,13 +2,13 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives import serialization
 import os
 
-# 创建目录
+# Ensure output directory exists
 os.makedirs("D:/keys", exist_ok=True)
 
-# 生成私钥
+# Generate Ed25519 private key
 private_key = ed25519.Ed25519PrivateKey.generate()
 
-# 保存私钥
+# Write private key (PKCS8 PEM)
 with open("D:/keys/qweather_private.pem", "wb") as f:
     f.write(
         private_key.private_bytes(
@@ -18,10 +18,8 @@ with open("D:/keys/qweather_private.pem", "wb") as f:
         )
     )
 
-# 生成公钥
+# Derive public key and write SPKI PEM
 public_key = private_key.public_key()
-
-# 保存公钥
 with open("D:/keys/qweather_public.pem", "wb") as f:
     f.write(
         public_key.public_bytes(
@@ -30,6 +28,6 @@ with open("D:/keys/qweather_public.pem", "wb") as f:
         )
     )
 
-print("密钥生成完成！")
-print("私钥路径: D:/keys/qweather_private.pem")
-print("公钥路径: D:/keys/qweather_public.pem")
+print("Key generation complete.")
+print("Private key: D:/keys/qweather_private.pem")
+print("Public key: D:/keys/qweather_public.pem")

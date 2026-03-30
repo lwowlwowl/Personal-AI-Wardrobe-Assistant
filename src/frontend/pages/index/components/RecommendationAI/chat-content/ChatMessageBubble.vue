@@ -10,7 +10,7 @@ import { formatRecommendationDisplay } from '../utils/rec/textDisplay.js'
 
 const props = defineProps({
 	content: { type: String, default: '' },
-	/** 与推荐卡片一致：去 # 编号 + 中英边界加两格 */
+	/** Keep consistent with recommendation cards: remove # IDs + add spacing at CJK/Latin boundaries */
 	stripWardrobeHashIds: { type: Boolean, default: false }
 })
 

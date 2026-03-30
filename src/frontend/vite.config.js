@@ -6,7 +6,7 @@ export default defineConfig({
   css: {
     preprocessorOptions: {
       scss: {
-        // Vite 5.x 仍以 sass.render（legacy API）编译；在升级至支持 modern API 的构建链之前，先静音此弃用提示
+        // Vite 5.x still compiles via sass.render (legacy API); silence until the toolchain supports the modern API
         silenceDeprecations: ['legacy-js-api']
       }
     }

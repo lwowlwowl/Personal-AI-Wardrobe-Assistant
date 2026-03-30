@@ -34,11 +34,11 @@ def _normalize_json_response(data: Dict[str, Any], raw_text: str) -> Optional[di
 
     content = str(data.get("content") or "").strip()
 
-    # 先解析真实结构（不依赖 response_type，避免 LLM 写错 response_type 导致推荐/计划被丢掉）
+    # Parse by structure first; do not rely on response_type (LLM may mis-set it and drop plan/reco).
     recommendations = _normalize_recommendations(data.get("recommendations"))
     plan = _normalize_plan(data.get("plan"))
 
-    # 1. 结构优先：plan
+    # 1) Prefer plan when present
     if plan and plan.get("days"):
         return {
             "role": "ai",
@@ -50,7 +50,7 @@ def _normalize_json_response(data: Dict[str, Any], raw_text: str) -> Optional[di
             "locale": locale,
         }
 
-    # 2. 结构优先：recommendation
+    # 2) Else recommendations
     if recommendations:
         return {
             "role": "ai",
@@ -62,7 +62,7 @@ def _normalize_json_response(data: Dict[str, Any], raw_text: str) -> Optional[di
             "locale": locale,
         }
 
-    # 3. 没有结构内容时，按 text 处理
+    # 3) Fallback to plain text
     return {
         "role": "ai",
         "renderType": "text",
@@ -84,7 +84,7 @@ def _normalize_recommendations(value: Any) -> List[dict]:
             continue
 
         items = _normalize_items(rec.get("items"), with_comment=True)
-        # 允许 items 为空：风格诊断/分析类推荐可能只有 title、scenario、whyThisWorks 等，无具体单品
+        # Empty items allowed: style/analysis reco may only have title, scenario, whyThisWorks, etc.
         title = str(rec.get("title") or "Outfit Recommendation").strip()
         if not title:
             continue
@@ -156,7 +156,7 @@ def _normalize_items(value: Any, with_comment: bool) -> List[dict]:
 
         if with_comment:
             normalized["comment"] = comment_str
-            # 前端 RecommendationCard 使用 reason 显示说明，保留兼容
+            # RecommendationCard reads `reason`; keep in sync with comment for compatibility
             normalized["reason"] = comment_str
 
         if normalized["name"]:

@@ -1,5 +1,5 @@
 """
-ORM 實體；對外可 `from app.models import User, ...`。
+ORM entities; use `from app.models import User, ...`.
 """
 from app.core.database import Base
 

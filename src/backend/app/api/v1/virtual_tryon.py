@@ -39,7 +39,7 @@ async def upload_virtual_tryon_from_storage(
     body: schemas.VirtualTryOnUploadFromStorageRequest,
     db: Session = Depends(get_db),
 ):
-    """由本机 uploads 路径直接转 ComfyUI，避免前端 downloadFile 跨域/白名单问题。"""
+    """Pipe files from local uploads to ComfyUI; avoids client downloadFile CORS / whitelist issues."""
     out = run_upload_virtual_tryon_from_storage(body, db)
     if isinstance(out, JsonEnvelope):
         return JSONResponse(status_code=out.status_code, content=out.body)

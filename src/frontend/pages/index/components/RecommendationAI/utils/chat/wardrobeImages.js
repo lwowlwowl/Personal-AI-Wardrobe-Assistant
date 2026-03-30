@@ -1,7 +1,7 @@
 /**
- * 用本地衣橱列表给 AI 消息里的单品挂上真实图片（会修改 msg 内的对象）。
- * @param msg AI 消息
- * @param wardrobeList 本地衣橱列表（项含 id、image 等）
+ * Attach real wardrobe images to AI message items using the local wardrobe list (mutates msg).
+ * @param msg AI message
+ * @param wardrobeList Local wardrobe rows (id, image, etc.)
  */
 export function attachWardrobeToAiMessage(msg, wardrobeList) {
 	if (!msg || msg.role !== 'ai') return msg

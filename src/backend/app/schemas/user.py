@@ -5,15 +5,15 @@ from pydantic import BaseModel, EmailStr, Field, validator
 
 
 class UserBase(BaseModel):
-    """用户基础模型，包含用户基本信息"""
-    username: str = Field(..., min_length=3, max_length=50, description="用户名")
+    """Base user fields."""
+    username: str = Field(..., min_length=3, max_length=50, description="Username")
     email: Optional[EmailStr] = None
 
 
 class UserCreate(UserBase):
-    """用户创建请求模型，包含密码验证逻辑"""
-    password: str = Field(..., min_length=6, max_length=100, description="密码")
-    confirm_password: str = Field(..., description="确认密码")
+    """Registration payload with password checks."""
+    password: str = Field(..., min_length=6, max_length=100, description="Password")
+    confirm_password: str = Field(..., description="Confirm password")
 
     @validator('username')
     def username_chars(cls, v):
@@ -34,21 +34,21 @@ class UserCreate(UserBase):
 
     @validator('confirm_password')
     def passwords_match(cls, v, values):
-        """验证两次输入的密码是否一致"""
+        """Ensure password and confirmation match."""
         if 'password' in values and v != values['password']:
             raise ValueError('Passwords do not match.')
         return v
 
     @validator('password')
     def password_strength(cls, v):
-        """验证密码强度"""
+        """Minimum length check."""
         if len(v) < 6:
             raise ValueError('Password must be at least 6 characters.')
         return v
 
 
 class UserResponse(BaseModel):
-    """用户信息响应模型（返回给客户端的数据）"""
+    """User row returned to clients."""
     id: int
     username: str
     email: Optional[str] = None
@@ -58,15 +58,15 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        from_attributes = True  # 允许从ORM对象转换
+        from_attributes = True  # allow ORM conversion
 
 
 class UserUpdate(BaseModel):
-    """用户信息更新模型"""
+    """Partial user profile update."""
     username: Optional[str] = Field(None, min_length=3, max_length=50)
     email: Optional[EmailStr] = None
-    full_name: Optional[str] = None  # 全名
-    avatar_url: Optional[str] = None  # 头像URL
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
 
     @validator("username")
     def username_chars_optional(cls, v):

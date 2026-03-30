@@ -22,7 +22,7 @@ class ReactAgent:
         self.middleware = [monitor_tool, log_before_model, report_prompt_switch]
 
     def create_agent_for_lang(self, lang: str):
-        """按语言动态创建 agent，默认英语；lang 为 'zh' 或 'en'。"""
+        """Create an agent for the given language; default English. ``lang`` is 'zh' or 'en'."""
         system_prompt = load_system_prompts(lang)
         return create_agent(
             model=chat_model,
@@ -39,7 +39,7 @@ class ReactAgent:
             ]
         }
 
-        # 第三个参数context就是上下文runtime中的信息，就是我们做提示词切换的标记 如果加上别的标记的话记得在这里先初始化一下
+        # Third arg ``context`` is runtime state (e.g. prompt switching); initialize new flags here if added
         async for chunk in agent.astream(
             input_dict,
             stream_mode="values",
@@ -49,16 +49,16 @@ class ReactAgent:
             if isinstance(latest_message, AIMessage):
                 tool_calls = getattr(latest_message, "tool_calls", None) or []
                 if tool_calls:
-                    logger.info(f"[react_agent]模型请求工具调用: {tool_calls}")
+                    logger.info(f"[react_agent] model requested tool calls: {tool_calls}")
 
-            # 只向前端输出模型的最终回复，避免工具调用参数泄露
+            # Stream only the model's final text to the client; hide tool-call payloads
             if isinstance(latest_message, AIMessage) and latest_message.content:
                 yield latest_message.content.strip() + "\n"
 
 if __name__ == '__main__':
     async def _main():
         agent = ReactAgent()
-        async for chunk in agent.execute_stream("得到深圳今天天气"):
+        async for chunk in agent.execute_stream("What is the weather in Shenzhen today?"):
             print(chunk, end="", flush=True)
 
     asyncio.run(_main())

@@ -3,13 +3,13 @@ import os
 from datetime import datetime
 from AIwardrobe.utils.path_tool import get_abs_path
 
-# 日志保存根目录
+# Root directory for log files
 LOG_ROOT = get_abs_path("logs")
 
-# 确保日志的目录存在
+# Ensure log directory exists
 os.makedirs(LOG_ROOT, exist_ok=True)
 
-# 日志的格式配置 error info debug
+# Formatter shared by console and file handlers
 DEFAULT_LOG_FORMAT = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s'
 )
@@ -25,18 +25,18 @@ def get_logger(
     logger.setLevel(logging.DEBUG)
 
 
-    # 避免重复添加Handler
+    # Avoid duplicate handlers on repeated get_logger calls
     if logger.handlers:
         return logger
 
-    # 控制台Handler
+    # Console handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(console_level)
     console_handler.setFormatter(DEFAULT_LOG_FORMAT)
 
     logger.addHandler(console_handler)
 
-    # 文件Handler
+    # File handler
     if not log_file:
         log_file = os.path.join(LOG_ROOT, f"{name}_{datetime.now().strftime('%Y%m%d')}.log")
 
@@ -48,12 +48,12 @@ def get_logger(
 
     return logger
 
-#快捷获取日志器
+# Default module logger
 logger = get_logger()
 
 
 if __name__ == '__main__':
-    logger.info("信息日志")
-    logger.error("错误日志")
-    logger.warning("警告日志")
-    logger.debug("调试日志")
+    logger.info("info sample")
+    logger.error("error sample")
+    logger.warning("warning sample")
+    logger.debug("debug sample")

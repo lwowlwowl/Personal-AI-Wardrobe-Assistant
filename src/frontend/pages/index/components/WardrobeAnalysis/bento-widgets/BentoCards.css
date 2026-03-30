@@ -1,9 +1,9 @@
-/* 卡片通用样式：玻璃拟态 + 弥散阴影（::after 有色模糊层），无 box-shadow
- * - 主卡 .card-elevation-main：弥散层更明显
- * - 普通卡 .card：中等弥散
- * - 小卡 .mini-card：弱弥散 + 边框
+/* Shared cards: glass + soft glow via ::after colored blur (no raw box-shadow)
+ * - .card-elevation-main: stronger glow
+ * - .card: medium glow
+ * - .mini-card: weak glow + border
  */
-/* 普通卡：玻璃拟态 + 弥散阴影；overflow: visible 避免裁切下拉等浮层 */
+/* Default card: glass + glow; overflow visible so dropdowns are not clipped */
 .wardrobe-analysis-bento .card {
 	position: relative;
 	background: rgba(255, 254, 251, 0.88);
@@ -29,7 +29,7 @@
 	filter: blur(24rpx);
 	opacity: 0.95;
 }
-/* 主卡：弥散层略大、略浓 */
+/* Main card: larger, stronger glow */
 .wardrobe-analysis-bento .card-elevation-main::after {
 	left: 12rpx;
 	top: 12rpx;
@@ -73,7 +73,7 @@
 	transform: scale(0.98);
 }
 
-/* 顶栏两卡：链接吸底 */
+/* Top two cards: link pinned to bottom */
 .wardrobe-analysis-bento .bento-activity, .wardrobe-analysis-bento .bento-idle {
 	display: flex;
 	flex-direction: column;
@@ -125,7 +125,7 @@
 	color: #b85541;
 }
 
-/* Dropdown Row：须高于下方 sibling（列表/图表行常带 transform 动画，会抢层盖住绝对定位的下拉） */
+/* Dropdown row: stay above siblings (chart rows often use transform and steal stacking) */
 .wardrobe-analysis-bento .card-row {
 	display: flex;
 	justify-content: space-between;
@@ -160,7 +160,7 @@
 	opacity: 0.9;
 }
 
-/* Chart Container：显式低于 .card-row，避免下拉被图表区盖住 */
+/* Chart area: below .card-row so filter dropdown wins */
 .wardrobe-analysis-bento .chart-container {
 	position: relative;
 	z-index: 0;
@@ -181,7 +181,7 @@
 	font-size: 28rpx;
 }
 
-/* ---------- 空狀態通用：虛線槽 + 玻璃底（避免 <text> 行內擠成一行） ---------- */
+/* ---------- Empty slots: dashed frame + glass (block layout vs inline text) ---------- */
 .wardrobe-analysis-bento .bento-empty-slot {
 	display: flex;
 	flex-direction: column;
@@ -205,7 +205,7 @@
 	animation: bento-breathe 2.2s ease-in-out infinite;
 }
 
-/* Total Items：空衣櫥引導 */
+/* Total Items: empty wardrobe CTA */
 .wardrobe-analysis-bento .bento-total {
 	position: relative;
 }
@@ -256,7 +256,7 @@
 	color: #8e8e93;
 	line-height: 1.5;
 }
-/* 三處統一：Add items 瓷光藥丸 + 掃光 + hover（Total / Category / Suggested） */
+/* Shared Add items pill: porcelain shine + sweep + hover (Total / Category / Suggested) */
 @keyframes bento-add-pill-shine {
 	0%, 100% { transform: translateX(0) skewX(-14deg); opacity: 0; }
 	10% { opacity: 0.5; }
@@ -335,7 +335,7 @@
 	letter-spacing: 0.04em;
 }
 
-/* Most Worn：骨架 + 文案分行 */
+/* Most Worn: skeleton + stacked copy */
 .wardrobe-analysis-bento .worn-empty-state {
 	align-items: stretch;
 	gap: 20rpx;
@@ -423,7 +423,7 @@
 	text-align: center;
 	line-height: 1.45;
 }
-/* Most Worn：雜誌風連結 + 精緻 hover（僅精細指標裝置啟用浮起與底線延展） */
+/* Most Worn empty CTA: magazine link; lift + underline on fine pointers only */
 .wardrobe-analysis-bento .worn-empty-cta {
 	align-self: center;
 	margin-top: 12rpx;
@@ -495,7 +495,7 @@
 	opacity: 0.62;
 }
 
-/* Suggested：極光核心待機 + 文案 + 玻璃按鈕 */
+/* Suggested locked: aurora core idle + copy + glass button */
 .wardrobe-analysis-bento .suggest-locked-state {
 	align-items: center;
 	gap: 10rpx;
@@ -555,7 +555,7 @@
 	white-space: nowrap;
 	box-sizing: border-box;
 }
-/* Suggested 區塊：按鈕與上方極光核心間距略加大 */
+/* Suggested: extra gap between core and pill */
 .wardrobe-analysis-bento .suggest-locked-state .bento-add-pill {
 	margin-top: 26rpx;
 }
@@ -602,7 +602,7 @@
 	display: block;
 }
 
-/* 曲线下绿色填充：呼吸感（用 CSS 动画，兼容性更好） */
+/* Area under line: green fill breathe (CSS animation) */
 .wardrobe-analysis-bento .line-area-breathe {
 	animation: line-area-breathe 4s ease-in-out infinite;
 }
@@ -611,7 +611,7 @@
 	50% { opacity: 1; }
 }
 
-/* 折线：发光 + 进入动画 */
+/* Line stroke: glow + draw-in */
 .wardrobe-analysis-bento .line-stroke {
 	stroke-dasharray: 1;
 	stroke-dashoffset: 1;
@@ -639,7 +639,7 @@
 	font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* 单年数据：里程碑排版 (Editorial Empty State) */
+/* Single-year milestone layout (editorial empty) */
 .wardrobe-analysis-bento .milestone-state {
 	display: flex;
 	flex-direction: column;
@@ -666,7 +666,7 @@
 	max-width: 420rpx;
 }
 
-/* Most Worn Items - 优化排版 */
+/* Most Worn list layout */
 .wardrobe-analysis-bento .bento-worn {
 	display: flex;
 	flex-direction: column;
@@ -749,19 +749,12 @@
 	font-weight: 600;
 }
 
-/* ⭐ Mini stacked stats - Top Color/Style 堆叠卡片容器
- * 
- * 调整堆叠卡片的方法：
- * 1. 调整两个小卡片之间的间距：修改 gap（当前 20rpx）
- *    - 更紧凑：gap: 16rpx;
- *    - 更宽松：gap: 24rpx;
- * 
- * 2. 调整堆叠方向：改为横向堆叠
- *    - flex-direction: row; (横向)
- *    - 当前：flex-direction: column; (纵向)
- * 
- * 3. 调整整体高度：添加 min-height
- *    - min-height: 200rpx;
+/* Mini stacked stats — Top Color / Style
+ *
+ * Tuning:
+ * 1. Gap between mini cards: change gap (default 20rpx); tighter 16rpx, looser 24rpx
+ * 2. Stack direction: flex-direction row vs column (current column)
+ * 3. Overall height: e.g. min-height: 200rpx
  */
 .wardrobe-analysis-bento .bento-stats {
 	display: flex;
@@ -769,7 +762,7 @@
 	gap: 20rpx;
 }
 
-/* 小卡：玻璃拟态 + 光影逻辑 hover，与全局风格一致 */
+/* Mini card: glass + light hover, matches global */
 .wardrobe-analysis-bento .mini-card {
 	position: relative;
 	background: rgba(255, 255, 255, 0.65);
@@ -839,14 +832,14 @@
 	display: block;
 }
 
-/* Suggested Additions - 玻璃拟态 + 弥散阴影 */
+/* Suggested Additions — glass + soft shadow */
 .wardrobe-analysis-bento .bento-suggested {
 	position: relative;
 	display: flex;
 	flex-direction: column;
-	/* min-height:0 讓子項 flex 可分配高度並在 .suggest-list 內捲動 */
+	/* min-height:0 so flex children share height and .suggest-list scrolls */
 	min-height: 0;
-	/* 填滿所佔 grid 儲存格高度，底邊與同列 Category 等區塊對齊 */
+	/* Stretch grid cell to align bottom with Category row */
 	align-self: stretch;
 	padding: 20rpx 24rpx 24rpx;
 	background: rgba(255, 254, 251, 0.88);
@@ -927,7 +920,7 @@
 	-webkit-overflow-scrolling: touch;
 	perspective: 1200rpx;
 }
-/* 載入 / 空狀態在固定高度內垂直置中 */
+/* Loading / empty: vertically centered in fixed height */
 .wardrobe-analysis-bento .bento-suggested .suggest-list > .loading-state,
 .wardrobe-analysis-bento .bento-suggested .suggest-list > .suggest-locked-state,
 .wardrobe-analysis-bento .bento-suggested .suggest-list > .suggest-soft-empty {
@@ -935,7 +928,7 @@
 	min-height: 0;
 }
 
-/* 互动式购物卡片 v2：杂志化手风琴 + 幽灵图标 + 3D 倾斜 + 极光扫光 */
+/* Suggested row v2: magazine accordion + ghost icon + 3D tilt + edge sweep */
 .wardrobe-analysis-bento .suggest-card-v2 {
 	position: relative;
 	padding: 30rpx 0;
@@ -952,7 +945,7 @@
 	cursor: pointer;
 	overflow: visible;
 }
-/* 左侧极光扫光：悬停时像扫描仪亮起 */
+/* Left edge bar: scans in on hover */
 .wardrobe-analysis-bento .suggest-card-v2::before {
 	content: '';
 	position: absolute;
@@ -1095,7 +1088,7 @@
 	box-sizing: border-box;
 }
 
-/* Category：占位圓環 + 右側文案（桌面橫排、窄屏可換行） */
+/* Category empty: placeholder donut + copy (row on desktop, wrap on narrow) */
 .wardrobe-analysis-bento .donut-empty-state-v2 {
 	display: flex;
 	flex-direction: row;
@@ -1179,7 +1172,7 @@
 	transform: rotate(-90deg);
 }
 
-/* 1. 初始状态：完全平面 */
+/* 1. Default: flat */
 .wardrobe-analysis-bento .donut-path {
 	transform-origin: 50% 50%;
 	transition: opacity 0.4s cubic-bezier(0.17, 0.67, 0.83, 0.67),
@@ -1192,12 +1185,12 @@
 .wardrobe-analysis-bento .donut-path.donut-path-enter {
 	animation: donut-segment-enter 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
-/* 容器 hover 时，所有扇形先变暗 */
+/* On donut hover: dim all segments first */
 .wardrobe-analysis-bento .donut-svg:hover .donut-path {
 	opacity: 0.6;
 	filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) grayscale(0.2);
 }
-/* 2. 当前 hover 的扇形：保持明亮并长出厚度（多层 drop-shadow 模拟侧边） */
+/* 2. Hovered segment: bright + stacked drop-shadows for depth */
 .wardrobe-analysis-bento .donut-svg .donut-path:hover, .wardrobe-analysis-bento .donut-svg .donut-path.donut-path-hover {
 	opacity: 1;
 	transform: translateY(-10rpx) translateZ(20rpx);
@@ -1208,7 +1201,7 @@
 		drop-shadow(0 8rpx 0 rgba(0, 0, 0, 0.15))
 		drop-shadow(0 20rpx 30rpx rgba(0, 0, 0, 0.1));
 }
-/* 统一上升入场：自下而上 + 淡入，每个扇形仅 delay 递增 */
+/* Segment enter: rise + fade; stagger per slice */
 @keyframes donut-segment-enter {
 	from {
 		opacity: 0;
@@ -1310,49 +1303,18 @@
 .wardrobe-analysis-bento .label-lg { font-size: 54rpx; }
 .wardrobe-analysis-bento .label-sm { font-size: 32rpx; }
 
-/* Grid Placement - 卡片位置和大小配置
- * 
- * 每个卡片的布局调整说明：
- * 
- * 1. Wardrobe Activity (左上角)
- *    - 位置：第1列，第1行
- *    - 大小：1列 x 1行
- *    - 调整：如需更宽，改为 grid-column: 1 / 3
- * 
- * 2. Idle Rate (中上)
- *    - 位置：第2列，第1行
- *    - 大小：1列 x 1行
- *    - 调整：如需更宽，改为 grid-column: 2 / 4
- * 
- * 3. Total Items (右上，横跨2列2行)
- *    - 位置：第3-4列，第1-2行
- *    - 大小：2列 x 2行
- *    - 调整：如需更窄，改为 grid-column: 3; 如需跨3列，改为 grid-column: 2 / 5
- * 
- * 4. Most Worn Items (左中，跨2行)
- *    - 位置：第1列，第2-3行
- *    - 大小：1列 x 2行
- *    - 调整：如需跨3行，改为 grid-row: 2 / 5
- * 
- * 5. Top Color/Style (中中，两个堆叠的小卡片)
- *    - 位置：第2列，第2行
- *    - 大小：1列 x 1行（内部包含两个 mini-card）
- *    - 调整：如需更宽，改为 grid-column: 2 / 4
- * 
- * 6. Suggested Additions (左下，横跨2列)
- *    - 位置：第1-2列，第4行
- *    - 大小：2列 x 1行
- *    - 调整：如需更窄，改为 grid-column: 1; 如需跨3列，改为 grid-column: 1 / 4
- * 
- * 7. Category Breakdown (右侧大卡片，跨2列2行)
- *    - 位置：第3-4列，第3-4行
- *    - 大小：2列 x 2行
- *    - 调整：如需更小，改为 grid-row: 3 / 4; 如需更宽，改为 grid-column: 2 / 5
- * 
- * 调整示例：
- * - 让 Activity 和 Idle 各占2列：grid-column: 1 / 3 和 grid-column: 3 / 5
- * - 让 Total Items 占满整行：grid-column: 1 / 5
- * - 让 Category 占满右侧整列：grid-column: 3 / 5; grid-row: 1 / 4
+/* Grid placement — desktop 4×4 bento
+ *
+ * 1. Wardrobe Activity — col1 row1 (wider: grid-column 1 / 3)
+ * 2. Idle Rate — col2 row1 (wider: grid-column 2 / 4)
+ * 3. Total Items — cols 3–5 rows 1–2 (narrower: col 3 only; span 3 cols: 2 / 5)
+ * 4. Most Worn — col1 rows 2–4 (taller: grid-row 2 / 5)
+ * 5. Top Color/Style — col2 row2 (two stacked mini-cards; wider: 2 / 4)
+ * 6. Suggested — cols 1–2 row4 (narrower col1; span 3 cols: 1 / 4)
+ * 7. Category — cols 3–5 rows 3–5 (smaller row span: 3 / 4; wider: 2 / 5)
+ *
+ * Examples: Activity+Idle each 2 cols: 1/3 and 3/5; Total full width: 1/5;
+ * Category full right column: grid-column 3/5; grid-row 1/4
  */
 .wardrobe-analysis-bento .bento-activity { grid-column: 1; grid-row: 1; }
 .wardrobe-analysis-bento .bento-idle { grid-column: 2; grid-row: 1; }
@@ -1362,7 +1324,7 @@
 	overflow: hidden;
 }
 
-/* Total Items 数字美学：右下角背景数字 + 扫光 */
+/* Total Items: huge watermark num + shimmer */
 .wardrobe-analysis-bento .bento-total .bg-number {
 	position: absolute;
 	right: -20rpx;
@@ -1416,7 +1378,7 @@
 
 
 @media (max-width: 1024px) {
-	/* 与 WardrobeAnalysis .page 对齐：bento 根类已移到 .page-bento-wrap，此处只控制外层 .page 内距 */
+	/* Match WardrobeAnalysis .page padding; bento root lives in .page-bento-wrap */
 	.page:not(.page--expanded) { padding: 24rpx; }
 	.wardrobe-analysis-bento .bento-grid {
 		grid-template-columns: 1fr 1fr;

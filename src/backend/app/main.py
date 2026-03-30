@@ -1,6 +1,6 @@
 """
-FastAPI 應用本體：中間件、靜態資源、路由掛載、例外處理。
-啟動與路徑/bootstrap 仍須在載入 ORM 前完成，故保留於此檔。
+FastAPI application: middleware, static files, routers, exception handlers.
+Bootstrap paths stay here so they run before ORM metadata is used.
 """
 from __future__ import annotations
 
@@ -20,13 +20,13 @@ from app.core.database import engine
 from app.core.exceptions import AppError
 from app.services.file_service import UPLOAD_DIR, UPLOAD_URL_PREFIX
 
-# backend/（本檔位於 backend/app/main.py）
+# backend/ (this file: backend/app/main.py)
 BACKEND_DIR = PathLib(__file__).resolve().parent.parent
 AIWARDROBE_DIR = BACKEND_DIR / "AIwardrobe"
 if str(AIWARDROBE_DIR) not in sys.path:
     sys.path.insert(0, str(AIWARDROBE_DIR))
 
-# .env 由 app.core.config 在首次 import 時載入（與 database/engine 一致）
+# .env is loaded on first import via app.core.config (same timing as database/engine)
 
 try:
     from app.services.comfyui_client import build_virtual_tryon_workflow, comfyui_client

@@ -1,7 +1,7 @@
 <!--
-  推荐 AI 底部/首屏输入栏：主输入、图片，点「+」展开建议菜单。
-  【暂停】菜单内「Add photos」已移除：相册/相机入口之后若要恢复，可再接入 emit('add') 或为「+」加长按/第二按钮。
-  目前图片仅能通过拖拽到输入栏（H5）等方式加入（见父组件 handleAdd / handleDropImage）。
+  Recommendation AI input bar: main text, thumbs, + opens suggestions.
+  Add photos from menu is paused — restore via emit('add') or a long-press on + later.
+  Images: H5 drag-drop onto bar (see parent handleAdd / handleDropImage).
 -->
 <template>
 	<view class="recommendation-input-bar">
@@ -121,7 +121,7 @@ const CUSTOM_AI_PROMPTS_STORAGE_KEY = 'custom_ai_prompts'
 const DEFAULT_CUSTOM_AI_PROMPTS = [
 	'Build a 3-day spring capsule wardrobe',
 	'What should I wear for a rainy commute?',
-	'How to style my denim jacket for a date?',
+	'What should I wear to school tomorrow?',
 	'Analyze my closet and suggest additions'
 ]
 
@@ -157,7 +157,7 @@ const emit = defineEmits([
 	'update:modelValue',
 	'apply-text',
 	'search',
-	/** 预留：相册选图；菜单内入口已暂停，父组件 RecommendationAI 仍监听 */
+	/** Reserved: album picker; menu entry paused; parent still listens */
 	'add',
 	'drop',
 	'dragover',
@@ -170,9 +170,9 @@ const prompts = ref([...DEFAULT_CUSTOM_AI_PROMPTS])
 const suggestionsOpen = ref(false)
 const menuEditIndex = ref(-1)
 const editBuffer = ref('')
-/** H5：点 Done 会先触发 input blur；延迟执行 blur 保存，让按钮的 click 先取消计时并完成编辑 */
+/** H5: Done triggers blur first; defer blur-save so button click can cancel timer / finish edit */
 const blurFinishTimer = ref(null)
-/** H5 上同一次点击可能先后触发 tap + click，避免连续执行两次把「进入编辑」立刻变成「完成」 */
+/** H5: same gesture may fire tap then click — avoid toggling edit→done twice */
 let editBtnActionLock = false
 let promptLineActionLock = false
 
@@ -529,7 +529,7 @@ function onDragLeave(e) {
 	outline: none;
 }
 
-/* Edit / Done：轻描边胶囊，Done 仅略加深边框与底色，避免大块实心渐变 */
+/* Edit / Done: light outline pills; Done slightly stronger border/fill, no heavy gradient */
 .edit-btn {
 	flex-shrink: 0;
 	min-width: 108rpx;

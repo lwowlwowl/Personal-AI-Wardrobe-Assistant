@@ -1,5 +1,5 @@
 """
-衣物業務編排（與路由 HTTP 路徑無關）；upload 等重邏輯從 api/v1/clothing 遷入。
+Clothing business logic (not tied to HTTP paths); heavy upload logic moved from api/v1/clothing.
 """
 from __future__ import annotations
 
@@ -32,10 +32,10 @@ def parse_season_form(season: Optional[str], allow_empty: bool = False) -> Optio
 
 def normalize_category(category: Optional[str]) -> str:
     """
-    将传入的 category 规范为后端 ClothingCategory 枚举值字符串。
-    - 空值 → "other"
-    - 非法值 → "other"
-    - 合法值：top/bottom/dress/outerwear/footwear/accessory/bag/underwear/other
+    Normalize incoming category to a ClothingCategory enum string.
+    - Empty → "other"
+    - Invalid → "other"
+    - Valid: top/bottom/dress/outerwear/footwear/accessory/bag/underwear/other
     """
     if not category or not category.strip():
         return "other"
@@ -65,7 +65,7 @@ def run_upload_clothing_item(
     purchase_date: Optional[str],
     auto_label: bool,
 ) -> dict:
-    """上傳衣物圖片並建立記錄；行為與原 clothing.upload_clothing_item 一致。"""
+    """Upload clothing image and create record; behavior matches legacy clothing.upload_clothing_item."""
     try:
         image_url = save_upload_file(file, user.id)
         relative_path = image_url[len(UPLOAD_URL_PREFIX) + 1 :]

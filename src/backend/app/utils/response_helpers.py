@@ -1,4 +1,4 @@
-"""統一 JSON 結構輔助（與修改.md 對齊；逐步採用即可）。"""
+"""Helpers for consistent JSON response bodies."""
 from __future__ import annotations
 
 from typing import Any, Dict, Optional

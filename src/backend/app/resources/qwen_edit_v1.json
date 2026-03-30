@@ -26,7 +26,7 @@
     },
     "class_type": "KSampler",
     "_meta": {
-      "title": "K采样器"
+      "title": "KSampler"
     }
   },
   "8": {
@@ -42,7 +42,7 @@
     },
     "class_type": "VAEDecode",
     "_meta": {
-      "title": "VAE解码"
+      "title": "VAE Decode"
     }
   },
   "37": {
@@ -52,7 +52,7 @@
     },
     "class_type": "UNETLoader",
     "_meta": {
-      "title": "UNet加载器"
+      "title": "UNet Loader"
     }
   },
   "38": {
@@ -63,7 +63,7 @@
     },
     "class_type": "CLIPLoader",
     "_meta": {
-      "title": "加载CLIP"
+      "title": "Load CLIP"
     }
   },
   "39": {
@@ -72,7 +72,7 @@
     },
     "class_type": "VAELoader",
     "_meta": {
-      "title": "加载VAE"
+      "title": "Load VAE"
     }
   },
   "60": {
@@ -85,7 +85,7 @@
     },
     "class_type": "SaveImage",
     "_meta": {
-      "title": "保存图像"
+      "title": "Save Image"
     }
   },
   "66": {
@@ -98,7 +98,7 @@
     },
     "class_type": "ModelSamplingAuraFlow",
     "_meta": {
-      "title": "采样算法（AuraFlow）"
+      "title": "Sampling (AuraFlow)"
     }
   },
   "75": {
@@ -120,7 +120,7 @@
     },
     "class_type": "LoadImage",
     "_meta": {
-      "title": "加载图像"
+      "title": "Load Image"
     }
   },
   "88": {
@@ -136,7 +136,7 @@
     },
     "class_type": "VAEEncode",
     "_meta": {
-      "title": "VAE编码"
+      "title": "VAE Encode"
     }
   },
   "89": {
@@ -150,7 +150,7 @@
     },
     "class_type": "LoraLoaderModelOnly",
     "_meta": {
-      "title": "LoRA加载器（仅模型）"
+      "title": "LoRA Loader (model only)"
     }
   },
   "93": {
@@ -165,7 +165,7 @@
     },
     "class_type": "ImageScaleToTotalPixels",
     "_meta": {
-      "title": "缩放图像（像素）"
+      "title": "Scale Image (pixels)"
     }
   },
   "106": {
@@ -174,7 +174,7 @@
     },
     "class_type": "LoadImage",
     "_meta": {
-      "title": "加载图像"
+      "title": "Load Image"
     }
   },
   "110": {
@@ -204,7 +204,7 @@
   },
   "111": {
     "inputs": {
-      "prompt": "将图片2中的服饰或配饰替换到图片1人物身上，保留人物其余特征不变，效果自然真实。",
+      "prompt": "Put the clothing from image 2 onto the person in image 1; preserve all other person features; natural, realistic result.",
       "clip": [
         "38",
         0
@@ -235,7 +235,7 @@
     },
     "class_type": "EmptySD3LatentImage",
     "_meta": {
-      "title": "空Latent图像（SD3）"
+      "title": "Empty Latent (SD3)"
     }
   }
 }

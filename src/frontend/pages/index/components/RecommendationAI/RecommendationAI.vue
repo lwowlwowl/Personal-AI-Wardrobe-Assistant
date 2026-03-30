@@ -1,4 +1,4 @@
-<!-- 推荐 AI 聊天组件：初始问候、多行输入、图片上传、用户/AI 消息展示 -->
+<!-- Recommendation AI chat: greeting, multiline input, images, user/AI messages -->
 <template>
 	<view class="chat-container">
 		<scroll-view
@@ -82,7 +82,7 @@
 						</view>
 
 						<view class="ai-content">
-							<!-- 计划表（多天/多场景/按日程组织） -->
+							<!-- Plan schedule (multi-day / multi-scene / calendar-style) -->
 							<PlanScheduleCard
 								v-if="getMessageRenderType(msg) === 'plan'"
 								:plan="msg.plan"
@@ -90,7 +90,7 @@
 								:locale="msg.locale || 'en'"
 							/>
 
-							<!-- 推荐型：上文字（可选）+ 下卡片，同一容器内 -->
+							<!-- Recommendation: optional text above + cards below, same wrapper -->
 							<view
 								v-else-if="getMessageRenderType(msg) === 'recommendation'"
 								class="mixed-message-wrap"
@@ -130,7 +130,7 @@
 								</view>
 							</view>
 
-							<!-- 纯文本 / 兜底 -->
+							<!-- Plain text / fallback -->
 							<ChatMessageBubble
 								v-else
 								:key="msg.rawText || msg.content || `text-${index}`"
@@ -198,7 +198,6 @@ import { resolveWardrobeImageUrl, isPlaceholderWardrobeUrl } from '@/api/wardrob
 import { getCalendarOutfits, saveCalendarOutfits } from '@/api/calendarApi.js'
 import { getOutfitTryOnSortIndex, buildOutfitTryOnStepLabel } from './utils/rec/outfitOrder.js'
 
-/** 依瀏覽器本地時間顯示問候（原為寫死的 Good Afternoon） */
 const timeGreeting = computed(() => {
 	const h = new Date().getHours()
 	if (h >= 5 && h < 12) return 'Good Morning'
@@ -209,7 +208,7 @@ const timeGreeting = computed(() => {
 
 const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false },
-	// 父组件目前会传数字 ID，这里放宽为字符串或数字，避免类型告警
+	// Parent may pass numeric id; accept string or number to avoid prop warnings
 	currentConversationId: { type: [String, Number], default: null },
 	currentConversation: { type: Object, default: null }
 })
@@ -333,7 +332,7 @@ async function handleAddRecommendationToCalendar(recommendation) {
 const searchQuery = ref('')
 const hasSearched = ref(false)
 
-/** 僅將建議寫入主輸入框，不呼叫 handleSearch、不改 hasSearched */
+/** Only writes suggestion into main input; does not call handleSearch or change hasSearched */
 const onSuggestionApplyText = (text) => {
 	searchQuery.value = text
 }
@@ -414,7 +413,7 @@ function setLoadingPanelRef(el) {
 	loadingPanelRef.value = el
 }
 
-// --- AI 单品 ID -> 衣橱真实图片 对应（仅依靠 clothingId 精准匹配）---
+// --- Map AI item id -> wardrobe image (match by clothingId only) ---
 const myWardrobeList = ref([])
 
 function buildImageUrl(imageUrl) {
@@ -449,7 +448,7 @@ async function fetchMyWardrobe() {
 		const res = await getClothingList({
 			token,
 			page: 1,
-			// 后端限制 page_size <= 100（否则 422）
+			// Backend caps page_size at 100 (else 422)
 			page_size: 100,
 			order_by: 'created_at',
 			order_desc: true
@@ -507,7 +506,7 @@ const scrollToBottom = () => {
 	})
 }
 
-/** 长对话中 Regenerate 时高度骤变会导致视口「错位」看到下面消息；锚定到该则 message-row 保持视线在同一条上 */
+/** After Regenerate in long chats, height jumps can mis-scroll; anchor to this message-row to keep focus */
 const scrollToMessageIndex = (idx) => {
 	if (idx == null || idx < 0) return
 	nextTick(() => {
@@ -519,8 +518,8 @@ const scrollToMessageIndex = (idx) => {
 }
 
 /**
- * 流式结束后：等小窗动画、解析 JSON、规范化、用 AI 消息替换 loading（与 handleSearch / regenerate 共用）
- * @param {{ scrollAfter?: boolean, anchorMsgIdx?: number, replaceAtIndex?: number }} [options] — 必传 replaceAtIndex 可避免多个 loading 时误替换第一条
+ * After stream: wait for loading animation, parse JSON, normalize, replace loading row (shared by handleSearch / regenerate).
+ * @param {{ scrollAfter?: boolean, anchorMsgIdx?: number, replaceAtIndex?: number }} [options] — pass replaceAtIndex to avoid replacing the wrong loading row when several exist
  */
 async function replaceLoadingWithAiMessage(aiMessage, options = {}) {
 	const { scrollAfter = true, anchorMsgIdx, replaceAtIndex } = options
@@ -600,7 +599,7 @@ const handleRegenerate = async (msgIdx) => {
 		}))
 		.filter(m => m.content)
 
-	// 让后端看到「上一版助手全文」，避免模型看不到参考而输出过短；prevAi 仍指向被替换前的对象
+	// Send previous assistant full text so the model has context; prevAi is still the pre-replace object
 	const prevBody = (prevAi.rawText || prevAi.content || '').trim()
 	if (prevBody) {
 		const cap = 20000
@@ -676,7 +675,7 @@ const handleSearch = async () => {
 	const loadingRowIndex = chatHistory.value.length - 1
 	scrollToBottom()
 
-	// 调接口后一定用 final 结构化消息整体替换占位消息（修改.md：替换不是 append）
+	// After API: replace placeholder with final structured message (replace, not append)
 	const finishLoading = async (aiMessage) => {
 		await replaceLoadingWithAiMessage(aiMessage, { replaceAtIndex: loadingRowIndex })
 
@@ -757,7 +756,7 @@ const handleDropImage = (e) => {
 	uploadedImages.value = [...uploadedImages.value, ...add]
 }
 
-/** 相册/相机：子组件 InputBar 暂不 emit('add')（菜单「Add photos」已去掉）；仍保留事件绑定供之后接回。H5 可拖拽图片到输入栏。 */
+/** Album/camera: InputBar does not emit('add') yet (Add photos menu removed); handlers kept for later. H5: drag images onto input. */
 const handleAdd = () => {
 	const remain = MAX_UPLOAD_IMAGES - uploadedImages.value.length
 	if (remain <= 0) {
@@ -815,7 +814,7 @@ const previewImages = (urls, index = 0) => {
 </script>
 
 <style scoped>
-/* 整体容器 */
+/* Root chat container */
 .chat-container {
 	width: 100%;
 	height: 100vh;
@@ -849,7 +848,7 @@ const previewImages = (urls, index = 0) => {
 	width: 100%;
 }
 
-/* 1. 将上方的文字气泡改造成“后台思考/分析记录” */
+/* 1. Top bubble: backstage analysis / strategy tone */
 .mixed-message-wrap :deep(.chat-bubble) {
 	background: transparent !important;
 	box-shadow: none !important;
@@ -874,7 +873,7 @@ const previewImages = (urls, index = 0) => {
 	opacity: 0.8;
 }
 
-/* 2. 弱化思考文字的字号和颜色，拉开与正式卡片的层级差距 */
+/* 2. Softer analysis text vs main cards */
 .mixed-message-wrap :deep(.chat-bubble .message-text),
 .mixed-message-wrap :deep(.chat-bubble .rich-text) {
 	font-size: 26rpx !important;
@@ -889,7 +888,7 @@ const previewImages = (urls, index = 0) => {
 	padding: 0 !important;
 }
 
-/* 3. 确保推荐卡片（正式结果）恢复完整的圆角和阴影 */
+/* 3. Full radius + shadow on recommendation cards */
 .mixed-message-wrap :deep(.recommend-card) {
 	border-radius: 40rpx !important;
 	border-top: 1px solid rgba(255, 255, 255, 0.9) !important;
@@ -920,7 +919,7 @@ const previewImages = (urls, index = 0) => {
 	gap: 24rpx;
 }
 
-/* 初始状态：整体滚动区（问候语与输入框同步上移） */
+/* Initial: full-height scroll (greeting + input move together) */
 .initial-scroll {
 	width: 100%;
 	height: 100vh;
@@ -928,7 +927,7 @@ const previewImages = (urls, index = 0) => {
 	z-index: 1;
 }
 
-/* 初始状态内容区：问候语 + 输入框 + 标签 */
+/* Initial content: greeting + input + chips */
 .initial-content {
 	display: flex;
 	flex-direction: column;
@@ -938,7 +937,7 @@ const previewImages = (urls, index = 0) => {
 	box-sizing: border-box;
 }
 
-/* 问候语区块 */
+/* Greeting block */
 .greeting-wrapper {
 	width: 100%;
 	display: flex;
@@ -966,12 +965,12 @@ const previewImages = (urls, index = 0) => {
 	justify-content: center;
 }
 
-/* 机器人悬浮呼吸动画 */
+/* Robot icon float / breathe */
 .robot-hero .icon-robot-hero {
 	width: 60px;
 	height: 60px;
 	display: block;
-	/* 4 秒循环，丝滑缓动 */
+	/* 4s loop, smooth easing */
 	animation: float 4s ease-in-out infinite;
 }
 .icon-robot-avatar {
@@ -982,11 +981,11 @@ const previewImages = (urls, index = 0) => {
 
 @keyframes float {
 	0% { transform: translateY(0px); }
-	50% { transform: translateY(-6px); } /* 轻轻上浮效果 */
+	50% { transform: translateY(-6px); } /* subtle lift */
 	100% { transform: translateY(0px); }
 }
 
-/* 问候语行：挥手 emoji + 文本 */
+/* Greeting row: wave emoji + text */
 .greeting-row {
 	display: flex;
 	align-items: center;
@@ -1006,7 +1005,7 @@ const previewImages = (urls, index = 0) => {
 	color: #1D1D1F;
 }
 
-/* 天气卡片：加载中透明+微位移，数据回来淡入 */
+/* Weather card: faint + offset while loading; fade in when ready */
 .weather-card {
 	opacity: 0;
 	transform: translateY(6px);
@@ -1017,7 +1016,7 @@ const previewImages = (urls, index = 0) => {
 	transform: translateY(0);
 }
 
-/* 天气信息行：温度 | 天气现象 | 风力 | 推荐 */
+/* Weather row: temp | condition | wind */
 .weather-row {
 	margin-top: 40rpx;
 	margin-bottom: 120rpx;
@@ -1037,11 +1036,11 @@ const previewImages = (urls, index = 0) => {
 .weather-divider {
 	font-size: 24rpx;
 	color: #AAA; 
-	margin: 0 15rpx; /* 控制 | 左右的间隔大小 */
+	margin: 0 15rpx; /* spacing around | dividers */
 	position: relative;
 }
 
-/* 聊天状态：scroll-view 区域 */
+/* Chat mode: scroll-view */
 .chat-scroll-area {
 	position: relative;
 	z-index: 1;
@@ -1057,26 +1056,26 @@ const previewImages = (urls, index = 0) => {
 	display: flex;
 	flex-direction: column;
 	min-height: 100%;
-	/* 确保消息列表区域文本可被选择 */
+	/* Allow text selection in message list */
 	user-select: text;
 	-webkit-user-select: text;
 	-moz-user-select: text;
 	-ms-user-select: text;
 }
 
-/* 底部占位，为固定输入框 box 留出空间 */
+/* Bottom spacer for fixed input bar */
 .spacer {
 	height: 320rpx;
 }
 
-/* 对话气泡 - 左右分栏布局 */
+/* Message rows: left (AI) / right (user) */
 .message-row {
 	display: flex;
 	width: 100%;
 	margin-bottom: 60rpx;
 }
 
-/* 用户消息 (右侧) */
+/* User message (right) */
 .message-row.user {
 	justify-content: flex-end;
 }
@@ -1085,20 +1084,20 @@ const previewImages = (urls, index = 0) => {
 	background-color: #F2F2F2;
 	padding: 24rpx 40rpx;
 	border-radius: 40rpx;
-	border-bottom-right-radius: 4rpx; /* 气泡小尾巴效果 */
+	border-bottom-right-radius: 4rpx; /* tail notch */
 	max-width: 70%;
 	box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
 	display: flex;
 	flex-direction: column;
 	gap: 16rpx;
-	/* 确保用户消息文本可被选择 */
+	/* User bubble text selectable */
 	user-select: text;
 	-webkit-user-select: text;
 	-moz-user-select: text;
 	-ms-user-select: text;
 }
 
-/* 用户消息中的图片组 */
+/* User message images */
 .user-image-group {
 	display: flex;
 	gap: 12rpx;
@@ -1114,7 +1113,7 @@ const previewImages = (urls, index = 0) => {
 	object-fit: cover;
 }
 
-/* 用户与 AI 消息正文（与图二聊天风格一致：清晰无衬线、统一字号） */
+/* Message body: clean sans, unified size */
 .message-text {
 	font-size: 30rpx;
 	color: #1D1D1F;
@@ -1122,14 +1121,14 @@ const previewImages = (urls, index = 0) => {
 	font-weight: 400;
 	line-height: 1.6;
 	word-wrap: break-word;
-	/* 确保文本可被选择和复制 */
+	/* Selectable / copyable */
 	user-select: text;
 	-webkit-user-select: text;
 	-moz-user-select: text;
 	-ms-user-select: text;
 }
 
-/* AI 消息 (左侧) */
+/* AI message (left) */
 .message-row.ai {
 	justify-content: flex-start;
 }
@@ -1141,7 +1140,7 @@ const previewImages = (urls, index = 0) => {
 	align-items: flex-start;
 }
 
-/* AI 结果分模块淡入动画 */
+/* AI block fade-in */
 .ai-fade-in {
 	animation: aiFadeIn 0.5s ease-out forwards;
 }
@@ -1181,7 +1180,7 @@ const previewImages = (urls, index = 0) => {
 	-ms-user-select: text;
 }
 
-/* 多套推荐 swiper */
+/* Multi-rec swiper */
 .recommend-swiper {
 	width: 100%;
 	height: auto;
@@ -1193,7 +1192,7 @@ const previewImages = (urls, index = 0) => {
 	padding-bottom: 60rpx;
 }
 
-/* 输入框外层 box：铺满右侧、背景与页面一致、上方留白 */
+/* Input shell: full width, page bg, top padding */
 .input-box-wrapper {
 	position: absolute;
 	bottom: 0;
@@ -1210,7 +1209,7 @@ const previewImages = (urls, index = 0) => {
 	pointer-events: none;
 }
 
-/* 输入框容器 */
+/* Input container */
 .input-container {
 	width: 100%;
 	display: flex;
@@ -1220,14 +1219,14 @@ const previewImages = (urls, index = 0) => {
 	pointer-events: none;
 }
 
-/* 初始状态：在滚动流内，随问候语同步 */
+/* Initial: in scroll flow with greeting */
 .input-container.input-in-flow {
 	flex-shrink: 0;
 	margin-top: 80rpx;
 	pointer-events: auto;
 }
 
-/* 聊天状态：固定在底部（在 input-box-wrapper 内，无需绝对定位） */
+/* Chat: bottom area inside input-box-wrapper (no absolute on inner) */
 .input-box-wrapper .input-container.fixed-bottom {
 	position: relative;
 	bottom: auto;

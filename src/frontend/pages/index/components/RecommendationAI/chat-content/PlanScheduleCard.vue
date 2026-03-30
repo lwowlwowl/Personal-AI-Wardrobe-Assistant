@@ -92,7 +92,7 @@ import { computed, reactive } from 'vue'
 const props = defineProps({
 	plan: { type: Object, default: null },
 	rawText: { type: String, default: '' },
-	/** 后端判定语言，用于展示细节（如标题 i18n） */
+	/** Backend-detected locale, used for display details (e.g. title i18n) */
 	locale: { type: String, default: 'en' }
 })
 
@@ -105,7 +105,7 @@ const isTodayActive = computed(() => false)
 
 const toggle = (idx) => { expanded[idx] = !expanded[idx] }
 
-// --- 表现形式转换逻辑 ---
+// --- Presentation transformation logic ---
 
 const formatDayNum = (t) => {
 	const m = t?.match(/\d+\.(\d+)/)
@@ -164,7 +164,7 @@ const mapTypeToEnglish = (type) => {
 		Bag: 'BAG',
 		Underwear: 'UNDERWEAR',
 		Other: 'OTHER',
-		// 后端 plan/recommendation 返回的 type 为大写，需直接映射
+		// Backend plan/recommendation returns uppercase type values; map directly
 		TOP: 'TOP',
 		BOTTOM: 'BOTTOM',
 		DRESS: 'DRESS',
@@ -212,13 +212,13 @@ const previewImages = (urls, startIndex = 0) => {
 
 <style scoped>
 .plan-card {
-	background: #FDFBF7; /* 极简暖白，像纸张一样 */
+	background: #FDFBF7; /* Minimal warm white, like paper */
 	border-radius: 40rpx;
 	padding: 40rpx;
 	box-shadow: 0 20rpx 60rpx rgba(0,0,0,0.05);
 }
 
-/* 头部设计 */
+/* Header design */
 .plan-header { margin-bottom: 40rpx; }
 .plan-title-en {
 	font-size: 20rpx;
@@ -260,7 +260,7 @@ const previewImages = (urls, startIndex = 0) => {
 	100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0); }
 }
 
-/* 总体策略 Banner（深色块标题「OVERALL STRATEGY」与正文：字号、字体在此调整） */
+/* Overall strategy banner (adjust title/body font size and family here) */
 .strategy-banner {
 	background: #1D1D1F; border-radius: 24rpx; padding: 32rpx; margin-bottom: 40rpx;
 	font-family: "Didot", serif;
@@ -271,7 +271,7 @@ const previewImages = (urls, startIndex = 0) => {
 }
 .strategy-text { color: #FFF; font-size: 28rpx; line-height: 1.65; opacity: 0.95; }
 
-/* 每天的卡片模块 */
+/* Daily card module */
 .day-module {
 	display: flex;
 	flex-direction: column;
@@ -289,9 +289,9 @@ const previewImages = (urls, startIndex = 0) => {
 	box-shadow: 0 8rpx 32rpx rgba(157, 139, 112, 0.06);
 	padding-bottom: 32rpx;
 }
-/* 未展开时：卡片有最小高度，头部占满可用高度，日期/天气/按钮在竖直方向居中 */
+/* When collapsed: keep minimum card height, let header fill available space, and vertically center date/weather/button */
 .day-module:not(.is-expanded) {
-	min-height: 168rpx; /* 24+120+24，保证有空间给 header 填满并居中 */
+	min-height: 168rpx; /* 24+120+24, ensures enough room for a full-height centered header */
 }
 .day-module:not(.is-expanded) .module-header {
 	flex: 1;
@@ -306,14 +306,14 @@ const previewImages = (urls, startIndex = 0) => {
 	padding: 0;
 	display: flex;
 	align-items: center;
-	gap: 30rpx; /* 日期与天气、天气与按钮的间距，可改此值 */
+	gap: 30rpx; /* Spacing between date/weather and weather/button; adjust here */
 }
 
 .date-box {
 	display: flex;
 	align-items: center;
 	gap: 16rpx;
-	width: 250rpx; /* 日期+月份列宽，避免「明天(周四)」等换行过碎，可在此调整 */
+	width: 250rpx; /* Date + month column width; helps avoid awkward wraps like "Tomorrow (Thu)" */
 	min-width: 220rpx;
 }
 .date-num {
@@ -348,13 +348,13 @@ const previewImages = (urls, startIndex = 0) => {
 }
 .btn-text { font-size: 28rpx; color: #1D1D1F; font-weight: 600; }
 
-/* 丝滑的网格高度展开动画 */
+/* Smooth grid-height expand animation */
 .item-list-wrap {
 	display: grid;
 	grid-template-rows: 0fr;
 	transition: grid-template-rows 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
 	opacity: 0;
-	min-height: 0; /* 未展开时不占高，便于 header 占满并居中 */
+	min-height: 0; /* no height while collapsed; allows header to fill and center */
 }
 .item-list-wrap.is-open {
 	grid-template-rows: 1fr;
@@ -452,7 +452,7 @@ const previewImages = (urls, startIndex = 0) => {
 }
 .type-emoji { font-size: 50rpx; opacity: 0.8; }
 
-/* 造型便签（「Stylist Note」标题与正文：字号、字体在此调整） */
+/* Styling note block (adjust title/body font size and family here) */
 .stylist-note {
 	margin-top: 0; background: #FDF7ED; border-radius: 24rpx; padding: 24rpx;
 	border-left: 8rpx solid #9D8B70;
@@ -466,7 +466,7 @@ const previewImages = (urls, startIndex = 0) => {
 .fallback-wrap { margin-top: 16rpx; }
 .fallback-text { font-size: 24rpx; color: #2C2C2E; line-height: 1.6; white-space: pre-wrap; }
 
-/* --- 入场动画（每日模块依次向上浮现）--- */
+/* --- Entry animation (daily modules float in upward one by one) --- */
 .ai-fade-block {
 	opacity: 0;
 	animation: aiBlockFade 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;

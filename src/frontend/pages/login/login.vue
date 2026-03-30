@@ -1,6 +1,6 @@
 <template>
 	<view class="container">
-		<!-- 左侧背景区域 -->
+		<!-- Left hero / background -->
 		<view class="left-section">
 			<image class="background-image" src="/static/wardrobe-bg.png" mode="aspectFill" @error="handleImageError"></image>
 			<view class="background-placeholder" v-if="imageError"></view>
@@ -11,7 +11,7 @@
 			</view>
 		</view>
 		
-		<!-- 右侧表单区域 -->
+		<!-- Right form column -->
 		<view class="right-section">
 			<view class="header user-header">
 				<view class="user-chip">
@@ -26,10 +26,10 @@
 					<text class="welcome-subtitle">Personal AI Wardrobe Assistant!</text>
 				</view>
 				
-				<!-- 切换标签 -->
+				<!-- Login / Register tabs -->
 				<view class="tab-wrapper">
 				  <view class="tab-container">
-					<!-- 新增：滑块背景 -->
+					<!-- Sliding pill background -->
 					<view class="tab-slider" :class="{ right: activeTab === 'register' }"></view>
 			
 					<view 
@@ -55,7 +55,7 @@
 					<text>Clothes mean nothing until someone lives in them.</text>
 				</view>
 				
-				<!-- 表单：根据 activeTab 切换登录 / 注册 -->
+				<!-- Form: login vs register by activeTab -->
 				<view 
 					class="form" 
 					:class="[
@@ -63,7 +63,7 @@
 						isSwitching ? 'form-switch' : ''
 					]"
 				>
-					<!-- Login 表单（登录） -->
+					<!-- Login form -->
 					<view v-if="activeTab === 'login'">
 						<view class="form-item form-item-login-first">
 							<text class="label">User name</text>
@@ -104,7 +104,7 @@
 						<button class="login-btn" @click="handleLogin">Login</button>
 					</view>
 
-					<!-- Register 表单（注册） -->
+					<!-- Register form -->
 					<view v-else>
 						<view class="form-item">
 							<text class="label">Email Address</text>
@@ -191,14 +191,14 @@ const isEntering = ref(false)
 const isSwitching = ref(false)
 const showForgotModal = ref(false)
 
-// Login 表单数据
+// Login form state
 const loginForm = ref({
 	username: '',
 	password: '',
 	remember: false
 })
 
-// Register 表单数据
+// Register form state
 const registerForm = ref({
 	email: '',
 	username: '',
@@ -239,7 +239,7 @@ const goToHomeAfterLogin = () => {
 	}, 1500)
 }
 
-// 登录
+// Login submit
 const handleLogin = async () => {
 	if (!loginForm.value.username) {
 		uni.showToast({
@@ -328,7 +328,7 @@ const handleForgotPassword = () => {
 	showForgotModal.value = true
 }
 
-// 注册相关校验
+// Register validation helpers
 const validateEmail = (email) => {
 	const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 	return re.test(email)
@@ -348,7 +348,7 @@ const onPasswordBlur = () => {
 	}
 }
 
-// 注册
+// Register submit
 const handleRegister = async () => {
 	if (!registerForm.value.email) {
 		uni.showToast({
@@ -497,7 +497,7 @@ const handleRegister = async () => {
 }
 
 onMounted(() => {
-  // 页面加载时添加淡入动画
+  // Fade-in on first paint
   isEntering.value = true
   setTimeout(() => {
     isEntering.value = false
@@ -510,7 +510,7 @@ const setTab = (tab) => {
   isSwitching.value = true
   activeTab.value = tab
 
-  // 在动画结束后重置 switching 标记，避免持续触发
+  // Clear switching flag after animation
   setTimeout(() => {
     isSwitching.value = false
   }, 260)
@@ -528,7 +528,7 @@ const setTab = (tab) => {
 	background-color: #F3EDE3;
 }
 
-/* 左侧区域 */
+/* Left column */
 .left-section {
 	flex: 1;
 	position: relative;
@@ -575,7 +575,7 @@ const setTab = (tab) => {
 
 .quote-text {
 	display: block;
-	font-size: 44rpx;          /* 约 22px */
+	font-size: 44rpx;          /* ~22px */
 	font-weight: 500;
 	letter-spacing: 0.6rpx;
 	color: #FFFFFF;
@@ -586,12 +586,12 @@ const setTab = (tab) => {
 
 .quote-author {
 	display: block;
-	font-size: 28rpx;          /* 约 14px */
+	font-size: 28rpx;          /* ~14px */
 	color: rgba(255, 255, 255, 0.8);
 	text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.3);
 }
 
-/* 右侧区域 */
+/* Right column */
 .right-section {
 	flex: 1;
 	display: flex;
@@ -641,14 +641,14 @@ const setTab = (tab) => {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
-	padding-top: 160rpx;  /* 整体往上提 */
+	padding-top: 160rpx;  /* shift content up */
 	animation: loginCardFadeIn 0.6s ease;
 }
 
 .welcome-text {
 	text-align: center;
 	margin-bottom: 30rpx;
-	height: 220rpx;       /* 标题区略收窄，视觉更上移 */
+	height: 220rpx;       /* tighter title block */
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
@@ -673,9 +673,9 @@ const setTab = (tab) => {
 	letter-spacing: 2rpx;
 }
 
-/* 切换标签 */
+/* Tab switcher */
 .tab-wrapper {
-	background-color: #EEE8DE;   /* 外层柔和底色 */
+	background-color: #EEE8DE;   /* soft outer fill */
 	padding: 4rpx;
 	border-radius: 28rpx;
 	margin: 0 auto 40rpx auto;
@@ -702,7 +702,7 @@ const setTab = (tab) => {
 
 .tab {
   flex: 1;
-  height: 88rpx;              /* 96rpx(tab-wrapper) - padding上下 */
+  height: 88rpx;              /* tab-wrapper height minus padding */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -713,7 +713,7 @@ const setTab = (tab) => {
   transition: color 0.3s;
   position: relative;
   z-index: 1;
-  padding: 0;                 /* 去掉原来的 20rpx 60rpx */
+  padding: 0;                 /* removed old horizontal padding */
 }
 
 .tab-slider {
@@ -768,7 +768,7 @@ const setTab = (tab) => {
 	color: #666;
 }
 
-/* 表单 */
+/* Form */
 .form {
 	margin-top: 40rpx;
 	display: flex;
@@ -791,7 +791,7 @@ const setTab = (tab) => {
 	}
 }
 
-/* Tab 切换时的内容滑动动画 */
+/* Tab switch: form slide */
 .form-switch {
 	animation: formSlideDown 0.26s ease-out;
 }
@@ -807,7 +807,7 @@ const setTab = (tab) => {
 	}
 }
 
-/* 整体表单淡入动画，提升产品感 */
+/* Card fade-in on load */
 @keyframes loginCardFadeIn {
 	from {
 		opacity: 0;
@@ -820,12 +820,12 @@ const setTab = (tab) => {
 }
 
 .form-item {
-	margin: 0 auto 55rpx auto;   /* Register 等通用栏位：间距较小 */
+	margin: 0 auto 55rpx auto;   /* shared fields: tighter spacing */
 	width: 80%;
-	position: relative;  /* 让错误提示可以绝对定位而不影响布局 */
+	position: relative;  /* error message absolute below input */
 }
 
-/* Login 表单：首个栏位与栏位之间间距更大 */
+/* Login: extra gap after first field */
 .form-item-login-first {
 	margin-top: 80rpx;
 	margin-bottom: 100rpx;
@@ -850,10 +850,10 @@ const setTab = (tab) => {
 
 .input {
 	width: 100%;
-	height: 104rpx;                 /* 约 52px */
+	height: 104rpx;                 /* ~52px */
 	background-color: #F5F5F5;
-	border-radius: 28rpx;           /* 约 14px */
-	padding: 0 36rpx;               /* 约 18px */
+	border-radius: 28rpx;           /* ~14px */
+	padding: 0 36rpx;               /* ~18px */
 	font-size: 28rpx;
 	border: none;
 	transition: all 0.2s ease;
@@ -862,13 +862,13 @@ const setTab = (tab) => {
 
 .input:hover {
 	background-color: #ECECEC;
-	box-shadow: 0 0 0 4rpx rgba(0, 0, 0, 0.03);  /* ≈ 2px */
+	box-shadow: 0 0 0 4rpx rgba(0, 0, 0, 0.03);  /* ~2px */
 }
 
 .input:focus {
 	background-color: #FFFFFF;
 	outline: none;
-	box-shadow: 0 0 0 6rpx rgba(158, 139, 109, 0.18); /* 3px 等效阴影，略更明显 */
+	box-shadow: 0 0 0 6rpx rgba(158, 139, 109, 0.18); /* ~3px ring */
 }
 
 .input:focus::placeholder {
@@ -883,12 +883,12 @@ const setTab = (tab) => {
 .error-message-container {
 	position: absolute;
 	left: 0;
-	top: 100%;          /* 固定在输入框下方，但不占据文档流高度 */
+	top: 100%;          /* below input, out of flow */
 }
 
 .error-message {
 	display: block;
-	color: #E74C3C;      /* 红色文字 */
+	color: #E74C3C;      /* error red */
 	font-size: 24rpx;
 	margin-left: 40rpx;
 }
@@ -973,10 +973,10 @@ const setTab = (tab) => {
 .login-btn {
 	width: 40%;
 	max-width: 360rpx;
-	height: 104rpx;                /* 约 52px */
+	height: 104rpx;                /* ~52px */
 	background-color: #9E8B6D;
 	color: #FFFFFF;
-	border-radius: 28rpx;          /* 约 14px */
+	border-radius: 28rpx;          /* ~14px */
 	font-size: 32rpx;
 	font-weight: 600;
 	border: none;
@@ -986,8 +986,8 @@ const setTab = (tab) => {
 	box-shadow: 0 12rpx 28rpx rgba(158, 139, 109, 0.25);
 	transition: all 0.2s;
 	display: flex;
-	align-items: center;           /* 垂直居中文字 */
-	justify-content: center;       /* 水平居中 */
+	align-items: center;
+	justify-content: center;
 }
 
 .login-btn:hover {
@@ -1003,7 +1003,7 @@ const setTab = (tab) => {
 	border: none;
 }
 
-/* 响应式降级：窄屏隐藏左侧大图，表单居中（Web + 小程序更友好） */
+/* Narrow screens: hide hero, form full width */
 @media (max-width: 900px) {
 	.container {
 		height: auto;

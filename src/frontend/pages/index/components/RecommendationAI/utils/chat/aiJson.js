@@ -1,6 +1,6 @@
 /**
- * 若 AI 消息的 content 内嵌一整段 JSON（顶层尚无 recommendations/plan），
- * 先展开为规范结构，再交给 normalizeChatResponse。
+ * If AI message content embeds a full JSON blob (no recommendations/plan at top level yet),
+ * expand it to the canonical shape before normalizeChatResponse.
  */
 export function expandEmbeddedJsonAiMessage(aiMessage) {
 	let toNormalize = aiMessage

@@ -1,6 +1,6 @@
 """
-虚拟试穿业务编排；路由层仅处理 UploadFile 读取与 JSONResponse 包装。
-响应形状与状态码与重构前 virtual_tryon 路由一致。
+Virtual try-on orchestration; routes only handle UploadFile reads and JSONResponse wrapping.
+Response shape and status codes match the pre-refactor virtual_tryon routes.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 @dataclass(frozen=True)
 class JsonEnvelope:
-    """需以 JSONResponse(status_code, content=body) 返回（与原路由一致）。"""
+    """Return via JSONResponse(status_code, content=body) to match legacy routes."""
 
     status_code: int
     body: Dict[str, Any]
@@ -28,7 +28,7 @@ class JsonEnvelope:
 
 @dataclass(frozen=True)
 class PngBytesResult:
-    """生成成功：由路由返回原始 PNG 字节（与前端 arraybuffer 解析一致，避免超大 JSON base64）。"""
+    """On success the route returns raw PNG bytes (frontend arraybuffer), avoiding huge JSON base64."""
 
     data: bytes
 
@@ -41,7 +41,7 @@ def clean_token(raw: Optional[str]) -> str:
 
 
 def _resolve_storage_path_from_image_ref(image_ref: str) -> Optional[Path]:
-    """将前端传入的衣柜静态 URL 解析为本机 uploads 内安全路径。"""
+    """Resolve a wardrobe static URL from the client to a safe path under local uploads."""
     s = (image_ref or "").strip()
     if not s:
         return None
@@ -68,7 +68,8 @@ def run_upload_virtual_tryon_from_storage(
     db: Session,
 ) -> Union[dict, JsonEnvelope]:
     """
-    從本機 uploads 讀取圖片並上傳到 ComfyUI，避免前端 uni.downloadFile 失敗（小程序域名等）。
+    Read images from local uploads and upload to ComfyUI so the client need not uni.downloadFile
+    (avoids mini-program domain whitelist / CORS issues).
     """
     if not app_runtime.COMFYUI_AVAILABLE or not app_runtime.comfyui_client:
         return JsonEnvelope(

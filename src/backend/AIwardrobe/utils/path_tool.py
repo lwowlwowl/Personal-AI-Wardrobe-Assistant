@@ -1,28 +1,24 @@
 """
-为整个工程提供一个统一的绝对路径
+Resolve paths relative to the AIwardrobe package root.
 """
 import os
 
 def get_project_root()-> str:
     """
-    获取工程所在根目录
-    :return: 字符串根目录
+    Return the AIwardrobe package root directory (parent of ``utils``).
     """
 
-    # 当前文件绝对路径
+    # This file: .../AIwardrobe/utils/path_tool.py
     current_file = os.path.abspath(__file__)
-    # 获取工程的根目录,先获取文件所在的文件夹绝对路径
-    current_dir =  os.path.dirname(current_file)
-    # 获取工程根目录
+    current_dir = os.path.dirname(current_file)
+    # Package root is parent of utils/
     project_root = os.path.dirname(current_dir)
 
     return project_root
 
 def get_abs_path(relative_path: str) -> str:
     """
-    传递相对路径，得到绝对路径
-    :param relative_path: 相对路径
-    :return: 绝对路径
+    Join ``relative_path`` to the package root and return an absolute path.
     """
     project_root = get_project_root()
     return os.path.join(project_root,relative_path)

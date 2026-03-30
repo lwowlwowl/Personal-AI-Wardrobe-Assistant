@@ -1,6 +1,6 @@
 /**
- * 虚拟试衣串联时的层次顺序（由内到外）。
- * 数值越小越先应用；与推荐卡片里的类别语义一致。
+ * Layering order for virtual try-on stacking (inner → outer).
+ * Lower values apply first; aligns with category semantics on recommendation cards.
  */
 export function getOutfitTryOnSortIndex(type) {
 	const t = String(type || '').toUpperCase()
@@ -18,7 +18,7 @@ export function getOutfitTryOnSortIndex(type) {
 	return 80
 }
 
-/** 英文类别标签，供界面展示（与推荐卡片组件的类别一致） */
+/** English category labels for UI (matches recommendation card categories). */
 export function getOutfitCategoryLabel(type) {
 	const t = String(type || '').toUpperCase()
 	const raw = String(type || '')
@@ -35,7 +35,7 @@ export function getOutfitCategoryLabel(type) {
 	return 'OTHER'
 }
 
-/** 试衣队列里单行展示文案 */
+/** Single-line label for one step in the try-on queue. */
 export function buildOutfitTryOnStepLabel(item) {
 	const cat = getOutfitCategoryLabel(item?.type)
 	let name = String(item?.name || 'Item')

@@ -1,4 +1,4 @@
-/** 推荐卡片里单品的图 URL（试衣等） */
+/** Image URL for a recommendation item (try-on, etc.). */
 export function recTryOnImageUrl(item) {
 	if (!item || typeof item !== 'object') return ''
 	if (item.image) return String(item.image)
@@ -7,7 +7,7 @@ export function recTryOnImageUrl(item) {
 	return ''
 }
 
-/** 从单品对象或 name 里的 (id: 123) 解析衣橱 id */
+/** Parse wardrobe id from item fields or "(id: 123)" in name. */
 export function recClothingId(item) {
 	let id = item?.clothingId ?? item?.clothing_id
 	if ((id == null || id === '') && typeof item?.name === 'string') {
@@ -19,7 +19,7 @@ export function recClothingId(item) {
 	return Number.isFinite(n) ? n : null
 }
 
-/** 去掉展示名里的 (id: xxx) 后缀 */
+/** Strip "(id: xxx)" suffix from display name. */
 export function stripRecItemNameId(rawName) {
 	return String(rawName).replace(/\s*[\(（]\s*id\s*[:：]\s*[A-Za-z0-9_]+\s*[\)）]\s*/gi, '').trim() || 'Item'
 }

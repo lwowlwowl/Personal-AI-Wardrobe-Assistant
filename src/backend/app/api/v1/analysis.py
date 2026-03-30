@@ -1,4 +1,4 @@
-"""衣櫥分析 API（路徑與行為與重構前 main 一致）。"""
+"""Wardrobe analytics API (legacy-compatible paths)."""
 import traceback
 from typing import Optional
 
@@ -32,7 +32,7 @@ async def get_total_items_trend(
     view_by: str = Query("yearly", regex="^(yearly|monthly|daily|weekly)$"),
     start_year: Optional[int] = Query(None, ge=2000, le=2100),
     end_year: Optional[int] = Query(None, ge=2000, le=2100),
-    include_projection: bool = Query(True, description="是否包含预测数据"),
+    include_projection: bool = Query(True, description="Include projection / forecast segment"),
 ):
     try:
         current_user = get_current_user(token, db)
@@ -116,7 +116,7 @@ async def export_trend_data(
 async def get_idle_rate(
     token: str = Query(...),
     db: Session = Depends(get_db),
-    days: int = Query(30, ge=1, le=365, description="闲置天数阈值"),
+    days: int = Query(30, ge=1, le=365, description="Days without wear to count as idle"),
 ):
     try:
         current_user = get_current_user(token, db)
@@ -194,7 +194,7 @@ async def get_most_worn_items(
     token: str = Query(...),
     db: Session = Depends(get_db),
     time_range: str = Query("yearly", regex="^(yearly|monthly|daily|weekly)$"),
-    limit: int = Query(5, ge=1, le=20, description="返回数量"),
+    limit: int = Query(5, ge=1, le=20, description="Max items to return"),
 ):
     current_user = get_current_user(token, db)
     return run_most_worn_items(db, current_user.id, time_range, limit)
@@ -222,7 +222,7 @@ async def get_weekly_activity(
 async def get_suggested_additions(
     token: str = Query(...),
     db: Session = Depends(get_db),
-    limit: int = Query(3, ge=1, le=3, description="固定返回 3 条建议"),
+    limit: int = Query(3, ge=1, le=3, description="Fixed at 3 suggestions"),
 ):
     try:
         from app.services.analysis_suggestions_service import run_suggested_additions

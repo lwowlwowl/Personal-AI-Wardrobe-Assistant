@@ -1,6 +1,6 @@
 /**
- * 推荐 AI 与后端 AIwardrobe 联调 API
- * 约定见 backend/AIwardrobe/README.md、RecommendationAI/RECOMMENDATION_AI.md
+ * Recommendation AI API integration with backend AIwardrobe.
+ * Contract docs: backend/AIwardrobe/README.md, RecommendationAI/RECOMMENDATION_AI.md
  */
 
 import { API_BASE_URL, request } from '@/utils/request.js'
@@ -9,10 +9,10 @@ import { formatApiErrorMessage } from '@/utils/apiErrors.js'
 export { API_BASE_URL }
 
 /**
- * 推荐 AI 对话接口（流式），对接后端 POST /api/ai/chat/stream
- * @param {string} query - 用户输入文本
- * @param {Array<{role: string, content: string}>} history - 历史对话（可选），格式 [{ role: 'user'|'ai', content: '...' }]
- * @returns {Promise<{ content: string }>} 累积后的完整回复
+ * Recommendation AI streaming chat endpoint (POST /api/ai/chat/stream).
+ * @param {string} query - User input text.
+ * @param {Array<{role: string, content: string}>} history - Optional chat history, format: [{ role: 'user'|'ai', content: '...' }]
+ * @returns {Promise<{ content: string }>} Final accumulated response.
  */
 export function chatRecommendation(query, history = []) {
   const token = uni.getStorageSync('auth_token') || ''
@@ -62,7 +62,7 @@ export function chatRecommendation(query, history = []) {
         processLine(line)
       }
       if (done) {
-        // 流结束：处理剩余 buffer（final 事件常在最后一块，必须解析）
+        // Stream ended: process remaining buffer (the final event is often in the last chunk).
         if (buffer.trim()) processLine(buffer)
         break
       }
@@ -73,7 +73,7 @@ export function chatRecommendation(query, history = []) {
     if (trimmed.startsWith('```')) {
       trimmed = trimmed.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/m, '').trim()
     }
-    // 若未收到 final 事件但累积内容是 JSON（含 recommendations/plan），解析后返回结构化消息，供前端按结构优先渲染
+    // If no final event arrives but accumulated content is JSON (recommendations/plan), parse and return structured payload.
     if (trimmed.startsWith('{')) {
       try {
         const parsed = JSON.parse(trimmed)
@@ -119,29 +119,30 @@ export function updateSuggestion(slot, payload) {
 }
 
 /**
- * ========== 天气 API / GeoAPI 触发规律总结 ==========
+ * ========== Weather API / GeoAPI trigger behavior ==========
  *
- * 【谁在何时触发】
- * 只有用户「进入 / 回到推荐 AI 页面」时，前端才会可能请求后端 GET /api/weather/now。
- * 没有定时、没有后台轮询。
+ * Who triggers and when:
+ * The frontend may call GET /api/weather/now only when users enter or return to the Recommendation AI page.
+ * No timer and no background polling.
  *
- * 【前端】（本文件 + RecommendationAI.vue）
- * - 触发时机：RecommendationAI 挂载时（onMounted）取经纬度并调用 getWeatherNow。
- * - 仅做 throttle（默认 60s）：60s 内重复调用不重复发请求，直接返回上次结果；超过 60s 再请求后端。
- * - 实时性由后端天气 TTL 决定，前端不再做 30 分钟缓存。
+ * Frontend side (this file + RecommendationAI.vue):
+ * - Trigger point: RecommendationAI onMounted gets lat/lon and calls getWeatherNow.
+ * - Throttle only (default 60s): repeated calls within 60s reuse last result, no new request.
+ * - Freshness is controlled by backend weather TTL; frontend no longer caches for 30 minutes.
  *
- * 【后端】收到 /api/weather/now?lat=&lon= 后：
- * - GeoAPI：缓存 key = round(lat,3), round(lon,3)，TTL = 30 分钟。
- * - 天气 API：缓存 key = location_id，TTL = 30 分钟。
- * - 是否重新请求外部 API 由后端 TTL 决定。
+ * Backend side after /api/weather/now?lat=&lon=:
+ * - GeoAPI cache key = round(lat,3), round(lon,3), TTL = 30 minutes.
+ * - Weather API cache key = location_id, TTL = 30 minutes.
+ * - External API refresh is decided by backend TTL.
  */
 const WEATHER_THROTTLE_MS = 60 * 1000
 let _weatherThrottle = { at: 0, data: null }
 
 /**
- * 根据经纬度获取当前天气（穿衣建议用）。60s 内重复调用返回上次结果，不重复请求后端。
- * @param {number} lat - 纬度
- * @param {number} lon - 经度
+ * Get current weather by lat/lon (for outfit suggestions).
+ * Repeated calls within 60s return the last result without requesting backend again.
+ * @param {number} lat - Latitude.
+ * @param {number} lon - Longitude.
  * @returns {Promise<{ temp?: string, text?: string, windDesc?: string }>}
  */
 export function getWeatherNow(lat, lon) {
@@ -169,7 +170,7 @@ export function getWeatherNow(lat, lon) {
 }
 
 /**
- * 推荐 AI 对话持久化（Your conversations）：需登录后使用
+ * Recommendation AI conversation persistence ("Your conversations"), requires login.
  */
 
 export function getAuthToken() {
@@ -177,7 +178,7 @@ export function getAuthToken() {
 }
 
 /**
- * 获取当前用户的对话列表
+ * Get current user's conversation list.
  * @returns {Promise<{ data: Array<{ id: number, title: string, messages: Array }>, total: number }>}
  */
 export function listConversations() {
@@ -193,7 +194,7 @@ export function listConversations() {
 }
 
 /**
- * 创建一条对话
+ * Create one conversation.
  * @param {Object} payload - { title?: string, messages?: Array }
  * @returns {Promise<{ id: number, title: string, messages: Array }>}
  */
@@ -214,8 +215,8 @@ export function createConversation(payload = {}) {
 }
 
 /**
- * 更新对话
- * @param {number|string} id - 对话 id
+ * Update conversation.
+ * @param {number|string} id - Conversation id.
  * @param {Object} payload - { title?: string, messages?: Array }
  */
 export function updateConversation(id, payload) {
@@ -232,8 +233,8 @@ export function updateConversation(id, payload) {
 }
 
 /**
- * 删除对话
- * @param {number|string} id - 对话 id
+ * Delete conversation.
+ * @param {number|string} id - Conversation id.
  */
 export function deleteConversation(id) {
   const token = getAuthToken()

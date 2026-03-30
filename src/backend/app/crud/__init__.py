@@ -1,4 +1,4 @@
-"""CRUD 聚合；請使用 `import app.crud as crud` 或 `from app.crud import ...`。"""
+"""CRUD package; prefer `import app.crud as crud` or `from app.crud import ...`."""
 from app.core.security import create_access_token, verify_access_token
 
 from app.crud.ai_conversation import AIConversationCRUD

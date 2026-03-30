@@ -1,1 +1,1 @@
-"""應用核心：設定、資料庫、安全（密碼與 JWT）。"""
+"""App core: configuration, database, security (passwords and JWT)."""

@@ -1,11 +1,11 @@
 /**
- * 统一 HTTP 基址与 uni.request 封装，供各 api 模块复用。
- * 返回完整响应对象（含 statusCode、data），由调用方判断业务成功与否。
+ * Shared HTTP base URL and uni.request wrapper for API modules.
+ * Resolves with the full response (statusCode, data, etc.); callers decide success.
  */
 export const API_BASE_URL = 'http://localhost:8000'
 
 /**
- * @param {Object} options - uni.request 的 options，url 可为相对路径
+ * @param {Object} options - uni.request options; url may be relative
  * @returns {Promise<{ statusCode: number, data: any, header?: object }>}
  */
 export function request(options) {

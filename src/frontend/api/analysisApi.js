@@ -1,6 +1,7 @@
 /**
- * 衣柜分析 API：趋势、概览、分类分布、闲置率、最常穿、颜色/风格统计、闲置明细
- * 与 backend /api/analysis/* 对接
+ * Wardrobe analytics API: trend, summary, category distribution, idle rate,
+ * most worn items, color/style stats, and idle-item detail.
+ * Integrated with backend /api/analysis/*.
  */
 
 import { API_BASE_URL, request } from '@/utils/request.js'
@@ -17,7 +18,7 @@ function getToken() {
 }
 
 /**
- * 发起分析 API 请求（GET，参数与 token 放在 query）
+ * Send analytics API request (GET, with params + token in query).
  */
 export async function apiRequest(path, params = {}) {
   const token = getToken()
@@ -47,10 +48,10 @@ export function isLoggedIn() {
   return !!getToken()
 }
 
-/** 供其他模块（如日历、记录穿着）取得 token */
+/** Export token getter for other modules (e.g. calendar, wear records). */
 export { getToken }
 
-// ---------- 分析接口 ----------
+// ---------- Analytics Endpoints ----------
 
 /** GET /api/analysis/total-items/trend?view_by=yearly|monthly|daily */
 export function getTrend(viewBy = 'yearly') {
@@ -87,7 +88,7 @@ export function getMostWorn(timeRange = 'yearly', limit = 5) {
   return apiRequest('/api/analysis/most-worn', { time_range: timeRange, limit })
 }
 
-/** GET /api/analysis/weekly-activity — 本周总穿戴次数、环比趋势、每日分布、分类统计（主面板与 Activity Report 共用） */
+/** GET /api/analysis/weekly-activity — weekly total wears, WoW trend, daily distribution, category stats (used by main panel + Activity Report). */
 export function getWeeklyActivity() {
   return apiRequest('/api/analysis/weekly-activity')
 }

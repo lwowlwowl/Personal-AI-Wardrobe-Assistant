@@ -1,5 +1,5 @@
 """
-衣櫥分析：AI 建議新增單品（不含 HTTP 路由）。
+Wardrobe analysis: AI-suggested items to add (no HTTP routes).
 """
 from __future__ import annotations
 

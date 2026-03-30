@@ -1,6 +1,6 @@
 /**
- * 日历穿搭记录模块 API
- * 约定见 frontend/pages/index/components/MyCalendar/MY_CALENDAR.md
+ * Calendar outfit-record API module.
+ * Contract: frontend/pages/index/components/MyCalendar/MY_CALENDAR.md
  * - GET /api/calendar/outfits
  * - POST /api/calendar/outfits
  */
@@ -8,11 +8,11 @@
 import { API_BASE_URL, request } from './wardrobe.js'
 
 /**
- * 获取指定月份的穿搭记录
+ * Get outfit records for a specific month.
  * @param {Object} params
- * @param {string} params.token - JWT token（query 传递）
- * @param {number} params.year  - 年份，如 2025
- * @param {number} params.month - 月份，1-12
+ * @param {string} params.token - JWT token (passed via query).
+ * @param {number} params.year  - Year, e.g. 2025.
+ * @param {number} params.month - Month, 1-12.
  * @returns {Promise<{ statusCode, data }>}
  */
 export function getCalendarOutfits(params) {
@@ -29,12 +29,12 @@ export function getCalendarOutfits(params) {
 }
 
 /**
- * 保存 / 更新 / 删除某天的穿搭记录（全量覆盖）
- * - items 为空数组时表示删除该日期记录
+ * Save / update / delete one day's outfit record (full replace).
+ * - Empty items array means delete that date's record.
  * @param {Object} payload
- * @param {string} payload.token - JWT token（query 传递）
- * @param {string} payload.date  - 日期（YYYY-MM-DD）
- * @param {Array}  payload.items - 单品数组（可为空）
+ * @param {string} payload.token - JWT token (passed via query).
+ * @param {string} payload.date  - Date (YYYY-MM-DD).
+ * @param {Array}  payload.items - Clothing-item array (can be empty).
  * @returns {Promise<{ statusCode, data }>}
  */
 export function saveCalendarOutfits(payload) {

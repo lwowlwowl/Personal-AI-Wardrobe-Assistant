@@ -26,7 +26,7 @@ def set_agent_request_user_id(user_id: Optional[int]) -> Token:
 def reset_agent_request_user_id(token: Token) -> None:
     _REQUEST_USER_ID.reset(token)
 
-# 中国时区：Windows 上若无 tzdata 则 ZoneInfo("Asia/Shanghai") 会失败，改用 UTC+8
+# China timezone: ZoneInfo("Asia/Shanghai") may fail on Windows without tzdata; fall back to UTC+8
 def _china_tz():
     try:
         from zoneinfo import ZoneInfo
@@ -35,7 +35,7 @@ def _china_tz():
         return timezone(timedelta(hours=8))
 
 
-@tool(description="从向量存储中检索参考资料")
+@tool(description="Retrieve reference material from the vector store")
 def rag_summarize(query: str) -> str:
     return rag.rag_summarize(query)
 
@@ -51,7 +51,7 @@ def _is_today_weather_data(data: dict) -> bool:
         if obs_dt.tzinfo is None:
             obs_dt = obs_dt.replace(tzinfo=tz)
         age_seconds = (now - obs_dt.astimezone(tz)).total_seconds()
-        return 0 <= age_seconds <= 1800   # 30分钟内为有效
+        return 0 <= age_seconds <= 1800   # valid if observation is within the last 30 minutes
     except Exception:
         return False
 
@@ -69,63 +69,63 @@ def _refresh_weather_data(city: str, days: str = "") -> None:
 
 
 
-@tool(description="根据用户城市或本地位置读取天气文件并返回实况与预报")
+@tool(description="Read local weather JSON for the given city and return current conditions and forecast")
 def get_weather(city: str, days: str = "") -> str:
     weather_path = get_abs_path(f"data/weather_{city}_{days}.json")
     if not os.path.exists(weather_path):
-        logger.info("未找到本地天气文件，正在拉取并保存天气数据")
+        logger.info("No local weather file; fetching and saving weather data")
         if days == "":
             try:
                 _refresh_weather_data(city, days)
             except Exception as exc:
-                logger.warning(f"[get_weather]拉取天气信息失败:{exc}")
+                logger.warning(f"[get_weather] fetch failed: {exc}")
         else:
             try:
                 _refresh_weather_data(city, days)
             except Exception as exc:
-                logger.warning(f"[get_weather]拉取天气信息失败:{exc}")
+                logger.warning(f"[get_weather] fetch failed: {exc}")
     try:
         with open(weather_path, "r", encoding="utf-8") as f:
             content = f.read().strip()
             if not content:
-                return "本地天气文件为空，请先拉取并保存天气数据"
+                return "Local weather file is empty; fetch and save weather data first."
             data = json.loads(content)
     except Exception as exc:
-        logger.warning(f"[get_weather]读取本地天气文件失败: {exc}")
-        return "读取本地天气文件失败，请检查文件格式"
+        logger.warning(f"[get_weather] failed to read local weather file: {exc}")
+        return "Failed to read local weather file; check file format."
 
     if not _is_today_weather_data(data):
-        logger.info("本地天气数据非30分钟内，正在刷新")
+        logger.info("Weather observation older than 30 minutes; refreshing")
         try:
             _refresh_weather_data(city, days)
         except Exception as exc:
-            logger.warning(f"[get_weather]天气数据刷新失败:{exc}")
+            logger.warning(f"[get_weather] refresh failed: {exc}")
 
         try:
             with open(weather_path, "r", encoding="utf-8") as f:
                 content = f.read().strip()
                 if not content:
-                    return "本地天气文件为空，请先拉取并保存天气数据"
+                    return "Local weather file is empty; fetch and save weather data first."
                 data = json.loads(content)
         except Exception as exc:
-            logger.warning(f"[get_weather]刷新后读取本地天气文件失败: {exc}")
-            return "读取本地天气文件失败，请检查文件格式"
+            logger.warning(f"[get_weather] failed to read file after refresh: {exc}")
+            return "Failed to read local weather file; check file format."
 
     parts = []
-    parts.append(f"查询时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    parts.append(f"位置：{city}")
+    parts.append(f"Query time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    parts.append(f"Location: {city}")
     now = data.get("now") or {}
     if now:
         parts.append(
-            "实况："
-            f"观测时间:{now.get('obsTime')}"
-            f"{now.get('text','未知')}，"
-            f"{now.get('temp','?')}℃，"
-            f"体感{now.get('feelsLike','?')}℃，"
-            f"湿度{now.get('humidity','?')}%，"
-            f"{now.get('windDir','未知')}风{now.get('windScale','?')}级,{now.get('windSpeed','?')}km/h"
-            f"当前小时累计降水量{now.get('precip','?')}mm"
-            f"（{now.get('obsTime','未知时间')}）"
+            "Current:"
+            f" obsTime:{now.get('obsTime')}"
+            f" {now.get('text','unknown')}, "
+            f"{now.get('temp','?')}°C, "
+            f"feels like {now.get('feelsLike','?')}°C, "
+            f"humidity {now.get('humidity','?')}%, "
+            f"{now.get('windDir','unknown')} wind Bft {now.get('windScale','?')}, {now.get('windSpeed','?')} km/h, "
+            f"precip this hour {now.get('precip','?')} mm "
+            f"({now.get('obsTime','unknown time')})"
         )
 
     daily = data.get("daily") or []
@@ -135,43 +135,46 @@ def get_weather(city: str, days: str = "") -> str:
             forecast_lines.append(
                 f"{day.get('obsTime')}"
                 f"{day.get('fxDate','')} "
-                f"白天{day.get('textDay','未知')}{day.get('tempMax','?')}℃ "
-                f"{day.get('windDirDay','未知')}{day.get('windScaleDay','?')}级"
-                f"{day.get('windSpeedDay','?')}km/h；"
-                f"夜间{day.get('textNight','未知')}{day.get('tempMin','?')}℃ "
-                f"{day.get('windDirNight','未知')}{day.get('windScaleNight','?')}级"
-                f"{day.get('windSpeedNight','?')}km/h，"
-                f"湿度{day.get('humidity','?')}%，"
-                f"降水{day.get('precip','?')}mm，"
-                f"紫外线{day.get('uvIndex','?')}级"
+                f"day {day.get('textDay','unknown')} max {day.get('tempMax','?')}°C "
+                f"{day.get('windDirDay','unknown')} Bft {day.get('windScaleDay','?')} "
+                f"{day.get('windSpeedDay','?')} km/h; "
+                f"night {day.get('textNight','unknown')} min {day.get('tempMin','?')}°C "
+                f"{day.get('windDirNight','unknown')} Bft {day.get('windScaleNight','?')} "
+                f"{day.get('windSpeedNight','?')} km/h, "
+                f"humidity {day.get('humidity','?')}%, "
+                f"precip {day.get('precip','?')} mm, "
+                f"UV index {day.get('uvIndex','?')}"
             )
-        parts.append("预报：" + " | ".join(forecast_lines))
+        parts.append("Forecast: " + " | ".join(forecast_lines))
 
     if len(parts) <= 2 and not now and not daily:
-        return "未查询到有效天气信息"
+        return "No valid weather data available."
 
     return "\n".join(parts)
 
 
-@tool(description="获取用户所在城市名称，以纯字符串形式返回。依赖用户曾在推荐 AI 页触发过定位/天气请求后的缓存；若无缓存则提示用户打开推荐页或允许定位。")
+@tool(description="Return the user's city as plain text. Uses cache from Recommendation AI page after location/weather; if missing, ask user to open that page or allow location.")
 def get_user_location() -> str:
     user_id = _REQUEST_USER_ID.get()
     if user_id is None:
-        return "当前未登录，无法获取位置。请登录后再试。"
+        return "Not logged in; cannot resolve location. Please log in and try again."
     user_locations = get_user_location_cache(user_id)
     if not user_locations:
-        return "尚未取得您的位置信息。请打开「推荐 AI」页面并允许定位，或先询问一次与天气相关的问题以触发定位后，再查询位置。"
+        return (
+            "No location cached yet. Open the Recommendation AI page and allow location, "
+            "or ask a weather-related question once to trigger geolocation, then try again."
+        )
     latest = max(user_locations, key=lambda item: item.get("fetched_at", 0))
     loc = latest.get("location") or {}
-    # 优先返回城市级：adm2（地级市），其次 name（区县），再 adm1（省）
+    # Prefer city-level adm2 (prefecture), then name (district), then adm1 (province)
     city = (loc.get("adm2") or loc.get("name") or loc.get("adm1") or loc.get("text") or "").strip()
-    return city or "未知城市"
+    return city or "Unknown city"
 
-# @tool(description="获取用户ID，以纯字符串形式返回")
+# @tool(description="Return the user ID as plain text")
 # def get_user_id() -> str:
 #     return random.choice(user_ids)
 
-@tool(description="获取当前日期时间，以纯字符串形式返回，格式为YYYY-MM-DD HH:MM:SS")
+@tool(description="Return current local datetime as plain text in YYYY-MM-DD HH:MM:SS")
 def get_current_datetime() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -182,15 +185,15 @@ def generate_external_data():
     """
     {
         "user_id" :{
-            "month":{"特征": xxx, "效率": xxx, ...}
-            "month":{"特征": xxx, "效率": xxx, ...}
-            "month":{"特征": xxx, "效率": xxx, ...}
+            "month":{"feature": xxx, "efficiency": xxx, ...}
+            "month":{"feature": xxx, "efficiency": xxx, ...}
+            "month":{"feature": xxx, "efficiency": xxx, ...}
             ...
         },
         "user_id" :{
-            "month":{"特征": xxx, "效率": xxx, ...}
-            "month":{"特征": xxx, "效率": xxx, ...}
-            "month":{"特征": xxx, "效率": xxx, ...}
+            "month":{"feature": xxx, "efficiency": xxx, ...}
+            "month":{"feature": xxx, "efficiency": xxx, ...}
+            "month":{"feature": xxx, "efficiency": xxx, ...}
             ...
         },
         ...
@@ -201,7 +204,7 @@ def generate_external_data():
         external_data_path = get_abs_path(agent_conf["external_data_path"])
 
         if not os.path.exists(external_data_path):
-            raise FileNotFoundError(f"外部数据文件{external_data_path}不存在")
+            raise FileNotFoundError(f"External data file not found: {external_data_path}")
 
         with open(external_data_path, "r", encoding="utf-8") as f:
             for line in f.readlines():
@@ -225,18 +228,18 @@ def generate_external_data():
                 }
 
 
-@tool(description="从外部系统中获取用户的使用记录，以纯字符串形式返回，如果未检索到，返回空字符串")
+@tool(description="Fetch the user's usage records from external data; return as string, or empty if not found")
 def fetch_external_data(user_id: str, month: str) -> str:
     generate_external_data()
 
     try:
         return external_data[user_id][month]
     except KeyError:
-        logger.warning(f"[fetch_external_data]未能检索到用户:{user_id}在{month}的使用数据记录")
+        logger.warning(f"[fetch_external_data] no usage record for user_id={user_id} month={month}")
         return ""
 
 
-@tool(description="构建当前登录用户的衣橱上下文（脱敏+分页+摘要），返回 JSON 字符串供后续穿搭推理使用")
+@tool(description="Build logged-in user's closet context (redacted, paginated, summary) as a JSON string for outfit reasoning")
 def get_agent_user_context(
     closet_limit: int = 100,
     closet_offset: int = 0,
@@ -251,7 +254,7 @@ def get_agent_user_context(
         return json.dumps(
             {
                 "error": "missing_user_context",
-                "message": "当前请求缺少登录态，无法获取用户衣橱上下文。"
+                "message": "Missing login session; cannot load user closet context."
             },
             ensure_ascii=False
         )

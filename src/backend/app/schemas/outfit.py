@@ -7,65 +7,65 @@ from app.schemas.clothing import ClothingSeason
 
 
 class OutfitItemBase(BaseModel):
-    """搭配中的单件衣物模型"""
-    clothing_id: int = Field(..., description="衣物ID")
-    position: str = Field(..., max_length=20, description="位置：top, bottom等")
-    order_index: int = Field(0, description="显示顺序")
+    """One clothing slot inside an outfit."""
+    clothing_id: int = Field(..., description="Clothing item id")
+    position: str = Field(..., max_length=20, description="Slot e.g. top, bottom")
+    order_index: int = Field(0, description="Display order")
 
 
 class OutfitItemCreate(OutfitItemBase):
-    """创建搭配衣物请求模型"""
+    """Create outfit item."""
     pass
 
 
 class OutfitItem(OutfitItemBase):
-    """搭配衣物完整模型"""
+    """Outfit item with ids."""
     id: int
-    outfit_id: int  # 所属搭配ID
+    outfit_id: int
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class OutfitBase(BaseModel):
-    """搭配基础模型"""
-    name: str = Field(..., max_length=200, description="搭配名称")
-    description: Optional[str] = Field(None, description="描述")
-    occasion: Optional[str] = Field(None, max_length=100, description="场合")
-    season: Optional[List[ClothingSeason]] = Field(None, description="季节列表")
-    style: Optional[str] = Field(None, max_length=100, description="风格")
-    rating: Optional[int] = Field(None, ge=1, le=5, description="评分")
-    is_public: bool = Field(False, description="是否公开")
+    """Shared outfit fields."""
+    name: str = Field(..., max_length=200, description="Outfit name")
+    description: Optional[str] = Field(None, description="Description")
+    occasion: Optional[str] = Field(None, max_length=100, description="Occasion")
+    season: Optional[List[ClothingSeason]] = Field(None, description="Seasons")
+    style: Optional[str] = Field(None, max_length=100, description="Style")
+    rating: Optional[int] = Field(None, ge=1, le=5, description="Rating")
+    is_public: bool = Field(False, description="Public flag")
 
 
 class OutfitCreate(OutfitBase):
-    """创建搭配请求模型"""
-    clothing_items: List[OutfitItemCreate] = Field([], description="衣物列表")
-    cover_image_url: Optional[str] = Field(None, description="封面图URL")
+    """Create outfit with items."""
+    clothing_items: List[OutfitItemCreate] = Field([], description="Clothing slots")
+    cover_image_url: Optional[str] = Field(None, description="Cover image URL")
 
 
 class OutfitUpdate(BaseModel):
-    """更新搭配请求模型"""
+    """Partial outfit update."""
     name: Optional[str] = Field(None, max_length=200)
     description: Optional[str] = None
     occasion: Optional[str] = Field(None, max_length=100)
-    season: Optional[List[ClothingSeason]] = Field(None, description="季节列表")
+    season: Optional[List[ClothingSeason]] = Field(None, description="Seasons")
     style: Optional[str] = Field(None, max_length=100)
     rating: Optional[int] = Field(None, ge=1, le=5)
     is_public: Optional[bool] = None
     cover_image_url: Optional[str] = None
-    wear_count: Optional[int] = Field(None, ge=0)  # 穿着次数
-    last_worn_date: Optional[date] = None  # 最后穿着日期
+    wear_count: Optional[int] = Field(None, ge=0)
+    last_worn_date: Optional[date] = None
 
 
 class Outfit(OutfitBase):
-    """搭配完整模型"""
+    """Full outfit row."""
     id: int
-    user_id: int  # 所属用户ID
+    user_id: int
     cover_image_url: Optional[str] = None
-    wear_count: int = Field(0, description="穿着次数")
+    wear_count: int = Field(0, description="Times worn")
     last_worn_date: Optional[date] = None
     created_at: datetime
     updated_at: datetime
-    clothing_items: List[OutfitItem] = Field([], description="衣物列表")
+    clothing_items: List[OutfitItem] = Field([], description="Clothing slots")
 
     model_config = ConfigDict(from_attributes=True)

@@ -145,7 +145,7 @@ const validTrendData = computed(() => {
 	return data.filter((v) => v !== null && v !== undefined && !isNaN(v) && isFinite(v))
 })
 
-/** 衣櫃為空：無趨勢點且總數為 0，顯示引導式空狀態 */
+/** Empty wardrobe: no trend points and total is 0 — show guided empty state */
 const isTotalTrendEmpty = computed(
 	() =>
 		props.isLoggedIn &&

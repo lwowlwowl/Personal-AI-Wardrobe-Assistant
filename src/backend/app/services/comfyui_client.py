@@ -1,5 +1,5 @@
 """
-ComfyUI HTTP 客戶端與虛擬試穿工作流構建（資源：app/resources/qwen_edit_v1.json）。
+ComfyUI HTTP client and virtual try-on workflow builder (resource: app/resources/qwen_edit_v1.json).
 """
 import json
 import time
@@ -18,19 +18,18 @@ class ComfyUIClient:
     def __init__(self, server_address: str = "http://127.0.0.1:8188"):
         self.server_address = server_address
         self.client_id = str(uuid.uuid4())
-        # ✨ 核心修正：创建一个不信任环境变量（绕过系统代理）的 Session
+        # Session that ignores env proxy settings (trust_env=False) to avoid broken system proxies.
         self.session = requests.Session()
         self.session.trust_env = False
 
     def queue_prompt(self, prompt: Dict[str, Any]) -> Optional[str]:
         try:
             payload = {"prompt": prompt, "client_id": self.client_id}
-            # ⬇️ 这里改用 self.session.post
             response = self.session.post(
                 f"{self.server_address}/prompt",
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=10  # 增加超时保护
+                timeout=10,
             )
             if response.status_code == 200:
                 return response.json().get("prompt_id")
@@ -41,7 +40,6 @@ class ComfyUIClient:
 
     def get_history(self, prompt_id: str) -> Optional[Dict[str, Any]]:
         try:
-            # ⬇️ 这里改用 self.session.get
             response = self.session.get(f"{self.server_address}/history/{prompt_id}")
             return response.json().get(prompt_id) if response.status_code == 200 else None
         except Exception:
@@ -50,7 +48,6 @@ class ComfyUIClient:
     def get_image(self, filename: str, subfolder: str = "", folder_type: str = "output") -> Optional[bytes]:
         try:
             params = {"filename": filename, "subfolder": subfolder, "type": folder_type}
-            # ⬇️ 这里改用 self.session.get
             response = self.session.get(f"{self.server_address}/view", params=params)
             return response.content if response.status_code == 200 else None
         except Exception:
@@ -62,7 +59,6 @@ class ComfyUIClient:
                 filename = f"upload_{int(time.time())}.png"
             files = {"image": (filename, image_data)}
             data = {"type": type}
-            # ⬇️ 这里改用 self.session.post
             response = self.session.post(f"{self.server_address}/upload/image", files=files, data=data)
             if response.status_code == 200:
                 return response.json()
@@ -90,9 +86,7 @@ def build_virtual_tryon_workflow(
         model_type: str = "2509",
         prompt_text: str = ""
 ) -> Dict[str, Any]:
-    """
-    根据 Qwen-Image-Edit 工作流构建任务
-    """
+    """Build a ComfyUI prompt dict from the Qwen-Image-Edit workflow template."""
     template_path = _RESOURCES_DIR / "qwen_edit_v1.json"
 
     try:
@@ -102,22 +96,22 @@ def build_virtual_tryon_workflow(
         print(f"ComfyUI workflow template load failed: {e}")
         raise HTTPException(status_code=500, detail="Workflow template is missing")
 
-    # --- 映射图片输入 ---
-    # 78: 人物图 (Image 1)
+    # --- Map image inputs ---
+    # 78: person image (Image 1)
     if "78" in workflow:
         workflow["78"]["inputs"]["image"] = person_image
 
-    # 106: 衣物图 (Image 2)
+    # 106: clothing image (Image 2)
     if "106" in workflow:
         workflow["106"]["inputs"]["image"] = clothing_image
 
-    # 108: 配饰图 (Image 3)
-    # 如果没有传配饰图，为了保证工作流不报错，通常保持原样或指向一个空白图
+    # 108: accessory image (Image 3)
+    # If no accessory image, leave workflow default to avoid invalid node state.
     if "108" in workflow and accessory_image:
         workflow["108"]["inputs"]["image"] = accessory_image
 
-    # --- 映射提示词 ---
-    # 111: 正向提示词编码
+    # --- Map prompts ---
+    # 111: positive prompt encoding
     if "111" in workflow:
         default_prompt = (
             "Put the clothing from image 2 onto the person in image 1, "
@@ -125,20 +119,20 @@ def build_virtual_tryon_workflow(
         )
         workflow["111"]["inputs"]["prompt"] = prompt_text if prompt_text else default_prompt
 
-    # 110: 负向提示词 (同步图片引用，确保 Qwen 模型上下文正确)
+    # 110: negative prompt (mirror image refs for Qwen context)
     if "110" in workflow:
         workflow["110"]["inputs"]["image1"] = workflow["111"]["inputs"]["image1"]
         workflow["110"]["inputs"]["image2"] = workflow["111"]["inputs"]["image2"]
 
-    # --- 映射模型参数 ---
-    # 如果 model_type 是 "2509" (对应你 JSON 中的 safetensors)
+    # --- Map model weights ---
+    # model_type "2509" selects safetensors names from the bundled JSON
     if model_type == "2509":
         if "37" in workflow:
             workflow["37"]["inputs"]["unet_name"] = "qwen_image_edit_2509_fp8_e4m3fn.safetensors"
         if "89" in workflow:
             workflow["89"]["inputs"]["lora_name"] = "Qwen-Image-Edit-Lightning-4steps-V1.0.safetensors"
 
-    # 设置保存前缀
+    # Output filename prefix
     if "60" in workflow:
         workflow["60"]["inputs"]["filename_prefix"] = f"QwenEdit_{int(time.time())}"
 

@@ -5,33 +5,33 @@ from pydantic import BaseModel, ConfigDict, Field, validator
 
 
 class WearHistoryBase(BaseModel):
-    """穿着记录基础模型"""
-    wear_date: date = Field(..., description="穿着日期")
-    weather: Optional[str] = Field(None, max_length=100, description="天气")
-    temperature: Optional[int] = Field(None, description="温度")
-    location: Optional[str] = Field(None, max_length=200, description="地点")
-    occasion: Optional[str] = Field(None, max_length=100, description="场合")
-    notes: Optional[str] = Field(None, description="备注")
-    rating: Optional[int] = Field(None, ge=1, le=5, description="满意度评分")  # 1-5分
+    """Shared wear-history fields."""
+    wear_date: date = Field(..., description="Date worn")
+    weather: Optional[str] = Field(None, max_length=100, description="Weather text")
+    temperature: Optional[int] = Field(None, description="Temperature")
+    location: Optional[str] = Field(None, max_length=200, description="Location")
+    occasion: Optional[str] = Field(None, max_length=100, description="Occasion")
+    notes: Optional[str] = Field(None, description="Notes")
+    rating: Optional[int] = Field(None, ge=1, le=5, description="Rating 1-5")
 
     @validator('wear_date')
     def wear_date_not_future(cls, v):
-        """验证穿着日期不是未来日期"""
+        """Disallow future dates."""
         if v > date.today():
             raise ValueError('Wear date cannot be in the future.')
         return v
 
 
 class WearHistoryCreate(WearHistoryBase):
-    """创建穿着记录请求模型"""
-    clothing_id: Optional[int] = Field(None, description="衣物ID")
-    outfit_id: Optional[int] = Field(None, description="搭配ID")  # 如果记录的是整套搭配
+    """Create wear history."""
+    clothing_id: Optional[int] = Field(None, description="Clothing item id")
+    outfit_id: Optional[int] = Field(None, description="Outfit id when logging a full outfit")
 
 
 class WearHistory(WearHistoryBase):
-    """穿着记录完整模型"""
+    """Full wear-history row."""
     id: int
-    user_id: int  # 用户ID
+    user_id: int
     clothing_id: Optional[int] = None
     outfit_id: Optional[int] = None
     created_at: datetime
@@ -40,14 +40,17 @@ class WearHistory(WearHistoryBase):
 
 
 class CalendarOutfitItem(BaseModel):
-    """日历中的单个穿搭单品（与前端 MyCalendar 保持字段一致）"""
-    id: int = Field(..., description="单品 id（对应衣橱中的 clothing_id）")
-    name: Optional[str] = Field(None, description="单品名称（可选）")
-    image: Optional[str] = Field(None, description="图片 URL（可选）")
-    accentColor: Optional[str] = Field(None, description="主题色（前端展示用，可选）")
+    """Single calendar slot item (fields aligned with MyCalendar)."""
+    id: int = Field(..., description="Clothing id from wardrobe")
+    name: Optional[str] = Field(None, description="Display name (optional)")
+    image: Optional[str] = Field(None, description="Image URL (optional)")
+    accentColor: Optional[str] = Field(None, description="Accent for UI (optional)")
 
 
 class CalendarOutfitSave(BaseModel):
-    """保存 / 更新某天日历穿搭记录的请求体"""
-    date: str = Field(..., description="日期（YYYY-MM-DD）")
-    items: List[CalendarOutfitItem] = Field(default_factory=list, description="当日穿搭单品数组（可为空数组表示清空）")
+    """Replace all items for one calendar day."""
+    date: str = Field(..., description="YYYY-MM-DD")
+    items: List[CalendarOutfitItem] = Field(
+        default_factory=list,
+        description="Items for that day; empty clears the day",
+    )

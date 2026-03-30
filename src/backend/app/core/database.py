@@ -1,5 +1,5 @@
 """
-SQLAlchemy 引擎、Session、Base、get_db。
+SQLAlchemy engine, Session, Base, and get_db dependency.
 """
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def get_db():
 
 
 def init_db() -> None:
-    import app.models  # noqa: F401 — 註冊所有 ORM 類到 Base.metadata
+    import app.models  # noqa: F401 — register all ORM classes on Base.metadata
 
     Base.metadata.create_all(bind=engine)
-    print("数据库表创建完成")
+    print("Database tables created")

@@ -1,4 +1,4 @@
-"""衣物相關 API（路徑與行為與重構前 main 一致）。"""
+"""Clothing APIs (paths and behavior match the pre-refactor main module)."""
 import traceback
 from datetime import date
 from typing import Any, Dict, List, Optional
@@ -22,7 +22,7 @@ from app.services.file_service import delete_file, save_upload_file
 router = APIRouter(tags=["clothing"])
 
 
-# ============ 服装管理API ============
+# ============ Clothing management ============
 @router.post("/api/clothing/upload")
 async def upload_clothing_item(
         file: UploadFile = File(...),
@@ -36,7 +36,7 @@ async def upload_clothing_item(
         pattern: Optional[str] = Form(None),
         occasion: Optional[str] = Form(None),
         brand: Optional[str] = Form(None),
-        tags: Optional[str] = Form(None),  # 以逗号分隔的标签字符串
+        tags: Optional[str] = Form(None),  # comma-separated tags
         description: Optional[str] = Form(None),
         price: Optional[float] = Form(None),
         purchase_date: Optional[str] = Form(None),
@@ -45,22 +45,30 @@ async def upload_clothing_item(
         db: Session = Depends(get_db)
 ):
     """
-    上传衣物图片并创建衣物记录
-    参数：
-        file: 衣物图片文件
-        name: 衣物名称
-        category: 衣物分类
-        color: 颜色（可选）
-        season: 适用季节（可选）
-        brand: 品牌（可选）
-        tags: 标签，逗号分隔（可选）
-        description: 描述（可选）
-        price: 价格（可选）
-        purchase_date: 购买日期，YYYY-MM-DD格式（可选）
-        token: 用户认证令牌
-        db: 数据库会话
-    返回：
-        上传成功的衣物信息
+    Upload a clothing image and create a database row.
+
+    Args:
+        file: image file (required).
+        name: item name (optional).
+        category: primary category (optional).
+        subcategory: free-text subcategory (optional).
+        style: style hint (optional).
+        color: color label (optional).
+        season: season(s) (optional; parsed by the service).
+        color_code: hex color, e.g. #RRGGBB (optional).
+        pattern: pattern enum string (optional).
+        occasion: occasion (optional).
+        brand: brand (optional).
+        tags: comma-separated tags (optional).
+        description: description (optional).
+        price: price (optional).
+        purchase_date: purchase date as YYYY-MM-DD (optional).
+        auto_label: whether to run auto labelling (default True).
+        token: auth token.
+        db: DB session.
+
+    Returns:
+        Created item payload (success + data).
     """
     current_user = get_current_user(token, db)
     return run_upload_clothing_item(
@@ -89,43 +97,45 @@ async def upload_clothing_item(
 async def get_clothing_items(
         token: str = Query(...),
         db: Session = Depends(get_db),
-        page: int = Query(1, ge=1, description="页码"),
-        page_size: int = Query(20, ge=1, le=100, description="每页数量"),
-        category: Optional[str] = Query(None, description="分类筛选"),
-        season: Optional[str] = Query(None, description="季节筛选"),
-        color: Optional[str] = Query(None, description="颜色筛选"),
-        brand: Optional[str] = Query(None, description="品牌筛选"),
-        is_favorite: Optional[str] = Query(None, description="收藏等级筛选，支持逗号分隔多选如 0,1,2"),
-        min_price: Optional[float] = Query(None, ge=0, description="最低价格"),
-        max_price: Optional[float] = Query(None, ge=0, description="最高价格"),
-        search: Optional[str] = Query(None, description="搜索关键词"),
-        order_by: str = Query("created_at", description="排序字段"),
-        order_desc: bool = Query(True, description="是否降序")
+        page: int = Query(1, ge=1, description="Page number"),
+        page_size: int = Query(20, ge=1, le=100, description="Page size"),
+        category: Optional[str] = Query(None, description="Filter by category"),
+        season: Optional[str] = Query(None, description="Filter by season"),
+        color: Optional[str] = Query(None, description="Filter by color"),
+        brand: Optional[str] = Query(None, description="Filter by brand"),
+        is_favorite: Optional[str] = Query(None, description="Favorite levels, comma-separated e.g. 0,1,2"),
+        min_price: Optional[float] = Query(None, ge=0, description="Minimum price"),
+        max_price: Optional[float] = Query(None, ge=0, description="Maximum price"),
+        search: Optional[str] = Query(None, description="Search query"),
+        order_by: str = Query("created_at", description="Sort field"),
+        order_desc: bool = Query(True, description="Sort descending")
 ):
     """
-    获取用户的衣物列表（支持分页、筛选、搜索）
-    参数：
-        token: 用户认证令牌
-        db: 数据库会话
-        page: 页码，从1开始
-        page_size: 每页数量，最大100
-        category: 按分类筛选
-        season: 按季节筛选
-        color: 按颜色筛选
-        brand: 按品牌筛选
-        is_favorite: 按收藏状态筛选
-        min_price: 最低价格筛选
-        max_price: 最高价格筛选
-        search: 搜索关键词（模糊匹配名称和描述）
-        order_by: 排序字段
-        order_desc: 是否降序排列
-    返回：
-        分页的衣物列表
+    List the current user's clothing with pagination, filters, and search.
+
+    Args:
+        token: auth token.
+        db: DB session.
+        page: page index (1-based).
+        page_size: page size (max 100).
+        category: filter by primary category.
+        season: filter by season.
+        color: filter by color.
+        brand: filter by brand.
+        is_favorite: filter by favorite level(s); comma-separated, e.g. "0,1,2".
+        min_price: minimum price.
+        max_price: maximum price.
+        search: fuzzy match on name and description.
+        order_by: sort field.
+        order_desc: sort descending when True.
+
+    Returns:
+        Paginated list payload (items + pagination).
     """
     try:
         current_user = get_current_user(token, db)
 
-        # 解析 is_favorite：支持 "0,1,2" 或 "1" 格式
+        # Parse is_favorite: supports "0,1,2" or a single value.
         is_favorite_parsed = None
         if is_favorite:
             try:
@@ -136,10 +146,8 @@ async def get_clothing_items(
             except ValueError:
                 pass
 
-        # 计算分页偏移量
-        skip = (page - 1) * page_size
+        skip = (page - 1) * page_size  # offset for SQL LIMIT/OFFSET
 
-        # 调用CRUD函数获取衣物列表
         items, total = crud.clothing_crud.get_clothing_items(
             db=db,
             user_id=current_user.id,
@@ -157,8 +165,7 @@ async def get_clothing_items(
             order_desc=order_desc
         )
 
-        # 计算总页数
-        total_pages = (total + page_size - 1) // page_size
+        total_pages = (total + page_size - 1) // page_size  # ceiling division
 
         return {
             "success": True,
@@ -185,7 +192,7 @@ async def get_clothing_items(
 
 @router.put("/api/clothing/{clothing_id}")
 async def update_clothing_item(
-        clothing_id: int = Path(..., ge=1, description="衣物ID"),
+        clothing_id: int = Path(..., ge=1, description="Clothing item id"),
         token: str = Query(...),
         db: Session = Depends(get_db),
         name: Optional[str] = Form(None),
@@ -203,31 +210,33 @@ async def update_clothing_item(
         file: Optional[UploadFile] = File(None)
 ):
     """
-    更新衣物信息
-    参数：
-        clothing_id: 要更新的衣物ID
-        token: 用户认证令牌
-        db: 数据库会话
-        name: 新名称（可选）
-        category: 新主分类（可选，后端 9 个枚举之一）
-        subcategory: 新子分类（可选，用户自定义）
-        color: 新颜色（可选）
-        season: 新季节（可选）
-        brand: 新品牌（可选）
-        tags: 新标签（可选）
-        description: 新描述（可选）
-        price: 新价格（可选）
-        purchase_date: 新购买日期（可选）
-        is_favorite: 收藏状态（可选）
-        condition: 衣物状况（可选）
-        file: 新图片文件（可选）
-    返回：
-        更新后的衣物信息
+    Update one clothing item (partial form fields).
+
+    Args:
+        clothing_id: id of the item to update.
+        token: auth token.
+        db: DB session.
+        name: new name (optional).
+        category: new primary category, one of nine enum values (optional).
+        subcategory: new subcategory, user-defined text (optional).
+        color: new color (optional).
+        season: new season(s) (optional).
+        brand: new brand (optional).
+        tags: new tags, comma-separated (optional).
+        description: new description (optional).
+        price: new price (optional).
+        purchase_date: new purchase date YYYY-MM-DD (optional).
+        is_favorite: favorite level 0–3 as a string (optional).
+        condition: wear condition enum (optional).
+        file: new image file; replaces stored image when provided (optional).
+
+    Returns:
+        Updated item in `data`.
     """
     try:
         current_user = get_current_user(token, db)
 
-        # 获取衣物并验证所有权
+        # Load row and enforce ownership
         item = crud.clothing_crud.get_clothing_item_by_user(
             db=db,
             user_id=current_user.id,
@@ -240,22 +249,20 @@ async def update_clothing_item(
                 detail="Item not found or access denied."
             )
 
-        # 更新图片（如果有新图片）
+        # Replace image when a new file is uploaded
         image_url = item.image_url
         if file:
-            # 删除旧图片
             delete_file(item.image_url)
-            # 保存新图片
             image_url = save_upload_file(file, current_user.id)
 
-        # 解析标签字符串为列表
+        # Split tag string into a list
         tag_list = None
         if tags is not None:
             tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
 
         season_list = parse_season_form(season, allow_empty=True) if season is not None else None
 
-        # 解析 is_favorite：0-3 整数
+        # is_favorite: integer 0–3
         is_favorite_val = None
         if is_favorite is not None and is_favorite.strip():
             try:
@@ -265,7 +272,7 @@ async def update_clothing_item(
             except ValueError:
                 pass
 
-        # 解析购买日期字符串为date对象
+        # Parse purchase_date string to date
         purchase_date_obj = None
         if purchase_date:
             try:
@@ -276,7 +283,7 @@ async def update_clothing_item(
                     detail="Invalid purchase date. Use YYYY-MM-DD."
                 )
 
-        # 构建更新数据对象
+        # Build Pydantic update payload
         update_data = schemas.ClothingItemUpdate(
             name=name,
             description=description,
@@ -292,7 +299,6 @@ async def update_clothing_item(
             tags=tag_list
         )
 
-        # 更新衣物信息
         updated_item, error = crud.clothing_crud.update_clothing_item(
             db=db,
             db_item=item,
@@ -300,7 +306,7 @@ async def update_clothing_item(
         )
 
         if error:
-            # 如果更新失败且上传了新图片，删除新图片
+            # Roll back newly uploaded file if update failed
             if file:
                 delete_file(image_url)
             raise HTTPException(
@@ -331,23 +337,25 @@ async def update_clothing_item(
 
 @router.delete("/api/clothing/{clothing_id}")
 async def delete_clothing_item(
-        clothing_id: int = Path(..., ge=1, description="衣物ID"),
+        clothing_id: int = Path(..., ge=1, description="Clothing item id"),
         token: str = Query(...),
         db: Session = Depends(get_db)
 ):
     """
-    删除衣物
-    参数：
-        clothing_id: 要删除的衣物ID
-        token: 用户认证令牌
-        db: 数据库会话
-    返回：
-        删除成功信息
+    Delete one clothing item.
+
+    Args:
+        clothing_id: id to delete.
+        token: auth token.
+        db: DB session.
+
+    Returns:
+        Success message payload.
     """
     try:
         current_user = get_current_user(token, db)
 
-        # 获取衣物信息（用于后续删除图片文件）
+        # Load row (also need paths for file cleanup)
         item = crud.clothing_crud.get_clothing_item_by_user(
             db=db,
             user_id=current_user.id,
@@ -360,7 +368,7 @@ async def delete_clothing_item(
                 detail="Item not found or access denied."
             )
 
-        # 删除衣物记录（会级联删除相关标签等）
+        # Delete DB row (cascades tags, etc.)
         success, error = crud.clothing_crud.delete_clothing_item(
             db=db,
             clothing_id=clothing_id
@@ -372,7 +380,7 @@ async def delete_clothing_item(
                 detail=error
             )
 
-        # 删除图片文件
+        # Remove image files from storage
         delete_file(item.image_url)
         if item.thumbnail_url:
             delete_file(item.thumbnail_url)
@@ -392,7 +400,7 @@ async def delete_clothing_item(
         )
 
 
-# ============ 批量操作API ============
+# ============ Bulk operations ============
 
 @router.post("/api/clothing/batch/delete")
 async def batch_delete_clothing(
@@ -401,13 +409,15 @@ async def batch_delete_clothing(
         db: Session = Depends(get_db)
 ):
     """
-    批量删除衣物
-    参数：
-        clothing_ids: 要删除的衣物ID列表
-        token: 用户认证令牌
-        db: 数据库会话
-    返回：
-        批量删除结果
+    Delete multiple clothing items in one request.
+
+    Args:
+        clothing_ids: list of item ids to delete.
+        token: auth token.
+        db: DB session.
+
+    Returns:
+        Result payload with deleted count.
     """
     try:
         current_user = get_current_user(token, db)
@@ -418,20 +428,19 @@ async def batch_delete_clothing(
                 detail="Select at least one item to delete."
             )
 
-        # 获取要删除的衣物信息（用于后续删除图片文件）
+        # Rows to remove files for after DB delete
         items = db.query(models.ClothingItem).filter(
             models.ClothingItem.id.in_(clothing_ids),
             models.ClothingItem.user_id == current_user.id
         ).all()
 
-        # 验证所有衣物都存在且属于当前用户
+        # Every id must exist and belong to the user
         if len(items) != len(clothing_ids):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Some items were not found or access was denied."
             )
 
-        # 执行批量删除
         deleted_count, error = crud.batch_crud.batch_delete_clothing(
             db=db,
             user_id=current_user.id,
@@ -444,7 +453,7 @@ async def batch_delete_clothing(
                 detail=error
             )
 
-        # 批量删除图片文件
+        # Remove stored images for deleted rows
         for item in items:
             delete_file(item.image_url)
             if item.thumbnail_url:
@@ -473,14 +482,16 @@ async def batch_update_clothing(
         db: Session = Depends(get_db)
 ):
     """
-    批量更新衣物信息
-    参数：
-        clothing_ids: 要更新的衣物ID列表
-        update_data: 更新数据的字典
-        token: 用户认证令牌
-        db: 数据库会话
-    返回：
-        批量更新结果
+    Update the same fields on many clothing items.
+
+    Args:
+        clothing_ids: list of item ids to update.
+        update_data: dict of field names to new values.
+        token: auth token.
+        db: DB session.
+
+    Returns:
+        Result payload with updated count.
     """
     try:
         current_user = get_current_user(token, db)
@@ -497,7 +508,7 @@ async def batch_update_clothing(
                 detail="Provide fields to update."
             )
 
-        # 执行批量更新
+        # Apply the same field map to all ids
         updated_count, error = crud.batch_crud.batch_update_clothing(
             db=db,
             user_id=current_user.id,
@@ -524,5 +535,4 @@ async def batch_update_clothing(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Bulk update failed: {str(e)}"
         )
-
 

@@ -1,12 +1,12 @@
 /* =========================================
-   1. 赋予背景「布料纹理」(Fabric Weave Texture)
+   1. Give the background a fabric texture
 ========================================= */
 .calendar-container {
 	width: 100%;
 	height: 100vh;
 	overflow: hidden;
 	background-color: #FDFBF7;
-	/* 极细的网格线，模拟高级亚麻或纯棉布料的经纬线 */
+	/* Ultra-fine grid lines to simulate linen/cotton weave */
 	background-image:
 		linear-gradient(rgba(141, 110, 99, 0.02) 1px, transparent 1px),
 		linear-gradient(90deg, rgba(141, 110, 99, 0.02) 1px, transparent 1px);
@@ -16,7 +16,7 @@
 }
 
 /* =========================================
-   2. AI 衣橱主题装饰层 (Thematic Decor)
+   2. AI wardrobe thematic decor layer
 ========================================= */
 .wardrobe-decor {
 	position: absolute;
@@ -26,7 +26,7 @@
 	overflow: hidden;
 }
 
-/* 裁缝打版十字定位标 (Tailor Crosshairs) */
+/* Tailor pattern crosshairs */
 .tailor-mark {
 	position: absolute;
 	width: 40rpx;
@@ -61,7 +61,7 @@
 	right: 6%;
 }
 
-/* 服装制版弧形虚线 (Pattern Drafting Curve) */
+/* Pattern drafting curved dashed line */
 .pattern-curve {
 	position: absolute;
 	top: -10%;
@@ -73,7 +73,7 @@
 	transform: rotate(15deg);
 }
 
-/* 边缘排版：AI 数据与洗标 (Vertical Editorial Text) */
+/* Edge editorial text: AI data and care-label style */
 .meta-text {
 	position: absolute;
 	font-family: "Courier New", Courier, monospace;
@@ -106,7 +106,7 @@
 }
 
 /* =========================================
-   背景情绪板散落卡片 (Moodboard Scatter) - 高级静态版
+   Background moodboard scatter cards - premium static version
 ========================================= */
 .scatter-bg-container {
 	position: absolute;
@@ -116,14 +116,14 @@
 	overflow: hidden;
 }
 
-/* transition-group 根节点：铺满容器，子项仍用 .scatter-card 绝对定位 */
+/* transition-group root: fills container; children remain absolutely positioned via .scatter-card */
 .scatter-transition-group {
 	position: absolute;
 	inset: 0;
 	pointer-events: none;
 }
 
-/* 拍立得相纸质感：使用 CSS 变量便于面板打开时统一缩小与降透明 */
+/* Polaroid paper texture: use CSS vars so cards can scale down/fade together when panel opens */
 .scatter-card {
 	position: absolute;
 	width: 240rpx;
@@ -142,13 +142,13 @@
 	will-change: transform;
 }
 
-/* 右侧面板打开时：背景卡片等比例缩小且透明度降低，不抢主内容 */
+/* When right panel opens: scale down background cards and lower opacity to avoid competing with main content */
 .scatter-bg-container.panel-open .scatter-card {
 	transform: rotate(var(--r)) scale(calc(var(--s) * 0.75));
 	opacity: calc(var(--opacity) * 0.55);
 }
 
-/* 纸胶带 (Masking Tape) 手工质感 */
+/* Masking tape handmade feel */
 .scatter-card::before {
 	content: '';
 	position: absolute;
@@ -180,7 +180,7 @@
 	display: block;
 }
 
-/* 换月时拍立得卡片进出场（与 Vue transition-group name="scatter-polaroid" 对应） */
+/* Polaroid card enter/leave on month switch (matches Vue transition-group name="scatter-polaroid") */
 .scatter-card.scatter-polaroid-enter-active,
 .scatter-card.scatter-polaroid-leave-active {
 	transition:
@@ -226,7 +226,7 @@
 }
 
 .calendar-inner {
-	padding: 80rpx 24rpx 48rpx; /* 顶部留白，避免两侧组件贴顶 */
+	padding: 80rpx 24rpx 48rpx; /* Top spacing to prevent side components from touching top edge */
 	width: 100%;
 	max-width: 100%;
 	height: 100%;
@@ -237,7 +237,7 @@
 }
 
 /* =========================================
-   巨型环境水印 (解决背景空旷感)
+   Large ambient watermark (reduces empty-background feel)
 ========================================= */
 .bg-watermark {
 	position: absolute;
@@ -256,7 +256,7 @@
 }
 
 /* =========================================
-   1. 容器：移除 gap 和 :has，改用 margin 物理占位
+   1. Container: remove gap and :has, use physical margin spacing
 ========================================= */
 .main-wrapper {
 	width: 100%;
@@ -268,11 +268,11 @@
 	flex: 1;
 	min-height: 0;
 	position: relative;
-	/* 删除了原本的 gap: 0 和 transition: gap */
+	/* Removed original gap: 0 and transition: gap */
 }
 
 /* =========================================
-   2. 左侧日历：让出更多空间
+   2. Left calendar: free up more space
 ========================================= */
 .main-left {
 	flex: 0 1 1400rpx;
@@ -282,18 +282,18 @@
 	align-items: center;
 	justify-content: center;
 	gap: 28rpx;
-	/* 该贝塞尔曲线与右边面板保持绝对同步 */
+	/* Keep this Bezier curve perfectly in sync with the right panel */
 	transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 	will-change: flex-basis, max-width;
 }
 
 .main-left.is-shrunk {
-	/* 从原来的 1080rpx 改小，给中间留出更多呼吸空间 */
+	/* Reduced from original 1080rpx to create more breathing room in the center */
 	flex: 0 1 960rpx;
 }
 
 /* =========================================
-   3. 右侧面板：释放玻璃的完整形态 (移除裁剪)
+   3. Right panel: preserve full glass form (remove clipping)
 ========================================= */
 .main-right {
 	position: relative;
@@ -303,24 +303,24 @@
 	height: calc(100vh - 260rpx);
 	display: flex;
 	flex-direction: column;
-	/* 删除 overflow: hidden，让玻璃边框与阴影在滑动全程保持完整，不被切断 */
+	/* Remove overflow:hidden so glass borders/shadows stay intact during slide animation */
 }
 
 .outfit-panel.glass-panel {
-	/* 内部面板强制固定宽度，不受外层 shrink 影响 */
+	/* Force fixed inner panel width, unaffected by outer shrink */
 	width: 880rpx;
 	flex-shrink: 0;
 	height: 100%;
 	max-height: 100%;
-	/* 下方材质由「重塑高级玻璃材质」区块统一覆盖 */
+	/* Material style below is unified in the "premium glass material" section */
 }
 
 /* =========================================
-   4. 右侧抽屉滑入/滑出动画：解耦透明度与空间位移
+   4. Right drawer slide animation: decouple opacity from spatial movement
 ========================================= */
 .split-panel-fade-enter-active,
 .split-panel-fade-leave-active {
-	/* 透明度用较短的 0.35s ease-out，在位移结束前就已 100% 清晰，消除顿挫感 */
+	/* Use shorter 0.35s ease-out opacity so panel is fully clear before movement ends */
 	transition:
 		opacity 0.35s ease-out,
 		transform 0.6s cubic-bezier(0.16, 1, 0.3, 1),
@@ -343,28 +343,28 @@
 }
 
 /* =========================================
-   重塑高级玻璃材质 (Apple-style Glassmorphism)
+   Rebuild premium glass material (Apple-style glassmorphism)
 ========================================= */
 .glass-panel,
 .glass-card {
-	/* 底色改为高纯净度透白，与背景 FDFBF7 产生明显对比 */
+	/* Switch base to high-purity translucent white for stronger contrast with FDFBF7 background */
 	background: rgba(255, 255, 255, 0.65);
 	backdrop-filter: blur(30px) saturate(120%);
 	-webkit-backdrop-filter: blur(30px) saturate(120%);
 
-	/* 顶部与左侧反光白边，模拟玻璃被光照的厚度 */
+	/* Top/left reflective white edge to simulate lit glass thickness */
 	border-top: 2rpx solid rgba(255, 255, 255, 1);
 	border-left: 2rpx solid rgba(255, 255, 255, 0.8);
 	border-right: 1rpx solid rgba(255, 255, 255, 0.4);
 	border-bottom: 1rpx solid rgba(255, 255, 255, 0.2);
 
 	box-shadow:
-		inset 0 2rpx 0 rgba(255, 255, 255, 0.6), /* 顶部内侧高光 */
+		inset 0 2rpx 0 rgba(255, 255, 255, 0.6), /* Top inner highlight */
 		0 12rpx 40rpx rgba(141, 110, 99, 0.06),
 		0 4rpx 12rpx rgba(0, 0, 0, 0.03);
 }
 
-/* 右侧抽屉面板层级最高，材质更不透明且厚重 */
+/* Right drawer panel is topmost; material is more opaque and heavier */
 .outfit-panel.glass-panel {
 	background: rgba(255, 255, 255, 0.85);
 	backdrop-filter: blur(40px);
@@ -403,7 +403,7 @@
 	margin-bottom: 20rpx;
 }
 
-/* 流体进度条：非对称视觉 */
+/* Fluid progress bars: asymmetric visual style */
 .stat-bars {
 	display: flex;
 	flex-direction: column;
@@ -473,7 +473,7 @@
 	border-radius: 24rpx;
 }
 
-/* 日历网格容器：鼠标光晕追踪 */
+/* Calendar grid container: mouse glow tracking */
 .calendar-grid-wrap {
 	position: relative;
 }
@@ -500,7 +500,7 @@
 	transform-style: preserve-3d;
 }
 
-/* 右侧 Outfit Panel：玻璃拟态 */
+/* Right outfit panel: glassmorphism */
 .outfit-panel {
 	height: calc(100vh - 260rpx);
 	max-height: calc(100vh - 360rpx);
@@ -512,7 +512,7 @@
 	box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.06), 0 2rpx 16rpx rgba(0, 0, 0, 0.03);
 }
 
-/* FLIP 共享元素：飞入的日期胶囊 */
+/* FLIP shared element: flying date pill */
 .fly-date-pill {
 	position: fixed;
 	display: flex;
@@ -609,7 +609,7 @@
 	height: 36rpx;
 }
 
-/* Add 模式 / 列表·空状态 切换：淡入淡出 */
+/* Add mode / list-empty state switch: fade in/out */
 .panel-inner {
 	flex: 1;
 	min-height: 0;
@@ -717,15 +717,15 @@
 	letter-spacing: 0.02em;
 }
 
-/* 月份切换：淡入 + 位移，轻柔过渡 */
-/* 月份切换：slide-left / slide-right + fade，慢柔丝滑 */
+/* Month switch: fade + movement, gentle transition */
+/* Month switch: slide-left / slide-right + fade, slow and smooth */
 .month-slide-left-enter-active,
 .month-slide-left-leave-active,
 .month-slide-right-enter-active,
 .month-slide-right-leave-active {
 	transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1), transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
-/* 向左切换（prevMonth）：新内容（更早的月份）从左边滑入，旧内容向右滑出 */
+/* Slide left (prevMonth): new content (earlier month) enters from left, old content exits right */
 .month-slide-left-enter-from {
 	opacity: 0;
 	transform: translateX(-40rpx);
@@ -734,7 +734,7 @@
 	opacity: 0;
 	transform: translateX(40rpx);
 }
-/* 向右切换（nextMonth）：新内容（更晚的月份）从右边滑入，旧内容向左滑出 */
+/* Slide right (nextMonth): new content (later month) enters from right, old content exits left */
 .month-slide-right-enter-from {
 	opacity: 0;
 	transform: translateX(40rpx);
@@ -759,7 +759,7 @@
 	z-index: 1;
 }
 
-/* 日格：Stagger + Spring 入场（斜向波浪）+ 光随指动 */
+/* Day cell: stagger + spring entry (diagonal wave) + pointer-following glow */
 .day-cell {
 	aspect-ratio: 1;
 	display: flex;
@@ -791,7 +791,7 @@
 .day-cell:active {
 	transform: scale(0.97);
 }
-/* 非当月日期：数字用浅灰色，当月日期保持黑色 */
+/* Non-current-month dates: light gray numbers; current month stays black */
 .day-cell.other-month .day-num {
 	color: #999;
 }
@@ -848,13 +848,13 @@
 .day-num {
 	font-size: 32rpx;
 	font-weight: 600;
-	color: #1d1d1f; /* 当月日期：黑色 */
+	color: #1d1d1f; /* Current-month date: black */
 }
 .day-num-wrap.today .day-num {
 	color: #fff;
 }
 
-/* Outfit 预览浮层：hover 时显示 */
+/* Outfit preview popup: shown on hover */
 .outfit-preview {
 	position: absolute;
 	bottom: calc(100% + 12rpx);
@@ -946,7 +946,7 @@
 	transform: translateX(-50%) translateY(0);
 }
 
-/* 日历格子状态：有记录 ● / 多套 ●2 */
+/* Calendar cell status: has record ● / multiple outfits ●2 */
 .day-status {
 	margin-top: 6rpx;
 }
@@ -970,7 +970,7 @@
 	color: #8d6e63;
 }
 
-/* 右侧面板出现/消失：仅淡入淡出，不位移，避免切换日期时面板跳到右边 */
+/* Right panel show/hide: fade only, no movement, to avoid jumping right when switching dates */
 .panel-fade-enter-active,
 .panel-fade-leave-active {
 	transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1021,7 +1021,7 @@
 	justify-content: center;
 }
 
-/* 空状态：鼠标追踪容器，传递 --mouse-x / --mouse-y 给下方卡片 */
+/* Empty state: mouse-tracking container passes --mouse-x / --mouse-y to card below */
 .empty-illus-wrap {
 	width: 160rpx;
 	height: 160rpx;
@@ -1032,7 +1032,7 @@
 	cursor: default;
 }
 
-/* Apple 级拟真光影：全息金属/绸缎反光卡片 + 原有衣橱图标 */
+/* Apple-grade realistic lighting: holographic metal/satin reflection card + existing wardrobe icon */
 .empty-illus-premium {
 	position: relative;
 	width: 160rpx;
@@ -1057,7 +1057,7 @@
 	pointer-events: none;
 }
 
-/* 跟随鼠标的光泽反射（丝绸/拉丝金属高光） */
+/* Mouse-following glossy reflection (silk/brushed-metal highlight) */
 .empty-illus-premium::after {
 	content: '';
 	position: absolute;
@@ -1159,7 +1159,7 @@
 	box-shadow: inset 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
 }
 
-/* 日记卡片：滚动视差倾斜 + hover 浮起 */
+/* Diary cards: scroll parallax tilt + hover lift */
 .outfit-item {
 	display: flex;
 	align-items: center;
@@ -1178,7 +1178,7 @@
 	box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.08), 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
 	cursor: pointer;
 }
-/* 瀑布流入场 + 视差倾斜（--tilt 由 JS 更新） */
+/* Waterfall entry + parallax tilt (--tilt updated by JS) */
 .outfit-item-enter {
 	opacity: 0;
 	transform: perspective(800px) translateY(24rpx) rotateX(var(--tilt, 0deg));
@@ -1267,7 +1267,7 @@
 }
 
 
-/* 响应式：Mobile 上下结构 */
+/* Responsive: vertical layout on mobile */
 @media (max-width: 768px) {
 	.main-wrapper {
 		flex-direction: column;

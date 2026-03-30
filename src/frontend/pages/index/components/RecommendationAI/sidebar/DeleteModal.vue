@@ -80,7 +80,7 @@ defineEmits(['confirm', 'cancel'])
 	opacity: 0.9;
 }
 
-/* 取消：灰色文字按钮，非实心块 */
+/* Cancel: gray text button, non-solid */
 .modal-btn-cancel {
 	background: transparent;
 	color: #6B6B6B;
@@ -90,7 +90,7 @@ defineEmits(['confirm', 'cancel'])
 	background: rgba(0, 0, 0, 0.06);
 }
 
-/* 删除：深色危险红，hover 加深，无渐变 */
+/* Delete: dark danger red, deeper on hover, no gradient */
 .modal-btn-danger {
 	background: #D92D20;
 	color: #fff;

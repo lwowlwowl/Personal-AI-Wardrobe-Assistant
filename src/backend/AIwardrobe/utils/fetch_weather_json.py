@@ -24,7 +24,7 @@ def _format_location_text(location: dict[str, Any]) -> str:
     location_id = location.get("id") or ""
 
     place_parts = [part for part in [country, adm1, adm2, name] if part]
-    place = " ".join(place_parts).strip() or "未知地点"
+    place = " ".join(place_parts).strip() or "Unknown place"
     return f"{place} (id: {location_id})" if location_id else place
 
 
@@ -56,16 +56,16 @@ def _build_auth_headers() -> dict:
     private_key_path = os.getenv("QWEATHER_PRIVATE_KEY_PATH")
 
     if not kid or not project_id:
-        raise RuntimeError("未配置QWEATHER_KID或QWEATHER_PROJECT_ID")
+        raise RuntimeError("QWEATHER_KID or QWEATHER_PROJECT_ID is not set")
 
     if not private_key_path:
-        raise RuntimeError("未配置QWEATHER_PRIVATE_KEY_PATH")
+        raise RuntimeError("QWEATHER_PRIVATE_KEY_PATH is not set")
 
     with open(os.path.expanduser(private_key_path), "r", encoding="utf-8") as f:
         private_key = f.read()
 
     now = int(time.time())
-    # 和风要求：sub=ProjectID，iat=当前时间，exp=当前时间+600；Header 含 kid
+    # QWeather JWT: sub=project id, iat=now, exp=now+600; header includes kid
     payload = {
         "sub": project_id,
         "iat": now,
@@ -126,13 +126,13 @@ def get_location_all_by_coords(
     lang: str | None = "en",
 ) -> dict[str, Any] | None:
     """
-    仅用经纬度查询 location 信息（不查询天气）。
+    Resolve location metadata from lat/lon only (no weather call).
     """
     host = DEFAULT_HOST
     if not host:
-        raise RuntimeError("未配置QWEATHER_API_HOST，请在 .env 中设置")
+        raise RuntimeError("QWEATHER_API_HOST is not set; configure it in .env")
     headers = _build_auth_headers()
-    # 和风 API 要求：location 为「经度,纬度」(lon,lat)，且小数点最多两位
+    # Geo API expects location as "lon,lat" with at most two decimal places each
     location_param = f"{round(lon, 2)},{round(lat, 2)}"
     return _lookup_location_all(host, headers, location_param, lang)
 
@@ -143,7 +143,7 @@ def get_location_id_by_coords(
     lang: str | None = "en",
 ) -> str | None:
     """
-    仅用经纬度查 location_id，供外部做缓存 key 等。不查天气。
+    Resolve location_id from coordinates for cache keys etc.; no weather fetch.
     """
     location = get_location_all_by_coords(lat, lon, lang=lang)
     if not location:
@@ -166,10 +166,10 @@ def fetch_weather_json_now(
     if not location_id and city:
         location_id = _lookup_location_id(host, headers, city, lang)
         if not location_id:
-            raise RuntimeError("未匹配到城市，请提供更具体的城市名称")
+            raise RuntimeError("No matching city; provide a more specific city name")
 
     if not location_id:
-        raise RuntimeError("未提供location或city")
+        raise RuntimeError("Neither location nor city was provided")
 
     params: dict[str, Any] = {"location": location_id}
     if lang:
@@ -179,7 +179,7 @@ def fetch_weather_json_now(
     now_resp = _request_json(url, headers, params=params)
 
     if now_resp.get("code") != "200":
-        raise RuntimeError(f"和风天气API返回异常: {now_resp}")
+        raise RuntimeError(f"QWeather API returned an error (now): {now_resp}")
 
     return now_resp
 
@@ -200,10 +200,10 @@ def fetch_weather_json_days(
     if not location_id and city:
         location_id = _lookup_location_id(host, headers, city, lang)
         if not location_id:
-            raise RuntimeError("未匹配到城市，请提供更具体的城市名称")
+            raise RuntimeError("No matching city; provide a more specific city name")
 
     if not location_id:
-        raise RuntimeError("未提供location或city")
+        raise RuntimeError("Neither location nor city was provided")
 
     params: dict[str, Any] = {"location": location_id}
     if lang:
@@ -213,7 +213,7 @@ def fetch_weather_json_days(
     daily_resp = _request_json(url, headers, params=params)
 
     if daily_resp.get("code") != "200":
-        raise RuntimeError(f"和风天气API返回异常:{daily_resp}")
+        raise RuntimeError(f"QWeather API returned an error (forecast): {daily_resp}")
 
     return daily_resp
 

@@ -1,8 +1,8 @@
 """
-数据库读取工具。
+Database read helpers.
 
-为项目中的 7 张业务表提供基础读取函数。
-返回值统一为可直接序列化的字典列表，便于被接口层或其他服务直接复用。
+Provides basic fetch functions for the seven business tables.
+Returns plain dict rows suitable for JSON and reuse by APIs or services.
 """
 
 from __future__ import annotations
@@ -32,10 +32,9 @@ from app.models import (
 @contextmanager
 def _session_scope(db: Optional[Session] = None) -> Iterator[Session]:
     """
-    统一管理数据库会话。
+    Manage a SQLAlchemy session scope.
 
-    如果调用方已经传入会话，则复用该会话；
-    否则创建临时会话并在使用完毕后关闭。
+    Reuse ``db`` when provided; otherwise open a short-lived session and close it.
     """
     session = db or SessionLocal()
     try:
@@ -46,7 +45,7 @@ def _session_scope(db: Optional[Session] = None) -> Iterator[Session]:
 
 
 def _serialize_value(value: Any) -> Any:
-    """将 ORM 字段值转换成便于 JSON 序列化的基础类型。"""
+    """Coerce ORM field values to JSON-friendly primitives."""
     if isinstance(value, enum.Enum):
         return value.value
     if isinstance(value, Decimal):
@@ -66,7 +65,7 @@ def _serialize_model(
     instance: Any,
     exclude_fields: Optional[set[str]] = None
 ) -> dict[str, Any]:
-    """只序列化表字段，避免把 relationship 一并展开。"""
+    """Serialize table columns only; do not expand relationships."""
     exclude_fields = exclude_fields or set()
     return {
         column.name: _serialize_value(getattr(instance, column.name))
@@ -84,15 +83,15 @@ def _fetch_all(
     offset: int = 0
 ) -> list[dict[str, Any]]:
     """
-    通用表读取逻辑。
+    Generic read for a mapped table.
 
     Args:
-        model: SQLAlchemy 模型类
-        db: 可选的外部数据库会话
-        filters: 使用 filter_by 的等值过滤条件
-        exclude_fields: 排除返回（且避免查询）的字段名集合
-        limit: 最大返回条数，None 表示不限制
-        offset: 分页偏移量
+        model: SQLAlchemy model class
+        db: Optional existing session
+        filters: Equality filters for filter_by
+        exclude_fields: Column names to omit from SELECT and payload
+        limit: Max rows, or None for no cap
+        offset: SQL offset for pagination
     """
     filters = {key: value for key, value in (filters or {}).items() if value is not None}
     exclude_fields = exclude_fields or set()
@@ -134,7 +133,7 @@ def get_users(
     limit: Optional[int] = None,
     offset: int = 0
 ) -> list[dict[str, Any]]:
-    """读取 `users` 表数据。"""
+    """Fetch rows from ``users``."""
     return _fetch_all(
         User,
         db=db,
@@ -151,7 +150,7 @@ def get_clothing_items(
     limit: Optional[int] = None,
     offset: int = 0
 ) -> list[dict[str, Any]]:
-    """读取 `clothing_items` 表数据。"""
+    """Fetch rows from ``clothing_items``."""
     return _fetch_all(
         ClothingItem,
         db=db,
@@ -167,7 +166,7 @@ def get_clothing_tags(
     limit: Optional[int] = None,
     offset: int = 0
 ) -> list[dict[str, Any]]:
-    """读取 `clothing_tags` 表数据。"""
+    """Fetch rows from ``clothing_tags``."""
     return _fetch_all(
         ClothingTag,
         db=db,
@@ -183,7 +182,7 @@ def get_model_photos(
     limit: Optional[int] = None,
     offset: int = 0
 ) -> list[dict[str, Any]]:
-    """读取 `model_photos` 表数据。"""
+    """Fetch rows from ``model_photos``."""
     return _fetch_all(
         ModelPhoto,
         db=db,
@@ -199,7 +198,7 @@ def get_outfits(
     limit: Optional[int] = None,
     offset: int = 0
 ) -> list[dict[str, Any]]:
-    """读取 `outfits` 表数据。"""
+    """Fetch rows from ``outfits``."""
     return _fetch_all(
         Outfit,
         db=db,
@@ -216,7 +215,7 @@ def get_outfit_items(
     limit: Optional[int] = None,
     offset: int = 0
 ) -> list[dict[str, Any]]:
-    """读取 `outfit_items` 表数据。"""
+    """Fetch rows from ``outfit_items``."""
     return _fetch_all(
         OutfitItem,
         db=db,
@@ -234,7 +233,7 @@ def get_wear_history(
     limit: Optional[int] = None,
     offset: int = 0
 ) -> list[dict[str, Any]]:
-    """读取 `wear_history` 表数据。"""
+    """Fetch rows from ``wear_history``."""
     return _fetch_all(
         WearHistory,
         db=db,
@@ -318,9 +317,9 @@ def build_agent_context(
     constraints: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """
-    构建给 Agent 的用户上下文。
+    Build the user payload for the wardrobe agent.
 
-    采用“先摘要后明细”的结构，并默认排除用户敏感字段。
+    Summary first, then detail lists; sensitive user fields are excluded by default.
     """
     if user_id <= 0:
         raise ValueError("user_id must be a positive integer")

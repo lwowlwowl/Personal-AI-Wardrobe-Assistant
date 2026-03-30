@@ -1,4 +1,5 @@
 main_prompt_path_en: prompts/main_prompt_en.txt
 main_prompt_path_zh: prompts/main_prompt_zh.txt
+report_prompt_path: prompts/main_prompt_en.txt
 rag_summarize_prompt_path: prompts/rag_summarize.txt
 classify_prompt_path: prompts/clothing_classification.txt

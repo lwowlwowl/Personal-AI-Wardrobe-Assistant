@@ -1,4 +1,4 @@
-"""衣物 CRUD。"""
+"""Clothing CRUD."""
 from typing import List, Optional, Tuple
 
 from sqlalchemy import asc, desc, or_
@@ -9,7 +9,7 @@ from app.models import ClothingItem, ClothingTag
 from app.schemas import ClothingItemCreate, ClothingItemUpdate
 
 class ClothingCRUD:
-    """服装相关CRUD操作类"""
+    """CRUD helpers for clothing items."""
 
     @staticmethod
     def get_clothing_item_by_user(
@@ -18,15 +18,15 @@ class ClothingCRUD:
             clothing_id: int
     ) -> Optional[ClothingItem]:
         """
-        获取用户的单个衣物
+        Get one clothing item for a user.
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-            clothing_id: 衣物ID
+        Args:
+            db: DB session
+            user_id: owner id
+            clothing_id: item id
 
-        返回:
-            衣物对象，如果不存在或不属于用户则返回None
+        Returns:
+            ClothingItem or None if missing or not owned.
         """
         return db.query(ClothingItem).filter(
             ClothingItem.id == clothing_id,
@@ -51,31 +51,27 @@ class ClothingCRUD:
             order_desc: bool = True
     ) -> Tuple[List[ClothingItem], int]:
         """
-        获取衣物列表（支持过滤、搜索、排序、分页）
+        List clothing with filters, search, sort, and pagination.
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-            skip: 跳过的记录数（用于分页）
-            limit: 每页记录数
-            category: 分类筛选
-            season: 季节筛选
-            color: 颜色筛选
-            brand: 品牌筛选
-            is_favorite: 收藏等级筛选，支持多选 [0,1,2,3]
-            min_price: 最低价格
-            max_price: 最高价格
-            search: 搜索关键词
-            order_by: 排序字段
-            order_desc: 是否降序
+        Args:
+            db: DB session
+            user_id: owner id
+            skip: offset
+            limit: page size
+            category, season, color, brand: filters
+            is_favorite: favorite levels, multi [0,1,2,3]
+            min_price, max_price: price range
+            search: fuzzy on name, description, brand, style
+            order_by: column name
+            order_desc: descending when True
 
-        返回:
-            Tuple[衣物列表, 总记录数]
+        Returns:
+            (items, total_count)
         """
-        # 基础查询：只查询当前用户的衣物，预加载 tags 供列表展示
+        # Base query: this user's items only; eager-load tags for list UIs.
         query = db.query(ClothingItem).options(joinedload(ClothingItem.tags)).filter(ClothingItem.user_id == user_id)
 
-        # 应用过滤器
+        # Filters
         if category:
             query = query.filter(ClothingItem.category == category)
         if season:
@@ -94,7 +90,7 @@ class ClothingCRUD:
         if max_price is not None:
             query = query.filter(ClothingItem.price <= max_price)
 
-        # 搜索功能：支持名称、描述、品牌、风格的模糊搜索
+        # Fuzzy search on name, description, brand, style
         if search:
             search_filter = or_(
                 ClothingItem.name.ilike(f"%{search}%"),
@@ -104,17 +100,16 @@ class ClothingCRUD:
             )
             query = query.filter(search_filter)
 
-        # 获取总数（用于分页计算）
         total = query.count()
 
-        # 排序
+        # Sort
         order_column = getattr(ClothingItem, order_by, ClothingItem.created_at)
         if order_desc:
             query = query.order_by(desc(order_column))
         else:
             query = query.order_by(asc(order_column))
 
-        # 分页
+        # Pagination
         items = query.offset(skip).limit(limit).all()
 
         return items, total
@@ -128,20 +123,19 @@ class ClothingCRUD:
             thumbnail_url: Optional[str] = None
     ) -> Tuple[Optional[ClothingItem], Optional[str]]:
         """
-        创建衣物
+        Create a clothing item.
 
-        参数:
-            db: 数据库会话
-            user_id: 用户ID
-            item_in: 衣物创建数据
-            image_url: 图片URL
-            thumbnail_url: 缩略图URL（可选）
+        Args:
+            db: DB session
+            user_id: owner id
+            item_in: create payload
+            image_url, thumbnail_url: media URLs
 
-        返回:
-            Tuple[创建的衣物对象, 错误信息]
+        Returns:
+            (item, error_message)
         """
         try:
-            # 创建衣物对象，排除tags字段（后续单独处理）
+            # Create row without tags (tags handled below).
             db_item = ClothingItem(
                 user_id=user_id,
                 image_url=image_url,
@@ -151,11 +145,10 @@ class ClothingCRUD:
             db.add(db_item)
             db.flush()
 
-            # 添加标签
+            # Dedupe tag strings; skip blanks; same tag not twice per item.
+            deduped_tags = []
             if item_in.tags:
-                # 去重（同一衣物不可重复标签）；同时去掉空白
                 seen = set()
-                deduped_tags = []
                 for raw in item_in.tags:
                     t = (raw or "").strip()
                     if not t:
@@ -172,7 +165,7 @@ class ClothingCRUD:
             try:
                 db.commit()
             except IntegrityError:
-                # 极少数情况下可能出现并发/重复写入，回滚后重试一次：跳过已存在的标签
+                # Rare race: duplicate tag row; retry insert skipping existing tags.
                 db.rollback()
                 db.add(db_item)
                 db.flush()
@@ -192,7 +185,7 @@ class ClothingCRUD:
 
         except Exception as e:
             db.rollback()
-            print(f"创建衣物错误: {e}")
+            print(f"create_clothing_item error: {e}")
             return None, f"Failed to create clothing item: {str(e)}"
 
     @staticmethod
@@ -202,33 +195,30 @@ class ClothingCRUD:
             item_in: ClothingItemUpdate
     ) -> Tuple[Optional[ClothingItem], Optional[str]]:
         """
-        更新衣物
+        Update a clothing item.
 
-        参数:
-            db: 数据库会话
-            db_item: 要更新的衣物对象
-            item_in: 更新数据
+        Args:
+            db: DB session
+            db_item: existing row
+            item_in: update payload
 
-        返回:
-            Tuple[更新后的衣物对象, 错误信息]
+        Returns:
+            (item, error_message)
         """
         try:
-            # 获取更新数据，排除未设置的字段和tags字段
+            # Only fields explicitly set; tags handled separately.
             update_data = item_in.model_dump(exclude_unset=True, exclude={"tags"})
 
-            # 更新衣物属性
             for field, value in update_data.items():
                 if value is not None:
                     setattr(db_item, field, value)
 
-            # 更新标签（如果提供了）
+            # Replace tags when provided (None = leave unchanged at API level).
             if item_in.tags is not None:
-                # 删除现有标签
                 db.query(ClothingTag).filter(
                     ClothingTag.clothing_id == db_item.id
                 ).delete(synchronize_session=False)
 
-                # 添加新标签
                 if item_in.tags:
                     seen = set()
                     for raw in item_in.tags:
@@ -249,20 +239,20 @@ class ClothingCRUD:
 
         except Exception as e:
             db.rollback()
-            print(f"更新衣物错误: {e}")
+            print(f"update_clothing_item error: {e}")
             return None, f"Failed to update clothing item: {str(e)}"
 
     @staticmethod
     def delete_clothing_item(db: Session, clothing_id: int) -> Tuple[bool, Optional[str]]:
         """
-        删除衣物
+        Delete a clothing item.
 
-        参数:
-            db: 数据库会话
-            clothing_id: 衣物ID
+        Args:
+            db: DB session
+            clothing_id: item id
 
-        返回:
-            Tuple[是否成功, 错误信息]
+        Returns:
+            (success, error_message)
         """
         try:
             item = db.query(ClothingItem).filter(ClothingItem.id == clothing_id).first()
@@ -275,6 +265,5 @@ class ClothingCRUD:
 
         except Exception as e:
             db.rollback()
-            print(f"删除衣物错误: {e}")
+            print(f"delete_clothing_item error: {e}")
             return False, f"Failed to delete clothing item: {str(e)}"
-

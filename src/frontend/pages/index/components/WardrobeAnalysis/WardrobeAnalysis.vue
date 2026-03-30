@@ -3,20 +3,20 @@
 		class="page"
 		:class="{ 'page--expanded': !!expandedView }"
 	>
-		<!-- 主看板（未展开子页）：装饰层仅在 .page 内，避免盖住侧栏 -->
+		<!-- Main dashboard (no sub-page): decor stays inside .page so it does not cover the sidebar -->
 		<template v-if="!expandedView">
 			<view class="bg-blob bg-blob-1" aria-hidden="true"></view>
 			<view class="bg-blob bg-blob-2" aria-hidden="true"></view>
 			<view class="grain-overlay" aria-hidden="true"></view>
 		</template>
-		<!-- expanded-pages 全屏展开；勿用 transition mode=out-in，否则离场时 .wardrobe-analysis-bento 会从 .page 脱落导致闪屏（须留在 .page-bento-wrap 上） -->
+		<!-- expanded-pages is fullscreen; avoid transition mode=out-in or .wardrobe-analysis-bento detaches from .page on leave and flashes (keep it under .page-bento-wrap) -->
 		<transition name="page">
 			<ActivityReport v-if="expandedView === 'activity-report'" key="activity-report" :total-wears="currentWears" :trend-value="activityPercentTarget" :is-increase="activityTrend === 'increase'" :week-data="weeklyActivityData?.week_data" :category-activity="weeklyActivityData?.category_activity" @back="expandedView = null" />
 			<IdleItemsView v-else-if="expandedView === 'idle-items'" key="idle-items" :unworn-count="idleCount" @back="expandedView = null" />
 			<view v-else key="bento" class="page-bento-wrap wardrobe-analysis-bento">
 		<view v-if="filterOpen" class="filter-backdrop" @click="closeFilter"></view>
 
-		<!-- .bento-grid：渐进入场；filter 打开时提高 z-index -->
+		<!-- .bento-grid: staggered enter; raise z-index when filter is open -->
 		<view class="bento-grid bento-grid-entering" :class="{ 'bento-grid-filter-open': filterOpen }" @click="filterOpen && closeFilter()">
 			<BentoWardrobeActivity
 				:loading-activity="loadingActivity"
@@ -84,12 +84,12 @@ import BentoMostWorn from './bento-widgets/MostWorn.vue'
 import BentoTopStats from './bento-widgets/TopStats.vue'
 import BentoSuggestedAdditions from './bento-widgets/SuggestedAdditions.vue'
 import BentoCategoryBreakdown from './bento-widgets/CategoryBreakdown.vue'
-/* 副作用 import：保证 bento-widgets/BentoCards.css 打入包（部分目标下 <style src> 不可靠） */
+/* Side-effect import: ensure bento-widgets/BentoCards.css is bundled (<style src> is unreliable on some targets) */
 import './bento-widgets/BentoCards.css'
 import * as analysisApi from '@/api/analysisApi.js'
 const SUGGESTED_CACHE_KEY = 'wardrobe_suggested_additions'
 
-/** 趋势图无数据或 API 失败时的占位（不使用假数据） */
+/** Placeholder when trend has no data or API failed (no fake data). */
 function resetTrendToEmpty() {
 	lineYears.value = []
 	lineData.value = []
@@ -121,7 +121,7 @@ function saveSuggestedCacheToStorage(list) {
 	} catch (_) {}
 }
 
-/** Suggested Additions 缓存：内存 + sessionStorage，切页后再回来仍可还原 */
+/** Suggested Additions cache: in-memory + sessionStorage so returning to the page restores it */
 let suggestedAdditionsCache = loadSuggestedCacheFromStorage()
 
 function hydrateSuggestedFromCacheOrFetch() {
@@ -140,12 +140,12 @@ const props = defineProps({
 	isLoggedIn: { type: Boolean, default: false }
 })
 
-/** 点击卡片内链接后展示的展开页 */
+/** Expanded view opened from in-card links */
 const expandedView = ref(null)
 const filterOpen = ref(null)
 const viewByTotal = ref('weekly')
 const viewByWorn = ref('yearly')
-/** 从 expanded-pages 返回时递增，供 TotalItems 单点趋势重播数字动画 */
+/** Incremented when leaving expanded-pages; TotalItems uses it to replay count-up animation */
 const milestoneReplayTick = ref(0)
 
 const activityTrend = ref(Math.random() >= 0.5 ? 'increase' : 'decrease')
@@ -156,9 +156,9 @@ const activityPercentTarget = computed(() => {
 	return activityTrend.value === 'increase' ? 15 : 8
 })
 
-/** GET weekly-activity 原始数据；失败或未登录时为 null */
+/** Raw GET weekly-activity payload; null on failure or when logged out */
 const weeklyActivityData = ref(null)
-/** 本周穿戴次数，来自 weekly-activity */
+/** Wear count this week from weekly-activity */
 const currentWears = ref(0)
 const activityPercent = ref(0)
 const idlePercent = ref(0)
@@ -216,7 +216,7 @@ function toggleViewBy(which) {
 function closeFilter() {
 	filterOpen.value = null
 }
-/** CategoryBreakdown 维度切换占位，尚未接 API */
+/** CategoryBreakdown dimension toggle placeholder; API not wired yet */
 function toggleCategoryType() {}
 function goActivityReport() {
 	expandedView.value = 'activity-report'
@@ -251,7 +251,7 @@ async function fetchSuggestedAdditions() {
 	}
 }
 
-/** 仅在用户点击刷新时调用，用于更新 Suggested Additions（每次点击都发请求，不因 loading 中而跳过） */
+/** Called only on user refresh to update Suggested Additions (always requests; not skipped while loading) */
 function refreshSuggestedAdditions() {
 	if (!props.isLoggedIn) return
 	fetchSuggestedAdditions()
@@ -491,14 +491,14 @@ onMounted(() => {
 	box-sizing: border-box;
 }
 
-/* 展开页自带背景；此处若保留 padding 会与 scroll 区形成色差条 */
+/* Expanded views have their own background; keeping padding here would show a color band vs scroll area */
 .page--expanded {
 	padding: 0;
 	min-height: 100%;
 	height: 100%;
 }
 
-/* 光流背景：两枚高模糊光斑缓慢旋转，营造流动丝绸感 */
+/* Light-flow background: two large blurred blobs rotate slowly for a silk-like motion */
 .bg-blob {
 	position: absolute;
 	width: 120%;
@@ -524,7 +524,7 @@ onMounted(() => {
 	to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-/* 微纹理噪点图层：极低透明度，纸张/哑光质感 */
+/* Fine grain noise overlay: very low opacity for paper / matte feel */
 .grain-overlay {
 	position: absolute;
 	inset: 0;
@@ -550,14 +550,12 @@ onMounted(() => {
 .filter-backdrop:active { opacity: 0; }
 
 /* Bento Grid Layout
- * 
- * 网格系统说明：
- * - 4列布局：grid-template-columns: 1.3fr 1.3fr 1.35fr 1.35fr
- *   前两列等宽(1.3fr)，后两列稍宽(1.35fr)，总共4列
- * - 4行布局：grid-template-rows: 0.65fr 0.65fr 0.45fr 1.35fr
- *   行高按比例分配
- * - 卡片间距：gap: 24rpx
- * 
+ *
+ * Grid:
+ * - 4 columns: grid-template-columns: 1.3fr 1.3fr 1.35fr 1.35fr
+ *   first two equal (1.3fr), last two slightly wider (1.35fr)
+ * - 4 rows: grid-template-rows: 0.65fr 0.65fr 0.45fr 1.35fr (proportional heights)
+ * - gap: 24rpx
  */
 .bento-grid {
 	display: grid;
@@ -571,7 +569,7 @@ onMounted(() => {
 	z-index: 20;
 }
 
-/* 渐进加载：每块卡片依次出现，Keynote 节奏 */
+/* Staggered load: cards appear in sequence (Keynote-style pacing) */
 .bento-grid-entering > * {
 	opacity: 0;
 	animation: bento-item-enter 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -597,7 +595,7 @@ onMounted(() => {
 </style>
 
 <style>
-/* 主看板 ↔ expanded-pages（ActivityReport / IdleItemsView）：淡入 + 轻微纵向位移（仅 transition 根节点，侧栏不受影响） */
+/* Main dashboard ↔ expanded-pages (ActivityReport / IdleItemsView): fade + slight Y shift (transition root only; sidebar unchanged) */
 .page-enter-active {
 	transition:
 		opacity 0.44s cubic-bezier(0.22, 1, 0.36, 1),

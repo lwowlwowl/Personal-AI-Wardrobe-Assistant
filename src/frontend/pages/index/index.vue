@@ -33,7 +33,7 @@
 				</view>
 			</view>
 			
-			<!-- Recommendation AI 专用：由 ConversationSidebar 组件负责 -->
+			<!-- Recommendation AI specific: handled by ConversationSidebar component -->
 			<template v-if="activeMenu === 'recommendation' && !isCollapsed">
 				<view class="divider"></view>
 				<ConversationSidebar
@@ -49,7 +49,7 @@
 			<view class="divider"></view>
 			
 			<view class="sidebar-footer">
-				<!-- 状态卡片：点击后上方浮出小浮层，浮层宽度略小于触发块 -->
+				<!-- Status card: click to show a top popup, slightly narrower than trigger -->
 				<view class="user-status-card">
 					<transition name="user-menu-fade">
 						<view v-if="showUserMenu" class="user-menu-popup" :class="{ 'user-menu-popup--collapsed': isCollapsed }" @click.stop>
@@ -92,7 +92,7 @@
 		</view>
 		
 		<view class="main-content" ref="mainContentRef">
-			<!-- 根据选中的菜单项切换显示不同的组件，带切换动画 -->
+			<!-- Switch displayed component by selected menu, with transition -->
 			<view class="main-content-inner">
 				<transition name="view-fade" mode="out-in">
 					<RecommendationAI
@@ -167,20 +167,20 @@ const initialPersonImageForTryon = ref(null)
 const initialOutfitQueueForTryon = ref(null)
 const tryonMountKey = ref(0)
 
-// 由 ConversationSidebar 同步过来，仅用于传给 RecommendationAI
+// Synced from ConversationSidebar, only passed to RecommendationAI
 const conversationState = ref({
 	conversations: [],
 	currentConversationId: null,
 	currentConversation: null
 })
 
-// 侧边栏显示的用户名：登录后显示用户名，否则显示 Guest User
+// Username shown in sidebar: username when logged in, otherwise Guest User
 const displayUserName = ref('Guest User')
 const isLoggedIn = ref(false)
-// 当前用户资料（登录后由 getUsersMe 拉取，含头像、邮箱）
+// Current user profile (fetched by getUsersMe after login, includes avatar and email)
 const userProfile = ref(null)
 
-// 供子组件（如 WardrobeView）在 checkAuthStatus 后同步登录状态
+// Used by child components (e.g. WardrobeView) to sync auth state after checkAuthStatus
 const updateAuthState = (loggedIn, username) => {
 	isLoggedIn.value = !!loggedIn
 	displayUserName.value = loggedIn && username ? username : 'Guest User'
@@ -200,7 +200,7 @@ const refreshDisplayUserName = async () => {
 			const username = res.data?.username || uni.getStorageSync('user_info')?.username
 			displayUserName.value = username || 'Guest User'
 			isLoggedIn.value = true
-			// 拉取完整用户资料（头像、邮箱）
+			// Fetch full user profile (avatar, email)
 			try {
 				const meRes = await getUsersMe(token)
 				if (meRes.statusCode === 200 && meRes.data) {
@@ -223,7 +223,7 @@ const refreshDisplayUserName = async () => {
 			userProfile.value = null
 		}
 	} catch {
-		// 网络错误等保持当前显示，不强制清除
+		// Keep current display on network errors; do not force-clear
 		displayUserName.value = uni.getStorageSync('user_info')?.username || 'Guest User'
 		isLoggedIn.value = !!(token && uni.getStorageSync('user_info'))
 		if (!isLoggedIn.value) userProfile.value = null
@@ -359,23 +359,23 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 </script>
 
 <style scoped>
-/* 定义衬线字体栈，模拟设计图的优雅感 */
+/* Define a serif font stack to mimic the design's elegance */
 .container {
 	display: flex;
 	width: 100vw;
 	height: 100vh;
-	/* 主体背景色 - 极淡的米白色 */
+	/* Main background color - very light off-white */
 	background-color: #FDFBF7; 
 	font-family: "Didot", "Bodoni MT", "Noto Serif", "Songti SC", serif;
 	color: #1D1D1F;
 	font-weight: bold;
 }
 
-/* 左侧边栏 */
+/* Left sidebar */
 .sidebar {
-	width: 260rpx; /* 调整宽度比例 */
-	min-width: 250px; /* 桌面端最小宽度 */
-	/* 侧边栏背景色 - 稍深一点的米色 */
+	width: 260rpx; /* Adjusted width ratio */
+	min-width: 250px; /* Desktop minimum width */
+	/* Sidebar background - slightly deeper beige */
 	background-color: #F5F0E6; 
 	display: flex;
 	flex-direction: column;
@@ -385,7 +385,7 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	overflow: hidden;
 }
 
-/* 折叠状态 */
+/* Collapsed state */
 .sidebar.collapsed {
 	width: 100rpx;
 	min-width: 80px;
@@ -394,12 +394,12 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 
 .sidebar-header {
 	display: flex;
-	align-items: center; /* 垂直居中对齐 */
+	align-items: center; /* Vertically center aligned */
 	height: 88rpx;
 	margin-bottom: 20rpx;
-	gap: 24rpx; /* Home icon 和文本之间的距离 */
+	gap: 24rpx; /* Gap between home icon and text */
 	cursor: pointer;
-	justify-content: center; /* 折叠时居中 */
+	justify-content: center; /* Center when collapsed */
 	transition: justify-content 0.3s ease;
 	white-space: nowrap;
 }
@@ -415,17 +415,17 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 }
 
 .app-title {
-	font-size: 40rpx; /* 字体加大 */
+	font-size: 40rpx; /* Larger font size */
 	font-weight: 500;
 	color: #1D1D1F;
 	line-height: 1.2;
-	/* 继承 container 的 Didot 字体，或者显式指定 */
+	/* Inherit Didot from container, or specify explicitly */
 	font-family: "Didot", "Bodoni MT", "Songti SC", serif;
-	letter-spacing: -0.5px; /* 紧凑一点更优雅 */
+	letter-spacing: -0.5px; /* Slightly tighter for elegance */
 
-	/* 强制文字即使空间不够也不换行 */
+	/* Force no line wrap even when space is tight */
     white-space: nowrap; 
-    /* 防止文字溢出导致布局错乱 */
+    /* Prevent overflow from breaking layout */
 	overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -453,7 +453,7 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	gap: 16rpx;
 }
 
-/* 导航项 */
+/* Navigation item */
 .nav-item {
 	position: relative;
 	display: flex;
@@ -464,13 +464,13 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	/* Only background-color; avoid animating box-shadow/filter (heavy repaint, sidebar text looks soft) */
 	transition: background-color 0.16s ease;
 	justify-content: flex-start;
-	/* 固定高度，防止激活状态改变布局 */
+	/* Fixed height to prevent layout shift on active state */
 	min-height: 72rpx;
 	height: 72rpx;
 	box-sizing: border-box;
 }
 
-/* 折叠时导航项居中 */
+/* Center nav items when collapsed */
 .sidebar.collapsed .nav-item {
 	justify-content: center;
 	padding: 10px 0;
@@ -480,11 +480,11 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	background-color: #F1ECE4;
 }
 
-/* 激活状态：柔和浅背景 + 深文字 */
+/* Active state: soft light background + dark text */
 .nav-item.active {
 	background-color: #9D8B70;
 	box-shadow: 0 6px 16px rgba(157, 139, 112, 0.35);
-	/* 确保激活状态不改变高度和布局 */
+	/* Ensure active state does not change height/layout */
 	min-height: 72rpx;
 	height: 72rpx;
 }
@@ -508,9 +508,9 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	margin-right: 20rpx; /* 导航图标和文字之间的距离 */
+	margin-right: 20rpx; /* Gap between nav icon and text */
 	transition: margin-right 0.3s ease;
-	/* 固定图标容器尺寸，防止激活状态改变 */
+	/* Fixed icon container size to avoid active-state shifts */
 	flex-shrink: 0;
 }
 
@@ -525,7 +525,7 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	width: 20px;
 	height: 20px;
 }
-/* 底部左侧头像：圆圈大小只改这里 .avatar-circle 的 width/height 即可 */
+/* Bottom-left avatar: change circle size only via .avatar-circle width/height */
 .footer-avatar-wrap {
 	width: 80rpx;
 	height: 80rpx;
@@ -559,7 +559,7 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	overflow: hidden;
 }
 
-/* 底部用户行容器：margin-top: auto 贴底；上下间距在此或 .footer-item 调整 */
+/* Bottom user row container: stick to bottom via margin-top:auto; adjust spacing here or in .footer-item */
 .sidebar-footer {
 	position: relative;
 	flex-shrink: 0;
@@ -571,13 +571,13 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	gap: 10rpx;
 }
 
-/* 状态卡片容器（相对定位，供浮层对齐） */
+/* Status card container (relative positioning for popup alignment) */
 .user-status-card {
 	position: relative;
 	width: 100%;
 }
 
-/* 触发块：平时无框，hover 时才显示框，背景与侧栏一致不改变 */
+/* Trigger block: borderless by default, border on hover only; keep sidebar-matching background */
 .footer-item.user-status-trigger {
 	display: flex;
 	align-items: center;
@@ -605,7 +605,7 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	padding: 24rpx 0;
 }
 
-/* 浮层出现/消失动效：opacity + translateY，120ms ease-out，无 scale/弹性 */
+/* Popup show/hide animation: opacity + translateY, 120ms ease-out, no scale/bounce */
 .user-menu-fade-enter-active,
 .user-menu-fade-leave-active {
 	transition: opacity 120ms ease-out, transform 120ms ease-out;
@@ -621,7 +621,7 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	transform: translateY(0);
 }
 
-/* 上方浮层：宽度与触发块一致（左右不缩进），字体黑色 */
+/* Top popup: same width as trigger (no side inset), black text */
 .user-menu-popup {
 	position: absolute;
 	left: 0;
@@ -635,7 +635,7 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	overflow: hidden;
 	z-index: 100;
 }
-/* 折叠时弹层只显示图示，保持足够宽度不挤在一起 */
+/* In collapsed mode, popup shows icons only with enough width to avoid crowding */
 .user-menu-popup--collapsed {
 	min-width: 125rpx;
 	left: 50%;
@@ -722,7 +722,7 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	background-color: rgba(0, 0, 0, 0.08);
 }
 
-/* 主内容区 */
+/* Main content area */
 .main-content {
 	flex: 1;
 	display: flex;
@@ -744,7 +744,7 @@ const handleSwitchToFullOutfitTryon = (payload) => {
 	flex: 1;
 }
 
-/* 视图切换：仅用 opacity，避免整页 transform 合成大块图层导致卡顿与文字发糊 */
+/* View switching: opacity only to avoid heavy transform compositing and blurry text */
 .view-fade-enter-active,
 .view-fade-leave-active {
 	transition: opacity 0.2s ease;

@@ -30,7 +30,7 @@ class EmbeddingsFactory(BaseModelFactory):
     def generator(self) -> Optional[Embeddings | BaseChatModel | OpenAI]:
         dashscope_api_key = os.getenv("DASHSCOPE_API_KEY")
         if not dashscope_api_key:
-            raise ValueError("未配置DASHSCOPE_API_KEY，无法初始化DashScopeEmbeddings")
+            raise ValueError("DASHSCOPE_API_KEY is not set; cannot initialize DashScopeEmbeddings")
         return DashScopeEmbeddings(
             model=rag_conf["embedding_model_name"],
             dashscope_api_key=dashscope_api_key
@@ -42,7 +42,7 @@ class ClassificationFactory(BaseModelFactory):
     def generator(self) -> OpenAI:
         dashscope_api_key = os.getenv("DASHSCOPE_API_KEY")
         if not dashscope_api_key:
-            raise ValueError("未配置DASHSCOPE_API_KEY，无法初始化QWEN3_VL_PLUS")
+            raise ValueError("DASHSCOPE_API_KEY is not set; cannot initialize Qwen VL client")
         return OpenAI(
             api_key = os.getenv("DASHSCOPE_API_KEY"),
             base_url = os.getenv("CLASSIFY_BASE_URL")

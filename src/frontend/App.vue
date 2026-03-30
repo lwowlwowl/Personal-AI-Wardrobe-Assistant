@@ -2,24 +2,24 @@
 	export default {
 		onLaunch: function() {
 			console.log('App Launch')
-			// 应用启动时的初始化逻辑
-			// 例如：检查登录状态、获取系统信息等
+			// Initialization when the app launches
+			// e.g. check login state, read system info
 		},
 		onShow: function() {
 			console.log('App Show')
-			// 应用显示时的逻辑
-			// 例如：刷新数据、恢复连接等
+			// Logic when the app becomes visible
+			// e.g. refresh data, resume connections
 		},
 		onHide: function() {
 			console.log('App Hide')
-			// 应用隐藏时的逻辑
-			// 例如：保存状态、暂停任务等
+			// Logic when the app goes to background
+			// e.g. persist state, pause tasks
 		}
 	}
 </script>
 
 <style>
-	/* 全局样式 */
+	/* Global styles */
 	@import './uni.scss';
 	
 	page {
@@ -27,12 +27,12 @@
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 	}
 	
-	/* 重置默认样式 */
+	/* Reset default styles */
 	* {
 		box-sizing: border-box;
 	}
 	
-	/* 移除按钮默认边框 */
+	/* Remove default button chrome */
 	button {
 		padding: 0;
 		margin: 0;
@@ -44,12 +44,12 @@
 		border: none;
 	}
 	
-	/* 输入框样式 */
+	/* Input focus outline */
 	input {
 		outline: none;
 	}
 	
-	/* 滚动条样式 */
+	/* Scrollbar */
 	::-webkit-scrollbar {
 		width: 8rpx;
 		height: 8rpx;

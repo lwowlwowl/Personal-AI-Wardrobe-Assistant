@@ -13,4 +13,4 @@ sudo docker start gpt-oss
 sudo docker logs -f gpt-oss
 sudo docker exec -it gpt-oss bash -c "vllm serve openai/gpt-oss-20b"
 
-启动gpt-oss指令
+# Commands to run gpt-oss (Docker)

@@ -30,22 +30,21 @@ class VectorStoreService:
 
     def load_document(self):
         """
-        从数据文件夹内读取数据文件，转为向量存入数据库
-        要计算文件的MD5做去重
-        :return: None
+        Read knowledge files from the data directory, chunk, embed, and upsert into Chroma.
+        Uses per-file MD5 to skip already-ingested paths.
         """
         def check_md5_hex(md5_for_check: str):
             if not os.path.exists(get_abs_path(chroma_conf["md5_hex_store"])):
                 open(get_abs_path(chroma_conf["md5_hex_store"]),"w",encoding="utf-8").close()
-                return False                # md5没处理过
+                return False                # MD5 store missing or empty → not seen
 
             with open(get_abs_path(chroma_conf["md5_hex_store"]),"r",encoding="utf-8") as f:
                 for line in f.readlines():
                     line = line.strip()
                     if line == md5_for_check:
-                        return True         # md5处理过
+                        return True         # already ingested
 
-                return False                # md5 没处理过
+                return False                # MD5 not in store
 
         def save_md5_hex(md5_for_check: str):
             with open(get_abs_path(chroma_conf["md5_hex_store"]), "a", encoding="utf-8") as f:
@@ -67,37 +66,37 @@ class VectorStoreService:
         )
 
         for path in allowed_files_path:
-            # 获取文件的MD5
+            # File content MD5 for deduplication
             md5_hex = get_file_md5_hex(path)
 
             if check_md5_hex(md5_hex):
-                logger.info(f"[加载知识库]{path}内容已存在知识库内，跳过")
+                logger.info(f"[vector_store] skip (already ingested): {path}")
                 continue
 
             try:
                 documents: list[Document] = get_file_documents(path)
 
                 if not documents:
-                    logger.warning(f"[加载知识库]{path}内没有有效文本内容，跳过")
+                    logger.warning(f"[vector_store] no text content, skip: {path}")
                     continue
 
                 split_document:list[Document] = self.spliter.split_documents(documents)
 
                 if not split_document:
-                    logger.warning(f"[加载知识库]{path}分片后没有有效文本内容，跳过")
+                    logger.warning(f"[vector_store] empty after split, skip: {path}")
                     continue
 
-                # 将内容存入向量库
+                # Upsert chunks into the vector store
                 self.vector_store.add_documents(split_document)
 
-                # 记录这个已经处理好的文件的md5, 避免下次重复加载
+                # Persist MD5 so we skip this file on the next run
                 save_md5_hex(md5_hex)
 
-                logger.info(f"[加载知识库]{path} 内容加载成功")
+                logger.info(f"[vector_store] ingested: {path}")
 
             except Exception as e:
-                # exc_info为True会记录详细的报错堆栈，如果False仅记录报错信息本身
-                logger.error(f"[加载知识库]{path}加载失败: {str(e)}",exc_info=True)
+                # exc_info=True logs full traceback; False logs message only
+                logger.error(f"[vector_store] ingest failed: {path}: {e}", exc_info=True)
                 continue
 
 
@@ -105,7 +104,7 @@ if __name__ == "__main__":
     vs = VectorStoreService()
     vs.load_document()
     retriever = vs.get_retriever()
-    res = retriever.invoke("迷路")
+    res = retriever.invoke("lost")
 
     for r in res:
         print(r.page_content)

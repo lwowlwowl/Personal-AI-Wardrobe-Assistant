@@ -1,7 +1,7 @@
 import { normalizeChatResponse } from './chatContentAdapter.js'
 import { attachWardrobeToAiMessage } from './wardrobeImages.js'
 
-/** 将会话历史中的单条消息转为前端聊天用结构 */
+/** Convert one persisted history message into the chat UI shape. */
 export function normalizeHistoryMsg(msg, wardrobeList) {
 	if (!msg || typeof msg !== 'object') return msg
 

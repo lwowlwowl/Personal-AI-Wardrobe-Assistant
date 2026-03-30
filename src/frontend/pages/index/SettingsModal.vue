@@ -7,7 +7,7 @@
 					<text class="settings-desc">Manage your profile and security</text>
 				</view>
 
-				<!-- 个人信息块：头像 + 用户名 -->
+				<!-- Personal info block: avatar + username -->
 				<view class="settings-block settings-block-personal">
 					<text class="block-title">Personal information</text>
 					<text class="block-desc">Update your avatar and display name</text>
@@ -59,7 +59,7 @@
 					</view>
 				</view>
 
-			<!-- 密码修改块 -->
+			<!-- Password change block -->
 				<view class="settings-block settings-block-password">
 					<text class="block-title">Change password</text>
 					<text class="block-desc">Enter current password and set a new one. Password should be at least 6 characters long.</text>
@@ -164,7 +164,7 @@ const showCurrentPassword = ref(false)
 const showNewPassword = ref(false)
 const showConfirmPassword = ref(false)
 
-// 用户名实时校验：至少 3 字符
+// Live username validation: at least 3 chars
 const usernameValid = computed(() => {
 	const name = (settingsUsername.value || '').trim()
 	return name.length >= 3
@@ -180,7 +180,7 @@ function onUsernameInput() {
 	if (name.length >= 3) settingsUsernameError.value = ''
 }
 
-// 密码强度（简单：仅按长度）
+// Password strength (simple length-based)
 const passwordStrengthClass = computed(() => {
 	const len = settingsNewPassword.value.length
 	if (len === 0) return ''
@@ -203,7 +203,7 @@ const confirmMismatch = computed(() => {
 	return newPwd.length > 0 && confirm.length > 0 && newPwd !== confirm
 })
 
-// 密码表单可提交：当前密码非空、新密码≥6、确认一致
+// Password form submit-ready: current non-empty, new >= 6, confirm matches
 const passwordFormValid = computed(() => {
 	const current = settingsCurrentPassword.value
 	const newPwd = settingsNewPassword.value
@@ -274,7 +274,7 @@ function passwordFailureMessage(detail, statusCode) {
 	return 'Failed to change password.'
 }
 
-/** 点击「Change password」时：先在校验处统一把错误显示在 Confirm 下方，再在通过时发请求 */
+/** On "Change password": show validation errors under Confirm first, then submit when valid */
 function onChangePasswordClick() {
 	settingsPasswordError.value = ''
 	const current = settingsCurrentPassword.value
@@ -351,7 +351,7 @@ function handleChooseAvatar() {
 </script>
 
 <style scoped>
-/* ========== 入场/离场动效 ========== */
+/* ========== Enter / leave motion ========== */
 .modal-enter-active,
 .modal-leave-active {
 	transition: opacity 0.4s ease;
@@ -373,7 +373,7 @@ function handleChooseAvatar() {
 	opacity: 0;
 }
 
-/* ========== 毛玻璃遮罩 ========== */
+/* ========== Frosted backdrop ========== */
 .settings-mask {
 	position: fixed;
 	left: 0;
@@ -391,7 +391,7 @@ function handleChooseAvatar() {
 	box-sizing: border-box;
 }
 
-/* ========== 弹窗本体：高阶玻璃拟态 (VisionOS 级光影) ========== */
+/* ========== Modal surface: premium glassmorphism (VisionOS-like lighting) ========== */
 .settings-panel {
 	width: 100%;
 	max-width: 880rpx;
@@ -435,7 +435,7 @@ function handleChooseAvatar() {
 	letter-spacing: 0.01em;
 }
 
-/* 分块卡片：极致留白，加大内边距约 20% */
+/* Section cards: extra whitespace, ~20% more inner padding */
 .settings-block {
 	border-radius: 22rpx;
 	padding: 44rpx 40rpx;
@@ -472,7 +472,7 @@ function handleChooseAvatar() {
 	font-weight: 400;
 }
 
-/* 头像区域：破局 - 悬浮溢出 + 多层光环徽章感 */
+/* Avatar area: floating overflow + layered halo badge feel */
 .avatar-section {
 	display: flex;
 	flex-direction: column;
@@ -580,7 +580,7 @@ function handleChooseAvatar() {
 	font-size: 24rpx;
 }
 
-/* 次要按钮（Save）：与暖色背景融为一体 */
+/* Secondary button (Save): blends with warm background */
 .btn-secondary {
 	display: inline-flex;
 	align-items: center;
@@ -619,7 +619,7 @@ function handleChooseAvatar() {
 	margin-top: 24rpx;
 }
 
-/* 上下结构：Label 在上，Input 占满宽度 */
+/* Vertical field layout: label above, full-width input */
 .field-stack {
 	display: flex;
 	flex-direction: column;
@@ -650,7 +650,7 @@ function handleChooseAvatar() {
 	color: #B86561;
 }
 
-/* 输入框：雕刻感 (Recessed) - 嵌入材质内部的凹陷感 */
+/* Input: recessed carved feel inside material */
 .field-input {
 	width: 100%;
 	height: 84rpx;
@@ -710,7 +710,7 @@ function handleChooseAvatar() {
 	user-select: none;
 }
 
-/* 报错：柔和浅红背景 + 淡红文字 */
+/* Error: soft red bg + muted red text */
 .field-error-wrap {
 	background: rgba(194, 116, 112, 0.08);
 	border-radius: 12rpx;
@@ -726,7 +726,7 @@ function handleChooseAvatar() {
 	color: #B86561;
 }
 
-/* 密码强度 */
+/* Password strength */
 .password-strength {
 	display: flex;
 	align-items: center;
@@ -794,7 +794,7 @@ function handleChooseAvatar() {
 	box-shadow: 0 6rpx 16rpx rgba(110, 95, 80, 0.35);
 }
 
-/* 主要按钮：提取主页选中菜单的灰棕/摩卡色 */
+/* Primary button: gray-brown/mocha from active nav tone */
 .btn-primary {
 	display: inline-flex;
 	align-items: center;
@@ -835,7 +835,7 @@ function handleChooseAvatar() {
 	transform: none;
 }
 
-/* Close 按钮 */
+/* Close button */
 .settings-close {
 	text-align: center;
 	font-size: 28rpx;

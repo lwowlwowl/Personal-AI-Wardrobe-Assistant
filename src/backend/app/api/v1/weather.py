@@ -10,9 +10,9 @@ router = APIRouter(tags=["weather"])
 
 @router.get("/api/weather/now")
 async def get_weather_now(
-    lat: float = Query(..., description="纬度"),
-    lon: float = Query(..., description="经度"),
-    token: Optional[str] = Query(None, description="用户认证令牌（用于按用户隔离天气地理缓存）"),
+    lat: float = Query(..., description="Latitude"),
+    lon: float = Query(..., description="Longitude"),
+    token: Optional[str] = Query(None, description="Auth token (per-user geo cache for weather)"),
 ):
     try:
         return weather_service.fetch_weather_now(lat=lat, lon=lon, token=token)

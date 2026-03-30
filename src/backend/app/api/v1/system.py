@@ -9,7 +9,7 @@ router = APIRouter(tags=["system"])
 
 @router.get("/")
 async def root():
-    """根路径：返回API基本信息"""
+    """Root path: basic API info."""
     return {
         "message": "Personal AI Wardrobe Assistant API",
         "version": "1.0.0",
@@ -20,7 +20,7 @@ async def root():
 
 @router.get("/api/health")
 async def health_check():
-    """健康检查接口：用于监控服务状态"""
+    """Health check for monitoring."""
     out: Dict[str, Any] = {"status": "healthy", "message": "API is running"}
     if app_runtime.COMFYUI_AVAILABLE and app_runtime.comfyui_client:
         cc = app_runtime.comfyui_client

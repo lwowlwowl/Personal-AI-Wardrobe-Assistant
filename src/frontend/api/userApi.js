@@ -1,17 +1,17 @@
 /**
- * 用户与认证相关 API
- * 当前用户资料、头像、密码等，与衣柜（衣物/模特照）无关
+ * User and authentication APIs.
+ * Covers profile/avatar/password; unrelated to wardrobe item/model-photo APIs.
  */
 
 import { request, API_BASE_URL } from './wardrobe.js'
 
 export { API_BASE_URL }
 
-// ============ 认证 ============
+// ============ Authentication ============
 
 /**
- * 登录 POST /api/auth/login
- * 请求体对应 schemas.UserLogin：username, password, remember
+ * Login: POST /api/auth/login
+ * Request body follows schemas.UserLogin: username, password, remember.
  * @param {{ username: string, password: string, remember?: boolean }} body
  * @returns {Promise<{ statusCode: number, data: any }>}
  */
@@ -33,8 +33,8 @@ export function loginAuth(body) {
 }
 
 /**
- * 注册 POST /api/auth/register
- * 请求体对应 schemas.UserCreate：username, email, password, confirm_password
+ * Register: POST /api/auth/register
+ * Request body follows schemas.UserCreate: username, email, password, confirm_password.
  * @param {{ username: string, email: string, password: string, confirm_password: string }} body
  * @returns {Promise<{ statusCode: number, data: any }>}
  */
@@ -55,7 +55,8 @@ export function registerAuth(body) {
 }
 
 /**
- * 忘记密码：凭邮箱 + 用户名匹配同一账号后重置（POST /api/auth/reset-password-by-identity）
+ * Reset password by identity: match email + username for same account, then reset
+ * (POST /api/auth/reset-password-by-identity).
  * @param {{ email: string, username: string, new_password: string, confirm_password: string }} body
  * @returns {Promise<{ statusCode: number, data: any }>}
  */
@@ -76,7 +77,7 @@ export function resetPasswordByIdentity(body) {
 }
 
 /**
- * 验证 JWT token 是否有效
+ * Verify whether JWT token is valid.
  * @param {string} token
  * @returns {Promise<{ statusCode, data }>}
  */
@@ -88,10 +89,10 @@ export function authVerify(token) {
   })
 }
 
-// ============ 当前用户 (users/me) ============
+// ============ Current User (users/me) ============
 
 /**
- * 获取当前登录用户信息（含头像、邮箱等）
+ * Get current signed-in user info (including avatar/email/etc).
  * @param {string} token
  * @returns {Promise<{ statusCode, data }>} data: { id, username, email, full_name, avatar_url, is_active, created_at }
  */
@@ -101,11 +102,11 @@ export function getUsersMe(token) {
 }
 
 /**
- * 上传用户头像
+ * Upload user avatar.
  * @param {Object} opts
  * @param {string} opts.token
- * @param {string} opts.filePath - 本地图片路径（uni.chooseImage 返回）
- * @returns {Promise<{ statusCode, data }>} data 为更新后的用户信息
+ * @param {string} opts.filePath - Local image path (from uni.chooseImage).
+ * @returns {Promise<{ statusCode, data }>} data is the updated user info.
  */
 export function uploadUserAvatar(opts) {
   const { token, filePath } = opts || {}
@@ -129,7 +130,7 @@ export function uploadUserAvatar(opts) {
 }
 
 /**
- * 更新当前用户资料（用户名、邮箱等）
+ * Update current user profile (username, email, etc).
  * @param {string} token
  * @param {Object} data - { username?, email?, full_name?, avatar_url? }
  * @returns {Promise<{ statusCode, data }>}
@@ -145,7 +146,7 @@ export function updateUsersMe(token, data) {
 }
 
 /**
- * 修改当前用户密码
+ * Change current user's password.
  * @param {string} token
  * @param {string} currentPassword
  * @param {string} newPassword

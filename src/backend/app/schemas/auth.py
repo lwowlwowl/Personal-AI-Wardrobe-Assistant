@@ -4,28 +4,28 @@ from pydantic import BaseModel, EmailStr, Field, validator
 
 
 class UserLogin(BaseModel):
-    """用户登录请求模型"""
+    """Login request body."""
     username: str
     password: str
-    remember: bool = False  # 是否记住登录状态
+    remember: bool = False  # longer session when true
 
     @validator('username')
     def username_not_empty(cls, v):
-        """验证用户名不为空"""
+        """Username required."""
         if not v or not v.strip():
             raise ValueError('Username cannot be empty.')
         return v.strip()
 
     @validator('password')
     def password_not_empty(cls, v):
-        """验证密码不为空"""
+        """Password required."""
         if not v:
             raise ValueError('Password cannot be empty.')
         return v
 
 
 class PasswordResetByIdentity(BaseModel):
-    """未登录场景：凭邮箱 + 用户名匹配同一账号后重置密码（无邮件链路）"""
+    """Reset password when logged out: match email + username on same account (no email send)."""
     email: EmailStr
     username: str = Field(..., min_length=1, max_length=50)
     new_password: str = Field(..., min_length=6, max_length=100)
@@ -46,7 +46,7 @@ class PasswordResetByIdentity(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    """登录响应模型，包含认证令牌和用户信息"""
+    """Login success payload shape."""
     success: bool
     message: str
     access_token: Optional[str] = None
@@ -54,26 +54,26 @@ class LoginResponse(BaseModel):
     user_id: Optional[int] = None
     username: Optional[str] = None
     email: Optional[str] = None
-    expires_in: Optional[int] = None  # 令牌过期时间（秒）
+    expires_in: Optional[int] = None  # seconds until expiry
     remember: Optional[bool] = None
 
 
 class TokenData(BaseModel):
-    """Token中存储的数据结构"""
+    """Claims stored in JWT."""
     user_id: Optional[int] = None
     username: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
-    """Token响应模型"""
+    """OAuth-style token response."""
     access_token: str
-    token_type: str = "bearer"  # 令牌类型，默认为bearer
-    expires_in: int  # 过期时间（秒）
+    token_type: str = "bearer"
+    expires_in: int
     user_id: int
     username: str
 
 
 class PasswordChange(BaseModel):
-    """修改密码（需验证当前密码）"""
+    """Change password with current password verification."""
     current_password: str
     new_password: str = Field(..., min_length=6, max_length=100)

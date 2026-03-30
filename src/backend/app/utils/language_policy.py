@@ -18,7 +18,7 @@ def count_latin_words(text: str) -> int:
 
 def detect_text_language(text: str) -> str:
     """
-    返回 'zh' / 'en' / 'unknown'
+    Return 'zh', 'en', or 'unknown'.
     """
     text = (text or "").strip()
     if not text:
@@ -29,19 +29,19 @@ def detect_text_language(text: str) -> str:
 
     lower = text.lower().strip()
 
-    # 短确认词，单独不决定语言，交给上下文
+    # Short acknowledgements: defer to conversation context
     if lower in SHORT_ACKS_EN or text in SHORT_ACKS_ZH:
         return "unknown"
 
-    # 英文句法主导：英文单词较多，即使夹中文，也优先英语
+    # English-dominant: enough Latin words → English even with some CJK
     if latin_count >= 3 and latin_count >= cjk_count:
         return "en"
 
-    # 中文明显占主导
+    # Clearly Chinese-dominant
     if cjk_count >= 4 and cjk_count > latin_count:
         return "zh"
 
-    # 轻度中文也可判中文
+    # Light CJK can still count as Chinese
     if cjk_count >= 2 and latin_count <= 1:
         return "zh"
 
@@ -51,7 +51,7 @@ def detect_text_language(text: str) -> str:
 def detect_context_language(history_messages: List[Dict]) -> str:
     """
     history_messages: [{role: 'user'/'ai', content: '...'}]
-    只看最近几条 user 消息
+    Uses the last few user messages only.
     """
     recent_user_msgs = [
         (m.get("content") or "")
@@ -78,13 +78,13 @@ def detect_context_language(history_messages: List[Dict]) -> str:
 def decide_reply_language(current_text: str, history_messages: List[Dict]) -> str:
     current_lang = detect_text_language(current_text)
 
-    # 当前是短确认词/无法判断 -> 继承上下文
+    # Short ack / unknown → inherit from context
     if current_lang == "unknown":
         return detect_context_language(history_messages)
 
-    # 当前明显可判断，优先当前
+    # Clear current message wins
     if current_lang in {"zh", "en"}:
-        # 但如果当前超短且上下文强烈偏中文，则继承中文
+        # Very short reply + strong Chinese context → stay in Chinese
         if len(current_text.strip()) <= 4:
             ctx_lang = detect_context_language(history_messages)
             if ctx_lang == "zh" and count_cjk_chars(current_text) <= 1:

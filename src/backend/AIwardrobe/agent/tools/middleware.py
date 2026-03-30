@@ -1,5 +1,5 @@
 from typing import Callable
-from AIwardrobe.utils.prompt_loader import load_system_prompts
+from AIwardrobe.utils.prompt_loader import load_report_prompts, load_system_prompts
 from langchain.agents import AgentState
 from langchain.agents.middleware import wrap_tool_call, before_model, dynamic_prompt, ModelRequest
 from langchain_core.messages import ToolMessage
@@ -11,34 +11,34 @@ from AIwardrobe.utils.logger_handler import logger
 
 @wrap_tool_call
 async def monitor_tool(
-        # 请求的数据封装
+        # LangGraph tool call envelope
         request: ToolCallRequest,
-        # 执行的函数本身
+        # Next handler in the chain
         handler: Callable[[ToolCallRequest], ToolMessage | Command],
-) -> ToolMessage | Command:                      # 工具执行的监控
+) -> ToolMessage | Command:                      # Log tool invocations and outcomes
 
-    logger.info(f"[tool monitor]执行工具:{request.tool_call['name']}")
-    logger.info(f"[tool monitor]传入参数:{request.tool_call['args']}")
+    logger.info(f"[tool monitor] invoking tool: {request.tool_call['name']}")
+    logger.info(f"[tool monitor] args: {request.tool_call['args']}")
 
     try:
         result = await handler(request)
-        logger.info(f"[tool monitor]工具{request.tool_call['name']}调用成功")
+        logger.info(f"[tool monitor] tool {request.tool_call['name']} succeeded")
 
-        if request.tool_call['name'] == "fill_context_for_report":          # 只要这个工具被调用 就把report改为true
+        if request.tool_call['name'] == "fill_context_for_report":          # Flip runtime flag for report prompt mode
             request.runtime.context["report"] = True
 
         return result
 
     except Exception as e:
-        logger.error(f"[tool monitor]工具{request.tool_call['name']}调用失败，原因:{str(e)}")
+        logger.error(f"[tool monitor] tool {request.tool_call['name']} failed: {e}")
         raise e
 
 @before_model
 def log_before_model(
-        state: AgentState,                  # 整个Agent智能体中的状态记录
-        runtime: Runtime,                   # 记录了整个执行过程中的上下文信息
-):     # 在模型执行前输出日志
-    logger.info(f"[log_before_model]即将调用模型，带有{len(state['messages'])}条信息")
+        state: AgentState,                  # Agent message list and scratch state
+        runtime: Runtime,                   # Execution context (e.g. report flag)
+):     # Log before each model call
+    logger.info(f"[log_before_model] calling model with {len(state['messages'])} message(s)")
 
     logger.debug(f"[log_before_model]{type(state['messages'][-1]).__name__} | {state['messages'][-1].content.strip()}")
 
@@ -50,7 +50,7 @@ def report_prompt_switch(request: ModelRequest):
     is_report = request.runtime.context.get("report", False)
 
     if is_report:
-        logger.info("[report_prompt_switch]已切换至report模式")
+        logger.info("[report_prompt_switch] switched to report prompt mode")
         return load_report_prompts()
 
     return load_system_prompts()

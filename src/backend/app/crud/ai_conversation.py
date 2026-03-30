@@ -1,15 +1,19 @@
-"""推荐 AI 对话 CRUD。"""
+"""CRUD for Recommendation AI conversations."""
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.models import AIConversation
 
 class AIConversationCRUD:
-    """推荐 AI 对话持久化（Your conversations）"""
+    """Persist Recommendation AI conversations (Your conversations)."""
 
     @staticmethod
     def list_by_user(db: Session, user_id: int, skip: int = 0, limit: int = 200):
-        """按用户获取对话列表，按 updated_at 降序"""
+        """
+        List conversations for a user.
+
+        Sort: most recently updated first (`updated_at` descending).
+        """
         try:
             query = db.query(AIConversation).filter(AIConversation.user_id == user_id)
             total = query.count()
@@ -20,7 +24,7 @@ class AIConversationCRUD:
 
     @staticmethod
     def get_by_id_and_user(db: Session, conversation_id: int, user_id: int):
-        """按 id 和 user_id 获取单条对话"""
+        """Fetch one conversation by primary key, scoped to `user_id`."""
         try:
             conv = db.query(AIConversation).filter(
                 AIConversation.id == conversation_id,
@@ -32,7 +36,7 @@ class AIConversationCRUD:
 
     @staticmethod
     def create(db: Session, user_id: int, title: str = "New conversation", messages: list = None):
-        """创建一条对话"""
+        """Insert a new conversation row (empty `messages` if omitted)."""
         try:
             conv = AIConversation(
                 user_id=user_id,
@@ -49,7 +53,7 @@ class AIConversationCRUD:
 
     @staticmethod
     def update(db: Session, conversation_id: int, user_id: int, title: str = None, messages: list = None):
-        """更新对话的 title 和/或 messages"""
+        """Update `title` and/or `messages`; pass None to leave a field unchanged."""
         try:
             conv = db.query(AIConversation).filter(
                 AIConversation.id == conversation_id,
@@ -70,7 +74,7 @@ class AIConversationCRUD:
 
     @staticmethod
     def delete(db: Session, conversation_id: int, user_id: int):
-        """删除一条对话"""
+        """Delete a conversation row after verifying ownership."""
         try:
             conv = db.query(AIConversation).filter(
                 AIConversation.id == conversation_id,

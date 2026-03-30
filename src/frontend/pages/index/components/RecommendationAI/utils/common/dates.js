@@ -1,4 +1,4 @@
-/** 日历等用的本地日期键 yyyy-mm-dd */
+/** Local date key yyyy-mm-dd for calendar and similar. */
 export function todayKey() {
 	const d = new Date()
 	const y = d.getFullYear()

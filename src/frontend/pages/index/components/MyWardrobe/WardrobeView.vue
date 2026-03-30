@@ -2,7 +2,7 @@
 	<view class="wardrobe-root">
 	<scroll-view class="wardrobe-container" scroll-y :show-scrollbar="false">
 		<view class="wardrobe-inner">
-			<!-- 添加上传状态提示 -->
+			<!-- Upload status hint -->
 			<view v-if="uploadLoading" class="upload-loading">
 				<text>Uploading & tagging...</text>
 				<view class="loading-spinner"></view>
@@ -283,7 +283,7 @@
 											@click="openDetail(item)"
 										>
 									<view class="img-wrapper" :class="{ 'is-loaded': item.imageLoaded }">
-										<!-- 方式1: 使用原生image -->
+										<!-- Option 1: native image -->
 										  <image 
 										    :src="item.image" 
 										    mode="aspectFill" 
@@ -292,12 +292,12 @@
 										    @error="handleImageError($event, item)"
 										  />
 										  
-										  <!-- 方式2: 使用web-view作为备选 -->
+										  <!-- Option 2: web-view fallback -->
 										  <view v-if="item.imageError" class="image-fallback">
 										    <text class="fallback-text">{{ item.name }}</text>
 										  </view>
 
-										  <!-- 卡片 Hover 快捷操作浮层 -->
+										  <!-- Card hover quick-actions overlay -->
 										  <view class="card-overlay">
 											  <view class="card-overlay-top">
 												  <text class="card-tag">Cloth</text>
@@ -314,7 +314,7 @@
 											  </view>
 										  </view>
 									</view>
-									<!-- 底部名称：在非 hover 状态也给一点信息感 -->
+									<!-- Bottom name: light hint when not hovering -->
 									<view class="card-caption">
 										<text class="card-caption-name" :title="item.name">
 											{{ item.name || 'Unnamed item' }}
@@ -523,31 +523,31 @@ import {
 
 const emit = defineEmits(['switch-to-tryon'])
 
-// 注入父组件提供的 auth 状态同步函数，用于同步侧边栏显示
+// Parent-provided auth sync for sidebar display
 const updateAuthState = inject('updateAuthState', null)
 
-// ============ 用户认证状态 ============
-// 从本地存储获取token和用户信息
+// ============ Auth state ============
+// Token and user from storage
 const userToken = ref(uni.getStorageSync('auth_token') || '')
 const userInfo = ref(uni.getStorageSync('user_info') || null)
 const isLoggedIn = ref(!!userToken.value)
-const isCheckingAuth = ref(false) // 用于token验证
-// 首次加载状态：数据回来前显示骨架屏，避免闪现空状态
+const isCheckingAuth = ref(false) // token validation in progress
+// First load: skeleton until data arrives (avoid empty flash)
 const isInitialLoadingCloth = ref(true)
 const isInitialLoadingModel = ref(true)
 
-// ============ 上传相关状态 ============
+// ============ Upload state ============
 const uploadLoading = ref(false)
 const uploadError = ref('')
 const showCategoryModal = ref(false)
-/** 上传并打标成功后要编辑的衣物 id，确认时走 update 而非再次上传 */
+/** Clothing id to edit after upload+tag success; confirm uses update not re-upload */
 const createdItemIdForEdit = ref(null)
 
 function createEmptyClothingUploadForm() {
   return {
     name: '',
-    category: '', // 后端 9 个主分类之一
-    subcategory: '', // 用户可自由输入的子分类
+    category: '', // one of 9 backend categories
+    subcategory: '', // free-text subcategory
     color: '',
     season: '',
     brand: '',
@@ -588,10 +588,10 @@ function openClothTaggingModalFromUploadData(data) {
   showCategoryModal.value = true
 }
 
-// ============ 认证相关方法 ============
+// ============ Auth methods ============
 
 /**
- * 检查认证状态
+ * Check auth state
  */
 async function checkAuthStatus() {
   if (!userToken.value) {
@@ -608,7 +608,7 @@ async function checkAuthStatus() {
     const response = await authVerify(userToken.value)
 
     if (response.statusCode === 200 && response.data.valid) {
-      // token有效
+      // token valid
       isLoggedIn.value = true
       userInfo.value = {
         id: response.data.user_id,
@@ -619,14 +619,14 @@ async function checkAuthStatus() {
       updateAuthState?.(true, userInfo.value.username)
       return true
     } else {
-      // token无效，清除本地存储
+      // invalid token — clear storage
       clearAuthData()
       updateAuthState?.(false)
       return false
     }
   } catch (error) {
     console.error('authVerify failed:', error)
-    // 网络错误时保持现有状态，但标记为检查中
+    // On network error keep state but stay in checking
     return false
   } finally {
     isCheckingAuth.value = false
@@ -634,7 +634,7 @@ async function checkAuthStatus() {
 }
 
 /**
- * 清除认证数据
+ * Clear auth data
  */
 function clearAuthData() {
   uni.removeStorageSync('auth_token')
@@ -743,12 +743,12 @@ async function handleClothUploadConfirm({ itemId, payload }) {
   }
 }
 
-// 重置上传表单
+// Reset upload form
 const resetUploadForm = () => {
   uploadFormData.value = createEmptyClothingUploadForm()
 }
 
-// 关闭模态框
+// Close modal
 const closeCategoryModal = () => {
   showCategoryModal.value = false
   createdItemIdForEdit.value = null
@@ -756,8 +756,8 @@ const closeCategoryModal = () => {
 }
 
 
-// 加载衣物数据的方法
-// showSkeleton: 是否显示骨架屏（初次进入为 true，上传/删除后刷新为 false）
+// Load clothing list
+// showSkeleton: true on first entry; false after upload/delete refresh
 const loadClothingData = async (options = {}) => {
   const { showSkeleton = true } = options
   try {
@@ -780,11 +780,11 @@ const loadClothingData = async (options = {}) => {
       const items = response.data.data.items || []
       console.log(`Fetched ${items.length} clothing items`)
       
-      // 第一步：构建初始数据
+      // Step 1: build raw rows
       const initialItems = items.map(item => {
         const imageUrl = resolveWardrobeImageUrl(item.image_url)
         
-        // 后端 season 为数组 ["autumn","winter"]，前端筛选/详情用逗号分隔字符串，此处统一成字符串
+        // Backend season is array; UI uses comma-separated string
         const seasonVal = item.season
         const seasonStr = Array.isArray(seasonVal) ? seasonVal.join(',') : (seasonVal || '')
 
@@ -807,11 +807,11 @@ const loadClothingData = async (options = {}) => {
           image: imageUrl,
           _rawImageUrl: item.image_url,
           _source: 'api',
-          _needsFix: item.image_url && item.image_url.startsWith('/') // 标记需要修复
+          _needsFix: item.image_url && item.image_url.startsWith('/') // needs URL fix
         }
       })
       
-      // 第二步：应用修复（如果需要）
+      // Step 2: apply image URL fixes
       clothes.value = await applyClothingImageUrlFixes(initialItems)
       
       console.log(`Done: ${clothes.value.length} items in wardrobe`)
@@ -890,23 +890,23 @@ function handleDeleteCancel() {
   deletePayload.value = { type: null, id: null }
 }
 
-// ============ 模特照片相关状态 ============
+// ============ Model photos state ============
 const showModelUploadModal = ref(false)
 const selectedModelImageFile = ref(null)
 
-// 从后端加载的模特照片数据
+// Model photos from API
 const models = ref([])
 const defaultModelId = ref(null)
 
-// 当前选中的模特照片（用于编辑）
+// Selected model (detail/edit)
 const selectedModel = ref({})
 const showModelModal = ref(false)
 
-// ============ 模特照片相关方法 ============
+// ============ Model photo methods ============
 
 /**
- * 加载模特照片数据
- * showSkeleton: 是否显示骨架屏（初次/切换 Tab 为 true，上传/删除后刷新为 false）
+ * Load model photos
+ * showSkeleton: true on first load / tab switch; false after upload/delete refresh
  */
 const loadModelPhotos = async (options = {}) => {
   const { showSkeleton = true } = options
@@ -931,15 +931,15 @@ const loadModelPhotos = async (options = {}) => {
       const photos = response.data.data.photos || []
       console.log(`Fetched ${photos.length} model photos`)
       
-      // 转换数据格式
+      // Map API rows to UI
       models.value = photos.map(photo => {
         const imageUrl = resolveWardrobeImageUrl(photo.image_url)
         
         return {
           id: photo.id,
-          posture: photo.photo_name, // 使用photo_name作为posture显示
+          posture: photo.photo_name, // display photo_name as posture label
           date: photo.created_at ? photo.created_at.slice(0, 10) : '',
-          favourite: 0, // 模特照片没有收藏功能
+          favourite: 0, // no favourites for model photos
           image: imageUrl,
           photo_name: photo.photo_name,
           description: photo.description,
@@ -950,7 +950,7 @@ const loadModelPhotos = async (options = {}) => {
         }
       })
       
-      // 仅当有明确设为「主要」的模特时设置 defaultModelId，否则不指定默认（避免新上传未勾选默认却被当成默认）
+      // Set defaultModelId only when a row is primary (avoid treating new uploads as default)
       const primaryModel = models.value.find(model => model.is_primary)
       defaultModelId.value = primaryModel ? primaryModel.id : null
       
@@ -968,7 +968,7 @@ const loadModelPhotos = async (options = {}) => {
 }
 
 /**
- * 打开模特照片上传模态框
+ * Open model photo upload modal
  */
 const openModelUpload = async () => {
   console.log('model photo upload start...')
@@ -980,7 +980,7 @@ const openModelUpload = async () => {
 }
 
 /**
- * 模特上传弹窗确认：执行上传
+ * Model upload modal confirm: run upload
  */
 const handleModelUploadConfirm = async (formData) => {
   if (!selectedModelImageFile.value) {
@@ -1008,7 +1008,7 @@ const handleModelUploadConfirm = async (formData) => {
 }
 
 /**
- * 执行模特照片上传
+ * Perform model photo upload
  */
 const performModelUpload = async (filePath, formData) => {
   const result = await uploadModelPhoto({
@@ -1034,7 +1034,7 @@ const closeModelUploadModal = () => {
 }
 
 /**
- * 删除模特照片：仅打开自定义确认弹窗
+ * Delete model photo: open confirm dialog only
  */
 const handleModelDelete = (id) => {
   deletePayload.value = { type: 'model', id }
@@ -1071,13 +1071,13 @@ const doDeleteModel = async (id) => {
 }
 
 /**
- * 设置默认模特照片
+ * Set default model photo
  */
 const handleSetDefaultModel = async (id) => {
   try {
     console.log('set default model photo:', id)
     
-    // 显示加载提示
+    // Loading overlay
     uni.showLoading({
       title: 'Setting...',
       mask: true
@@ -1088,10 +1088,10 @@ const handleSetDefaultModel = async (id) => {
     uni.hideLoading()
     
     if (response.statusCode === 200 && response.data.success) {
-      // 更新默认模特ID
+      // Update default model id
       defaultModelId.value = id
       
-      // 更新所有模特照片的is_primary状态
+      // Sync is_primary on all rows
       models.value.forEach(model => {
         model.is_primary = (model.id === id)
       })
@@ -1123,25 +1123,25 @@ const handleSetDefaultModel = async (id) => {
 }
 
 /**
- * 更新模特照片信息
+ * Update model photo fields
  */
 const handleModelUpdate = async ({ id, field, value }) => {
   try {
     console.log('update model photo:', { id, field, value })
     
-    // 如果是is_primary字段，使用专门的API
+    // is_primary uses dedicated API
     if (field === 'is_primary' && value === true) {
       await handleSetDefaultModel(id)
       return
     }
     
-    // 显示加载提示
+    // Loading overlay
     uni.showLoading({
       title: 'Updating...',
       mask: true
     })
     
-    // 构建更新数据
+    // Build PATCH payload
     const updateData = { [field]: value }
     
     const response = await updateModelPhoto(userToken.value, id, updateData)
@@ -1149,7 +1149,7 @@ const handleModelUpdate = async ({ id, field, value }) => {
     uni.hideLoading()
     
     if (response.statusCode === 200 && response.data.success) {
-      // 更新前端数据
+      // Update local list
       const modelIndex = models.value.findIndex((m) => m.id === id)
       if (modelIndex !== -1) {
         models.value[modelIndex][field] = value
@@ -1183,14 +1183,14 @@ const handleModelUpdate = async ({ id, field, value }) => {
 }
 
 /**
- * 打开模特照片详情
+ * Open model photo detail
  */
 const openModelDetail = (item) => {
   selectedModel.value = { ...item }
   showModelModal.value = true
 }
 
-// ============ 页面加载时初始化 ============
+// ============ onMounted ============
 onMounted(async () => {
   await checkAuthStatus()
   if (isLoggedIn.value) {
@@ -1228,20 +1228,20 @@ const currentPage = ref(1)
 const selectedFavouriteLevels = ref([])
 const appliedFavouriteLevels = ref([])
 
-// Date：升序/降序
+// Date: asc / desc
 const dateSortOrder = ref('desc')
 const appliedDate = ref(null)
 
-// Clothing type（多选，存 code）
+// Clothing type (multi-select, codes)
 const typeOptions = TYPE_OPTIONS
 const selectedTypes = ref([])
 const appliedTypes = ref([])
 
-// Color（多选，存 code）；选项由当前衣物列表的颜色动态推导
+// Color (multi-select, codes); options derived from current list
 const selectedColors = ref([])
 const appliedColors = ref([])
 
-// Season（多选，存 code）
+// Season (multi-select, codes)
 const seasonOptions = SEASON_OPTIONS
 const selectedSeasons = ref([])
 const appliedSeasons = ref([])
@@ -1250,7 +1250,7 @@ const seasonLabel = computed(() => {
 	return count > 0 ? `Season (${count})` : 'Season'
 })
 
-// 多选筛选项的按钮文案：有选中时显示数量
+// Multi-select filter labels: show count when active
 const favouriteLabel = computed(() => {
 	const count = appliedFavouriteLevels.value.length
 	return count > 0 ? `Favourite (${count})` : 'Favourite'
@@ -1264,10 +1264,10 @@ const colorLabel = computed(() => {
 	return count > 0 ? `Color (${count})` : 'Color'
 })
 
-// 衣物列表：初始为空，登录后由 loadClothingData 从接口拉取
+// Clothing rows: empty until loadClothingData after login
 const clothes = ref([])
 
-// 颜色筛选选项：根据当前衣物列表的颜色动态推导（去重 + 排序）
+// Color filter options from list (dedupe + sort)
 const colorOptions = computed(() => {
 	const set = new Set()
 	for (const c of clothes.value) {
@@ -1282,7 +1282,7 @@ const colorOptions = computed(() => {
 })
 
 
-// 搜索：仅匹配名称，允许前缀匹配，不允许任意子串（swea/swe ✅ sweater，we ❌ sweater）
+// Search: name only, prefix match per word (e.g. swea matches sweater; we does not)
 const nameMatchesSearch = (name, searchTerm) => {
 	const nameWords = (name || '').toLowerCase().split(/\s+/).filter(Boolean)
 	const searchWords = searchTerm.trim().toLowerCase().split(/\s+/).filter(Boolean)
@@ -1306,7 +1306,7 @@ const displayList = computed(() => {
 		const levels = appliedFavouriteLevels.value
 		list = list.filter((c) => levels.includes(Number(c.favourite) || 0))
 	}
-	// type/color/season 可能为多选（逗号分隔），筛选时只要有一个 code 命中即显示
+	// type/color/season may be comma-separated; match if any code hits
 	const parseItemCodes = (str) => (str || '').split(/[,/]+/).map((s) => s.trim()).filter(Boolean)
 	if (appliedTypes.value.length > 0) {
 		const types = appliedTypes.value
@@ -1338,18 +1338,18 @@ const paginatedList = computed(() => {
 
 // Model list: default model always first, then rest (filtered/sorted)
 const modelDisplayList = computed(() => {
-  // 首先按主要照片排序
+  // Primary model first
   const sortedModels = [...models.value]
-    .filter(model => model.is_active !== false) // 排除已删除的
+    .filter(model => model.is_active !== false) // hide soft-deleted
     .sort((a, b) => {
-      // 主要照片排第一
+      // Primary first
       if (a.is_primary && !b.is_primary) return -1
       if (!a.is_primary && b.is_primary) return 1
-      // 然后按创建时间降序
+      // Then by date desc
       return (b.date || '').localeCompare(a.date || '')
     })
   
-  // 应用搜索过滤：仅匹配名称（photo_name），且搜索词须为完整单词
+  // Search: photo_name only, prefix match per word
   const q = modelSearchQuery.value.trim()
   if (q) {
     return sortedModels.filter((m) => nameMatchesSearch(m.photo_name, q))
@@ -1491,10 +1491,10 @@ const resetSeason = () => {
 	activeFilter.value = null
 }
 
-/** 强制搜索框重挂载用（uni-app 下程序清空后 input 可能不更新） */
+/** Remount search input when clearing (uni-app input can stick) */
 const clearKey = ref(0)
 
-/** 一键清除所有筛选条件（含搜索框），用于「无搜索结果」时一键还原 */
+/** Clear all filters + search (e.g. from empty-results state) */
 const clearAllFilters = () => {
 	activeFilter.value = null
 	appliedFavouriteLevels.value = []
@@ -1519,7 +1519,7 @@ const openDetail = (item) => {
 	showModal.value = true
 }
 
-/** 在详情弹窗内点击「相似标签」小图：切换到该衣物的详情（同一弹窗） */
+/** Similar-tag thumb in detail: open that item in the same modal */
 const handleOpenSimilarItem = (item) => {
 	if (!item?.id) return
 	const fromList = clothes.value.find((c) => c.id === item.id)
@@ -1527,7 +1527,7 @@ const handleOpenSimilarItem = (item) => {
 	showModal.value = true
 }
 
-// 图片加载成功时清除错误标记并标记为已加载（用于 skeleton 过渡）
+// Image load OK: clear error, mark loaded (skeleton handoff)
 const handleImageLoad = (_event, item) => {
 	if (!item?.id) return
 	const idx = clothes.value.findIndex((c) => c.id === item.id)
@@ -1540,7 +1540,7 @@ const handleImageLoad = (_event, item) => {
 	}
 }
 
-// 图片加载失败时标记错误并结束 skeleton
+// Image error: show error state, end skeleton
 const handleImageError = (_event, item) => {
 	if (!item?.id) return
 	const idx = clothes.value.findIndex((c) => c.id === item.id)
@@ -1563,28 +1563,28 @@ const handleVirtualTryOn = (item) => {
 	emit('switch-to-tryon', item, defaultModelImage)
 }
 
-// 卡片上的快捷操作：直接进入虚拟试穿
+// Card quick action: try-on
 const quickTryOn = (item) => {
 	if (!item) return
 	handleVirtualTryOn(item)
 }
 
-// 卡片上的快捷操作：直接删除衣物
+// Card quick action: delete
 const quickDelete = (item) => {
 	if (!item?.id) return
 	handleDeleteItem(item.id)
 }
 
-// 衣物编辑：同步到后端并更新本地
+// Item edit: PATCH then update local row
 const handleItemUpdate = async ({ id, field, value }) => {
 	const idx = clothes.value.findIndex((c) => c.id === id)
 	if (idx < 0) return
 	const prev = { ...clothes.value[idx] }
-	// 本地字段：category 对应列表的 type（筛选用），subcategory 对应 subcategory
+	// Local: category maps to list `type` (filters); subcategory as-is
 	const localField = field === 'category' ? 'type' : field
 	clothes.value[idx] = { ...prev, [localField]: value }
 	selectedItem.value = { ...clothes.value[idx] }
-	// 后端字段：category / subcategory 直传，favourite -> is_favorite（0-3 整数），season 需为 JSON 数组字符串
+	// API: category/subcategory as-is; favourite -> is_favorite 0–3; season JSON array string
 	const backendField = field === 'favourite' ? 'is_favorite' : field
 	let backendValue = field === 'favourite' ? Math.min(3, Math.max(0, Number(value) || 0)) : value
 	if (field === 'season') {
@@ -1632,7 +1632,7 @@ const handleUploadDrop = async (event) => {
 		uni.showToast({ title: 'Drop an image file', icon: 'none' })
 		return
 	}
-	// 仅 Cloth 模式支持拖拽上传；且必须走后端打标，绝不往列表里塞假数据
+	// Drag-drop upload only in Cloth mode; must use backend tagging (no fake rows)
 	if (viewMode.value !== 'Cloth') {
 		uni.showToast({ title: 'Switch to Cloth mode to drag & drop', icon: 'none' })
 		return
@@ -1658,7 +1658,7 @@ const handleUploadDrop = async (event) => {
 				formData: createEmptyClothingUploadForm()
 			})
 		} catch (e1) {
-			// 若 fetch 失败（如 CORS），尝试用 blob URL 走 uni.uploadFile
+			// If fetch fails (e.g. CORS), retry with blob URL + uni.uploadFile
 			blobUrl = URL.createObjectURL(file)
 			result = await uploadClothing({
 				token: userToken.value,
@@ -2081,9 +2081,9 @@ const handleUploadDrop = async (event) => {
 	flex-direction: column;
 	align-items: center;
 	text-align: center;
-	/* 内层柔和实边 */
+	/* Inner soft solid edge */
 	border: 2rpx solid rgba(191, 169, 140, 0.22);
-	/* 极淡径向渐变 + 线性渐变 */
+	/* Very soft radial + linear gradient */
 	background: radial-gradient(circle at 50% 0%, rgba(191, 169, 140, 0.1), transparent 55%),
 		linear-gradient(180deg, #FAF7F2, #F4EFE8);
 	transition: background 0.2s ease, border-color 0.2s ease;
@@ -2156,7 +2156,7 @@ const handleUploadDrop = async (event) => {
 	width: 100%;
 	aspect-ratio: 4 / 5;
 	transform-style: preserve-3d;
-	/* studio 展示：电商拍摄感 */
+	/* Studio look: e-com product shot */
 	background: radial-gradient(circle at 50% 40%, #ffffff, #F3F1EC);
 	box-shadow:
 		inset 0 1rpx 0 rgba(255, 255, 255, 0.7),
@@ -2212,7 +2212,7 @@ const handleUploadDrop = async (event) => {
 	}
 }
 
-/* 首次加载骨架屏：统一占位色 + 呼吸动画 */
+/* First-load skeleton: unified placeholder + breathe */
 .is-loading {
 	background: #F5F0E6 !important;
 	box-shadow: none !important;
@@ -2244,7 +2244,7 @@ const handleUploadDrop = async (event) => {
 	animation: cloth-skeleton-shimmer 1.5s infinite linear;
 }
 
-/* 卡片 Hover 浮层：快捷操作 + 名称 */
+/* Card hover overlay: quick actions + name */
 .card-overlay {
 	position: absolute;
 	inset: 0;
@@ -2323,7 +2323,7 @@ const handleUploadDrop = async (event) => {
 	transform: scale(0.97);
 }
 
-/* 卡片底部标题：在非 hover 状态也提供轻量信息 */
+/* Card footer title: light hint when not hovering */
 .card-caption {
 	margin-top: 10rpx;
 	padding: 0 4rpx;
@@ -2437,7 +2437,7 @@ const handleUploadDrop = async (event) => {
 	overflow: hidden;
 }
 
-/* 空状态轻背景容器：磨砂面板 */
+/* Empty state: frosted panel */
 .empty-state-panel {
 	position: relative;
 	width: 100%;
@@ -2474,7 +2474,7 @@ const handleUploadDrop = async (event) => {
 	animation: empty-float 4s ease-in-out infinite;
 }
 
-/* icon 后方淡淡服装纹理 */
+/* Subtle fabric texture behind icon */
 .empty-state-icon-texture {
 	position: absolute;
 	left: 50%;
@@ -2531,7 +2531,7 @@ const handleUploadDrop = async (event) => {
 	transform: translateY(0);
 }
 
-/* --- 搜索/筛选无结果的高级感样式 --- */
+/* --- No search/filter results: elevated empty state --- */
 .no-results-wrap {
 	display: flex;
 	justify-content: center;
@@ -2618,7 +2618,7 @@ const handleUploadDrop = async (event) => {
 	background-color: #1D1D1F;
 }
 
-/* 无结果 ⇄ 列表 状态切换：先完整淡出再淡入，避免衣服突然闪现 */
+/* Empty ↔ list transition: full fade-out then fade-in (no card pop) */
 .state-fade-enter-active,
 .state-fade-leave-active {
 	transition: opacity 0.4s ease, transform 0.4s ease;
@@ -2637,7 +2637,7 @@ const handleUploadDrop = async (event) => {
 	opacity: 1;
 	transform: translateY(0) scale(1);
 }
-/* 列表容器进场时稍延迟，让「无结果」先离开再显示列表 */
+/* List container enters slightly later so empty state exits first */
 .list-container {
 	animation: list-container-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.08s forwards;
 	opacity: 0;
@@ -2653,7 +2653,7 @@ const handleUploadDrop = async (event) => {
 	}
 }
 
-/* 列表进场：卡片错落淡入 */
+/* List enter: staggered card fade */
 .stagger-enter {
 	animation: stagger-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 	opacity: 0;
@@ -2776,7 +2776,7 @@ const handleUploadDrop = async (event) => {
 }
 
 
-/* 模特照片上传模态框特有样式 */
+/* Model photo upload modal only */
 .switch-option {
   display: flex;
   align-items: center;

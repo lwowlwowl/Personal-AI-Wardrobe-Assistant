@@ -1,5 +1,5 @@
 """
-Pydantic 請求/回應模型；對外可 `from app.schemas import ...`。
+Pydantic request/response models; use `from app.schemas import ...`.
 """
 from app.schemas.ai import (
     AIConversationCreate,

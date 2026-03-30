@@ -1,5 +1,5 @@
 """
-衣櫥分析：趨勢、總覽、分類分佈、匯出（不含 HTTP 路由）。
+Wardrobe analytics: trends, summary, category distribution, export (no HTTP layer).
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import app.models as models
 
 
 class TrendDataService:
-    """衣物趋势数据服务类 - 封装所有趋势相关的业务逻辑"""
+    """Trend/summary analytics service (business logic only)."""
 
     @staticmethod
     def get_date_range(
