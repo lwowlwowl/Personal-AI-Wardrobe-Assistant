@@ -1,8 +1,8 @@
 /**
  * Calendar outfit-record API module.
- * Contract: frontend/pages/index/components/MyCalendar/MY_CALENDAR.md
  * - GET /api/calendar/outfits
  * - POST /api/calendar/outfits
+ * Contract: src/docs/api/my_calendar_api.md
  */
 
 import { API_BASE_URL, request } from './wardrobe.js'

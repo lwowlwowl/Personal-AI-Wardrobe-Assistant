@@ -1,6 +1,6 @@
 /**
  * Recommendation AI API integration with backend AIwardrobe.
- * Contract docs: backend/AIwardrobe/README.md, RecommendationAI/RECOMMENDATION_AI.md
+ * Contract: src/docs/api/recommendation_ai_api.md; agent: backend/AIwardrobe/README.md
  */
 
 import { API_BASE_URL, request } from '@/utils/request.js'

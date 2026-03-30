@@ -30,7 +30,7 @@ async def get_calendar_outfits(
     """
     Month view of wear records for MyCalendar.
 
-    Response shape per MY_CALENDAR.md:
+    Response shape per src/docs/api/my_calendar_api.md:
     {
       success: true,
       message: "Success",

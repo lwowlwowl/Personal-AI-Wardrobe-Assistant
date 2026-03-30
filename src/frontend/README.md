@@ -161,16 +161,16 @@ npm run build:h5
 
 ## API 与文档索引
 
-后端契约以仓库内 **`docs/API_Documentation/`** 为主（路径相对于**项目根**，非仅 `frontend/`）：
+后端契约与联调说明以 **`src/docs/api/`** 下的 **`*_api.md`** 为准（相对仓库根目录；从本目录为 `../docs/api/`）：
 
-| 模块 | 前端封装 | 说明文档（示例） |
-|------|----------|------------------|
-| 登录／注册 | `api/userApi.js` | `docs/API_Documentation/LOGIN_REGISTER.md` |
-| 衣橱／模特 | `api/wardrobe.js`、`wardrobeMedia.js` | `docs/API_Documentation/MY_WARDROBE.md` |
-| 日历 | `api/calendarApi.js` | `docs/API_Documentation/MY_CALENDAR.md` |
-| 衣橱分析 | `api/analysisApi.js` | `docs/API_Documentation/WARDROBE_ANALYSIS.md` |
-| 虚拟试穿 | `api/virtualTryOnApi.js` | `docs/API_Documentation/VIRTUAL_TRYON.md` |
-| 推荐 AI | `api/recommendationApi.js` | 见模块注释与 `../backend/AIwardrobe/README.md` |
+| 模块 | 前端封装 | 说明文档 |
+|------|----------|----------|
+| 登录／注册 | `api/userApi.js` | `../docs/api/login_register_api.md` |
+| 衣橱／模特 | `api/wardrobe.js`、`wardrobeMedia.js` | `../docs/api/my_wardrobe_api.md` |
+| 日历 | `api/calendarApi.js` | `../docs/api/my_calendar_api.md` |
+| 衣橱分析 | `api/analysisApi.js` | `../docs/api/wardrobe_analysis_api.md` |
+| 虚拟试穿 | `api/virtualTryOnApi.js` | `../docs/api/virtual_tryon_api.md` |
+| 推荐 AI | `api/recommendationApi.js` | `../docs/api/recommendation_ai_api.md`；Agent 另见 `../backend/AIwardrobe/README.md` |
 
 **基底 URL**：默认在 **`utils/request.js`** 的 `API_BASE_URL`；部署时请改为实际后端地址或改为读取构建环境变量（若项目后续加上）。
 

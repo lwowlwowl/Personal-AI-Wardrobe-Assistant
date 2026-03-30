@@ -652,7 +652,7 @@ const currentStreak = computed(() =>
 	calculateStreakFromMap(outfitsByDate.value, displayYear.value, displayMonth.value)
 )
 
-/** Month stats (same rules as MY_CALENDAR.md: uniqueItems by item.id) */
+/** Month stats (same rules as my_calendar_api.md: uniqueItems by item.id) */
 const monthStats = computed(() =>
 	computeMonthStats(outfitsByDate.value, displayYear.value, displayMonth.value)
 )
