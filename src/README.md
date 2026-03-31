@@ -243,7 +243,7 @@ User manual: [Click to user manual](./docs/User%20Guide/user_manual.md).
 
 ## Test
 
-Test: [Click to test](./docs/Test%20Summary/Summary_of_Quality_Assurance.md).
+Test summary: [Click to test summary](./docs/Test%20Summary/Summary_of_Quality_Assurance.md).
 
 ## Features
 
