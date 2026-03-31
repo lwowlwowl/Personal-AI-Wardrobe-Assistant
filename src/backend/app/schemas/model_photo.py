@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ModelPhotoBase(BaseModel):
@@ -9,6 +9,7 @@ class ModelPhotoBase(BaseModel):
     photo_name: str
     description: Optional[str] = None
     is_primary: Optional[bool] = False
+    is_favorite: int = Field(0, ge=0, le=3, description="Favorite level 0-3")
 
 
 class ModelPhotoCreate(ModelPhotoBase):
@@ -21,6 +22,7 @@ class ModelPhotoUpdate(BaseModel):
     photo_name: Optional[str] = None
     description: Optional[str] = None
     is_primary: Optional[bool] = None
+    is_favorite: Optional[int] = Field(None, ge=0, le=3, description="Favorite level 0-3")
 
 
 class ModelPhotoInDB(ModelPhotoBase):
@@ -36,7 +38,7 @@ class ModelPhotoInDB(ModelPhotoBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True  # legacy Pydantic v1 compat
+        from_attributes = True  # Pydantic v2
 
 
 class ModelPhotoResponse(BaseModel):

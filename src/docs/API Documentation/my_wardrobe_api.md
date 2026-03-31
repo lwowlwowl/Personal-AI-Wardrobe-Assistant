@@ -279,6 +279,7 @@ Server deletes image files when possible.
 | `photo_name` | string | Yes | |
 | `description` | string | No | |
 | `is_primary` | string | No | `"true"` / `"false"`; also `1`, `on`, `yes` = true |
+| `is_favorite` | integer | No | Favorite level `0`–`3`, default `0` |
 
 #### Success response
 
@@ -299,6 +300,7 @@ Server deletes image files when possible.
     "file_format": "jpg",
     "is_active": true,
     "is_primary": true,
+    "is_favorite": 0,
     "created_at": "2025-02-01T10:00:00",
     "updated_at": "2025-02-01T10:00:00"
   }
@@ -393,6 +395,7 @@ Do not use Python `bool()` on the raw `is_primary` string.
 | `photo_id` | integer | Yes | Path |
 | `photo_name`, `description` | string | No | |
 | `is_primary` | boolean | No | Form (bool on server) |
+| `is_favorite` | integer | No | Favorite level `0`–`3` |
 | `file` | file | No | New image |
 
 #### Success response
@@ -414,6 +417,7 @@ Do not use Python `bool()` on the raw `is_primary` string.
     "file_format": "jpg",
     "is_active": true,
     "is_primary": true,
+    "is_favorite": 2,
     "created_at": "2025-02-01T10:00:00",
     "updated_at": "2025-02-10T09:15:00"
   }
@@ -488,6 +492,7 @@ Do not use Python `bool()` on the raw `is_primary` string.
     "file_format": "jpg",
     "is_active": true,
     "is_primary": true,
+    "is_favorite": 2,
     "created_at": "2025-02-01T10:00:00",
     "updated_at": "2025-02-10T16:00:00"
   }

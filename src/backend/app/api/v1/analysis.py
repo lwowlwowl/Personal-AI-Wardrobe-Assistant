@@ -29,7 +29,7 @@ router = APIRouter(tags=["analysis"])
 async def get_total_items_trend(
     token: str = Query(...),
     db: Session = Depends(get_db),
-    view_by: str = Query("yearly", regex="^(yearly|monthly|daily|weekly)$"),
+    view_by: str = Query("yearly", pattern="^(yearly|monthly|daily|weekly)$"),
     start_year: Optional[int] = Query(None, ge=2000, le=2100),
     end_year: Optional[int] = Query(None, ge=2000, le=2100),
     include_projection: bool = Query(True, description="Include projection / forecast segment"),
@@ -94,8 +94,8 @@ async def get_category_distribution(
 async def export_trend_data(
     token: str = Query(...),
     db: Session = Depends(get_db),
-    format: str = Query("json", regex="^(json|csv)$"),
-    view_by: str = Query("yearly", regex="^(yearly|monthly|daily|weekly)$"),
+    format: str = Query("json", pattern="^(json|csv)$"),
+    view_by: str = Query("yearly", pattern="^(yearly|monthly|daily|weekly)$"),
     start_year: Optional[int] = Query(None),
     end_year: Optional[int] = Query(None),
 ):
@@ -137,7 +137,7 @@ async def get_idle_items_detail(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    time_filter: Optional[str] = Query(None, regex="^(never|over_season|over_year|over_six_months|over_three_months)$"),
+    time_filter: Optional[str] = Query(None, pattern="^(never|over_season|over_year|over_six_months|over_three_months)$"),
     season_filter: Optional[str] = Query(None),
 ):
     try:
@@ -193,7 +193,7 @@ async def get_top_style(
 async def get_most_worn_items(
     token: str = Query(...),
     db: Session = Depends(get_db),
-    time_range: str = Query("yearly", regex="^(yearly|monthly|daily|weekly)$"),
+    time_range: str = Query("yearly", pattern="^(yearly|monthly|daily|weekly)$"),
     limit: int = Query(5, ge=1, le=20, description="Max items to return"),
 ):
     current_user = get_current_user(token, db)

@@ -181,13 +181,33 @@ export function getPrimaryModelPhoto(token) {
  * Upload model photo.
  * @param {Object} opts
  * @param {string} opts.token
- * @param {string} opts.filePath
+ * @param {string} [opts.filePath] - Local temp image path (uni.chooseImage or blob URL).
+ * @param {File} [opts.file] - File object from browser drag/drop; mutually exclusive with filePath.
  * @param {Object} opts.formData - { photo_name, description, is_primary }
  * @returns {Promise<{ statusCode, data }>}
  */
 export function uploadModelPhoto(opts) {
-  const { token, filePath, formData } = opts || {}
+  const { token, filePath, file, formData } = opts || {}
   const url = `${API_BASE_URL}/api/model-photos/upload?token=${encodeURIComponent(token || '')}`
+
+  // Drag/drop and similar flows: upload via FormData + fetch when File/Blob exists.
+  if (file != null && (file instanceof File || file instanceof Blob)) {
+    const fd = new FormData()
+    if (file instanceof File) {
+      fd.append('file', file)
+    } else {
+      fd.append('file', file, file.name || 'model.jpg')
+    }
+    fd.append('photo_name', String(formData?.photo_name ?? ''))
+    fd.append('description', String(formData?.description ?? ''))
+    fd.append('is_primary', formData?.is_primary === true ? 'true' : 'false')
+    return fetch(url, { method: 'POST', body: fd })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}))
+        return { statusCode: res.status, data }
+      })
+  }
+
   return new Promise((resolve, reject) => {
     uni.uploadFile({
       url,

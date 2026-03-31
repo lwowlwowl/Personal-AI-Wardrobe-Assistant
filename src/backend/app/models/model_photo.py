@@ -25,6 +25,7 @@ class ModelPhoto(Base):
     # Status
     is_active = Column(Boolean, default=True)  # soft-delete flag
     is_primary = Column(Boolean, default=False)  # default model for the user
+    is_favorite = Column(Integer, default=0)  # 0–3 stars/hearts
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

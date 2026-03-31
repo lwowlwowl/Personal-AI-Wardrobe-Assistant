@@ -22,6 +22,7 @@ async def upload_model_photo(
         photo_name: str = Form(...),
         description: Optional[str] = Form(None),
         is_primary: Optional[str] = Form("false"),
+        is_favorite: Optional[int] = Form(0),
         token: str = Query(...),
         db: Session = Depends(get_db)
 ):
@@ -34,6 +35,7 @@ async def upload_model_photo(
         description: optional text.
         is_primary: form field is the string "true"/"false"; must be parsed to bool
             (in Python ``bool("false")`` is True, so never use bool() on the raw string).
+        is_favorite: favorite level 0-3.
         token: auth token.
         db: DB session.
 
@@ -43,6 +45,7 @@ async def upload_model_photo(
     try:
         # Form sends is_primary as "true"/"false"; bool("false") is True in Python — parse explicitly.
         is_primary_bool = str(is_primary).strip().lower() in ("true", "1", "on", "yes") if is_primary else False
+        is_favorite_val = max(0, min(3, int(is_favorite or 0)))
 
         current_user = get_current_user(token, db)
 
@@ -61,7 +64,8 @@ async def upload_model_photo(
             description=description,
             file_size=file_size,
             file_format=file_format,
-            is_primary=is_primary_bool
+            is_primary=is_primary_bool,
+            is_favorite=is_favorite_val
         )
 
         if error:
@@ -214,6 +218,7 @@ async def update_model_photo(
         photo_name: Optional[str] = Form(None),
         description: Optional[str] = Form(None),
         is_primary: Optional[bool] = Form(None),
+        is_favorite: Optional[int] = Form(None),
         file: Optional[UploadFile] = File(None)
 ):
     """
@@ -226,6 +231,7 @@ async def update_model_photo(
         photo_name: new name (optional).
         description: new description (optional).
         is_primary: set as primary (optional).
+        is_favorite: set favorite level (0-3, optional).
         file: new image file (optional).
 
     Returns:
@@ -261,6 +267,7 @@ async def update_model_photo(
                 "photo_name": photo_name,
                 "description": description,
                 "is_primary": is_primary,
+                "is_favorite": (max(0, min(3, int(is_favorite))) if is_favorite is not None else None),
                 "image_url": image_url,
                 "file_size": file_size,
                 "file_format": file_format
@@ -269,7 +276,8 @@ async def update_model_photo(
             update_data = {
                 "photo_name": photo_name,
                 "description": description,
-                "is_primary": is_primary
+                "is_primary": is_primary,
+                "is_favorite": (max(0, min(3, int(is_favorite))) if is_favorite is not None else None)
             }
 
         # Drop None so we only PATCH fields that were sent.

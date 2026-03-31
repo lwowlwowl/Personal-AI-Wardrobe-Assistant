@@ -12,7 +12,8 @@ class ModelPhotoCRUD:
     def create_model_photo(db: Session, user_id: int, photo_name: str,
                            image_url: str, thumbnail_url: str = None,
                            description: str = None, file_size: int = None,
-                           file_format: str = None, is_primary: bool = False):
+                           file_format: str = None, is_primary: bool = False,
+                           is_favorite: int = 0):
         """
         Insert a model photo row.
 
@@ -26,6 +27,7 @@ class ModelPhotoCRUD:
             file_size: size in bytes (optional).
             file_format: file extension / MIME hint (optional).
             is_primary: when True, this row becomes the default model photo.
+            is_favorite: favorite level 0-3.
 
         Returns:
             (model_photo, error_message) — error_message is None on success.
@@ -46,7 +48,8 @@ class ModelPhotoCRUD:
                 thumbnail_url=thumbnail_url,
                 file_size=file_size,
                 file_format=file_format,
-                is_primary=is_primary
+                is_primary=is_primary,
+                is_favorite=max(0, min(3, int(is_favorite or 0)))
             )
 
             db.add(model_photo)

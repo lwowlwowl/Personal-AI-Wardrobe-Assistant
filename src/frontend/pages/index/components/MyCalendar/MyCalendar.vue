@@ -28,11 +28,6 @@
 
 				<view class="pattern-curve"></view>
 
-				<view class="meta-text left-meta">AI_ANALYSIS: ON // WARDROBE_CAPACITY: 84%</view>
-				<view class="meta-text right-meta">
-					<text class="care-symbols">⏽ ◿ ⎔</text>
-					DRY CLEAN ONLY · HANDLE WITH CARE
-				</view>
 			</view>
 			<!-- Main: centered when no day selected; when selected, calendar shrinks back and right panel floats in front -->
 			<view class="main-wrapper">

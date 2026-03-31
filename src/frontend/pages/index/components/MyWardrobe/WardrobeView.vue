@@ -934,16 +934,18 @@ const loadModelPhotos = async (options = {}) => {
       // Map API rows to UI
       models.value = photos.map(photo => {
         const imageUrl = resolveWardrobeImageUrl(photo.image_url)
+        const fav = Number(photo.is_favorite)
         
         return {
           id: photo.id,
           posture: photo.photo_name, // display photo_name as posture label
           date: photo.created_at ? photo.created_at.slice(0, 10) : '',
-          favourite: 0, // no favourites for model photos
+          favourite: Number.isFinite(fav) ? Math.max(0, Math.min(3, fav)) : 0,
           image: imageUrl,
           photo_name: photo.photo_name,
           description: photo.description,
           is_primary: photo.is_primary,
+          is_favorite: Number.isFinite(fav) ? Math.max(0, Math.min(3, fav)) : 0,
           is_active: photo.is_active,
           _rawImageUrl: photo.image_url,
           _source: 'api'
@@ -1010,10 +1012,13 @@ const handleModelUploadConfirm = async (formData) => {
 /**
  * Perform model photo upload
  */
-const performModelUpload = async (filePath, formData) => {
+const performModelUpload = async (fileInput, formData) => {
+  const uploadPayload = { token: userToken.value }
+  if (typeof fileInput === 'string') uploadPayload.filePath = fileInput
+  else uploadPayload.file = fileInput
+
   const result = await uploadModelPhoto({
-    token: userToken.value,
-    filePath,
+    ...uploadPayload,
     formData: {
       photo_name: formData.photo_name ?? '',
       description: formData.description ?? '',
@@ -1141,8 +1146,10 @@ const handleModelUpdate = async ({ id, field, value }) => {
       mask: true
     })
     
-    // Build PATCH payload
-    const updateData = { [field]: value }
+    // Frontend field `favourite` maps to backend `is_favorite`
+    const backendField = field === 'favourite' ? 'is_favorite' : field
+    const backendValue = field === 'favourite' ? Math.max(0, Math.min(3, Number(value) || 0)) : value
+    const updateData = { [backendField]: backendValue }
     
     const response = await updateModelPhoto(userToken.value, id, updateData)
     
@@ -1153,6 +1160,7 @@ const handleModelUpdate = async ({ id, field, value }) => {
       const modelIndex = models.value.findIndex((m) => m.id === id)
       if (modelIndex !== -1) {
         models.value[modelIndex][field] = value
+        if (field === 'favourite') models.value[modelIndex].is_favorite = backendValue
         selectedModel.value = { ...models.value[modelIndex] }
       }
       
@@ -1338,24 +1346,28 @@ const paginatedList = computed(() => {
 
 // Model list: default model always first, then rest (filtered/sorted)
 const modelDisplayList = computed(() => {
-  // Primary model first
-  const sortedModels = [...models.value]
-    .filter(model => model.is_active !== false) // hide soft-deleted
-    .sort((a, b) => {
-      // Primary first
-      if (a.is_primary && !b.is_primary) return -1
-      if (!a.is_primary && b.is_primary) return 1
-      // Then by date desc
-      return (b.date || '').localeCompare(a.date || '')
-    })
-  
+  let list = [...models.value].filter(model => model.is_active !== false) // hide soft-deleted
+
   // Search: photo_name only, prefix match per word
   const q = modelSearchQuery.value.trim()
   if (q) {
-    return sortedModels.filter((m) => nameMatchesSearch(m.photo_name, q))
+    list = list.filter((m) => nameMatchesSearch(m.photo_name, q))
   }
-  
-  return sortedModels
+
+  // Favourite hearts filter for model photos (0-3)
+  if (appliedFavouriteLevels.value.length > 0) {
+    const levels = appliedFavouriteLevels.value
+    list = list.filter((m) => levels.includes(Number(m.favourite) || 0))
+  }
+
+  // Keep default model first, then sort by date (desc)
+  list = [...list].sort((a, b) => {
+    if (a.is_primary && !b.is_primary) return -1
+    if (!a.is_primary && b.is_primary) return 1
+    return (b.date || '').localeCompare(a.date || '')
+  })
+
+  return list
 })
 
 const modelCurrentPage = ref(1)
@@ -1632,11 +1644,6 @@ const handleUploadDrop = async (event) => {
 		uni.showToast({ title: 'Drop an image file', icon: 'none' })
 		return
 	}
-	// Drag-drop upload only in Cloth mode; must use backend tagging (no fake rows)
-	if (viewMode.value !== 'Cloth') {
-		uni.showToast({ title: 'Switch to Cloth mode to drag & drop', icon: 'none' })
-		return
-	}
 	if (!isLoggedIn.value) {
 		uni.showToast({ title: 'Please log in first', icon: 'none' })
 		return
@@ -1647,9 +1654,14 @@ const handleUploadDrop = async (event) => {
 	}
 	uploadLoading.value = true
 	createdItemIdForEdit.value = null
-	uni.showLoading({ title: 'Uploading & tagging...', mask: true })
 	let blobUrl = null
 	try {
+		if (viewMode.value === 'Model') {
+			selectedModelImageFile.value = file
+			showModelUploadModal.value = true
+			return
+		}
+		uni.showLoading({ title: 'Uploading & tagging...', mask: true })
 		let result = null
 		try {
 			result = await uploadClothing({
@@ -1677,7 +1689,7 @@ const handleUploadDrop = async (event) => {
 	} finally {
 		if (blobUrl) URL.revokeObjectURL(blobUrl)
 		uploadLoading.value = false
-		uni.hideLoading()
+		if (viewMode.value === 'Cloth') uni.hideLoading()
 	}
 }
 

@@ -229,13 +229,16 @@ The architecture separates frontend, backend, and AI modules, which improves mai
 - **Runtime:** Node.js ≥ 18; Python ≥ 3.9.
 - **Database:** PostgreSQL — create an empty database; put connection info in `backend/.env`. Tables are created automatically on first successful backend start.
 - **ComfyUI:** virtual try-on pipeline; workflow files under `backend/app/resources/`.
-- **Environment variables:** copy `backend/env_example.txt` to `backend/.env` and set `DATABASE_URL`, `SECRET_KEY`, `DASHSCOPE_API_KEY`, and `COMFYUI_SERVER` (optional QWeather keys for live weather). Restart the backend after edits.
+- **Environment variables:** backend requires `backend/.env`; for setup options (normal template vs teaching/demo quick setup), see the **Installation instruction** section below.
 
 ## Installation instruction
 
 Installation instruction: [Click to installation instruction](./docs/User%20Guide/installation_instruction.md).
-Environment template: `src/backend/env_example.txt` (create `src/backend/.env` based on this file).
-For course use, you can also use our provided `.env` directly and only update the database-related configuration.
+
+Environment template: `src/backend/env_example.txt`.
+Environment setup (same as installation guide):
+- Normal setup: create `src/backend/.env`, copy from `env_example.txt`, then fill in your own API keys.
+- Teaching/demo quick setup: create `src/backend/.env`, copy all content from `env.txt` (pre-filled), and only replace `DATABASE_URL` with your own PostgreSQL connection string.
 
 ## User manual
 

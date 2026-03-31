@@ -122,7 +122,9 @@ npm run dev:h5
 cd src/backend
 ```
 
-3. Configure environment variables: create a `.env` file under `src/backend`, and fill in values based on `env_example.txt` (replace database username and password with your PostgreSQL settings). For course use, you may also use our provided `.env` directly and only modify database-related settings.
+3. Configure environment variables:
+   - Normal setup: create `src/backend/.env`, copy from `env_example.txt`, then fill in your own API keys.
+   - Teaching/demo quick setup: create `src/backend/.env`, copy all content from `env.txt` (pre-filled), and only replace `DATABASE_URL` with your own PostgreSQL connection string.
 
 4. Install dependencies:
 

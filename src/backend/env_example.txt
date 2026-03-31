@@ -19,5 +19,5 @@ SECRET_KEY=your-super-secret-key-change-this-in-in-production
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=10080
 
-# Virtual try-on (ComfyUI). Default in code is often http://127.0.0.1:8118
-# COMFYUI_SERVER=http://127.0.0.1:8188
+# Virtual try-on (ComfyUI).
+COMFYUI_SERVER=http://127.0.0.1:8118
