@@ -1,14 +1,41 @@
 # Personal AI Wardrobe Assistant 
 
-This project implements a personal AI wardrobe assistant that supports outfit recommendation, virtual try-on, and wardrobe management, together with extended modules such as calendar-based outfit tracking and wardrobe analytics.
+This project builds a personal AI wardrobe assistant focused on practical daily outfit support. It helps users manage wardrobe items, get context-aware outfit suggestions, try outfits virtually, and keep track of outfit history.
 
-The system integrates a Vue 3 + UniApp frontend, a FastAPI backend, and an LLM-driven recommendation module (AIwardrobe). Through this architecture, the system forms a complete workflow from user input → AI processing → structured output → visual rendering.
+The goal is to combine wardrobe management, recommendation, virtual try-on and analysis into one user-friendly workflow, so users can decide what to wear more efficiently and understand their clothing usage patterns over time.
+
+## Quick Start (if the database is already configured)
+
+Assume `src/backend/.env` exists with a valid `DATABASE_URL` and other required keys (see `src/backend/env_example.txt`). Commands below use paths from the **repository root** (the folder that contains `src/`).
+
+### Backend
+
+```bash
+cd src/backend
+pip install -r requirements.txt
+python -m uvicorn main:app --reload --port 8000
+```
+
+### Frontend
+
+```bash
+cd src/frontend
+npm install
+npm run dev:h5
+```
+
+**Access**
+
+- Frontend: [http://localhost:5173](http://localhost:5173)
+- Backend: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+The system integrates a Vue 3 + UniApp frontend, a FastAPI backend, and an LLM-driven recommendation module (AIwardrobe). Through this architecture, the system forms a complete workflow from user input -> AI processing -> structured output -> visual rendering.
 
 ## Project structure
 
 Paths are relative to **`src/`**.
 
-### Frontend (`frontend/`) — main files
+### Frontend (`frontend/`)
 
 Vue 3 + UniApp (Vite). Listed below are the primary entry, config, API clients, and feature modules (every `.vue` / `.js` that defines a screen, modal, or shared logic—not every asset byte-for-byte).
 
@@ -25,18 +52,18 @@ frontend/
 ├── package.json
 │
 ├── api/
-│   ├── userApi.js
-│   ├── wardrobe.js
-│   ├── wardrobeMedia.js
-│   ├── calendarApi.js
-│   ├── analysisApi.js
-│   ├── recommendationApi.js
-│   └── virtualTryOnApi.js
+│   ├── userApi.js              # login/register/profile/password (auth & user, not wardrobe CRUD)
+│   ├── wardrobe.js             # clothing & model-photo HTTP API + shared `request` / `API_BASE_URL`
+│   ├── wardrobeMedia.js        # wardrobe image URL helpers, placeholders, H5 image probe
+│   ├── calendarApi.js          # calendar outfit records (/api/calendar/outfits)
+│   ├── analysisApi.js          # wardrobe analytics (/api/analysis/*)
+│   ├── recommendationApi.js    # Recommendation AI: streaming chat, conversations
+│   └── virtualTryOnApi.js      # virtual try-on upload & ComfyUI generation
 │
 ├── utils/
 │   ├── request.js              # API_BASE_URL + uni.request wrapper
-│   ├── wardrobeEnums.js
-│   └── apiErrors.js
+│   ├── wardrobeEnums.js        # category/color/style labels ↔ backend codes for forms & filters
+│   └── apiErrors.js            # format FastAPI/Pydantic error JSON into user-visible strings
 │
 ├── static/
 │   └── icons/                  # SVG icons (sidebar, actions, etc.)
@@ -49,24 +76,24 @@ frontend/
 │       ├── index.vue           # shell: sidebar + module area
 │       ├── SettingsModal.vue
 │       └── components/
-│           ├── VirtualTryOn.vue
-│           ├── MyWardrobe/
-│           │   ├── WardrobeView.vue
+│           ├── VirtualTryOn.vue            # virtual try-on screen (manual / pipeline entry)
+│           ├── MyWardrobe/                 # wardrobe grid, filters, cloth & model flows
+│           │   ├── WardrobeView.vue        # main list + filter + favorites
 │           │   ├── DeleteConfirmModal.vue
-│           │   ├── cloth-modal/
+│           │   ├── cloth-modal/              # upload & detail for clothing items
 │           │   │   ├── ClothUploadModal.vue
 │           │   │   └── ClothDetailModal.vue
-│           │   └── model-modal/
+│           │   └── model-modal/            # upload & detail for model photos
 │           │       ├── ModelUploadModal.vue
 │           │       └── ModelDetailModal.vue
-│           ├── MyCalendar/
+│           ├── MyCalendar/                 # monthly calendar + outfit slots
 │           │   ├── MyCalendar.vue
 │           │   ├── MyCalendar.scss
-│           │   └── AddOutfitPanel.vue
-│           ├── WardrobeAnalysis/
+│           │   └── AddOutfitPanel.vue      # add outfit to a date
+│           ├── WardrobeAnalysis/           # analytics dashboard + drill-down views
 │           │   ├── WardrobeAnalysis.vue
 │           │   ├── ViewByFilter.vue
-│           │   ├── bento-widgets/
+│           │   ├── bento-widgets/          # summary cards (stats, charts, suggestions)
 │           │   │   ├── CategoryBreakdown.vue
 │           │   │   ├── IdleRate.vue
 │           │   │   ├── MostWorn.vue
@@ -74,38 +101,38 @@ frontend/
 │           │   │   ├── TopStats.vue
 │           │   │   ├── TotalItems.vue
 │           │   │   └── WardrobeActivity.vue
-│           │   └── expanded-pages/
+│           │   └── expanded-pages/         # full-page reports (activity, idle items)
 │           │       ├── ActivityReport.vue
 │           │       └── IdleItemsView.vue
-│           └── RecommendationAI/
-│               ├── RecommendationAI.vue
+│           └── RecommendationAI/           # AI chat UI + recommendation cards
+│               ├── RecommendationAI.vue    # conversation shell
 │               ├── InputBar.vue
-│               ├── sidebar/
+│               ├── sidebar/                # conversation list, rename/delete
 │               │   ├── ConversationSidebar.vue
 │               │   ├── DeleteModal.vue
 │               │   └── RenameModal.vue
-│               ├── chat-content/
+│               ├── chat-content/           # bubbles, loading, plan card, outfit cards
 │               │   ├── ChatMessageBubble.vue
 │               │   ├── LoadingPanel.vue
 │               │   ├── PlanScheduleCard.vue
 │               │   └── RecommendationCard.vue
-│               └── utils/
-│                   ├── chat/
+│               └── utils/                  # RecommendationAI-only helpers (not global utils/)
+│                   ├── chat/               # parse AI JSON, render messages, history, images
 │                   │   ├── aiJson.js
 │                   │   ├── chatContentAdapter.js
 │                   │   ├── historyMsg.js
 │                   │   ├── msgRender.js
 │                   │   └── wardrobeImages.js
-│                   ├── rec/
+│                   ├── rec/                # outfit ordering, item display, labels
 │                   │   ├── outfitOrder.js
 │                   │   ├── recItem.js
 │                   │   └── textDisplay.js
-│                   └── common/
+│                   └── common/             # dates, regenerate look
 │                       ├── dates.js
 │                       └── regenerate.js
 ```
 
-### Backend (`backend/`) — main folders
+### Backend (`backend/`)
 
 FastAPI app lives under **`app/`**; **`AIwardrobe/`** is the LangChain agent subtree. Under `app/`, **`api/v1/`** is listed **file-by-file**; other directories (`core`, `models`, `schemas`, `crud`, `services`, `utils`, `resources`) are shown as **folders only**.
 
@@ -162,55 +189,60 @@ backend/
 
 ```
 docs/
-├── api/                        # per-module *_api.md + README index
-└── test/                       # QA summary, questionnaire, etc.
+├── User Guide/
+│   ├── installation_instruction.md   # install & run guide
+│   └── user_manual.md                # user manual
+├── API Documentation/
+└── Test Summary/
 ```
 
 At the **`src/`** root (next to `frontend/`, `backend/`, `docs/`): **`README.md`** (this file).
 
 The architecture separates frontend, backend, and AI modules, which improves maintainability and allows independent development and testing.
 
-## Requirements
+## Environment Requirements
 
-- Node.js ≥ 18  
-- Python ≥ 3.9  
-- PostgreSQL (for persistent storage)  
-- ComfyUI for virtual try-on  
-- API keys for LLM and weather services  
+### 1. Hardware Requirements
 
-## How to run
+#### Minimum Requirements
 
-**Backend**
+- CPU: Modern multi-core processor (e.g., Intel i5 / AMD Ryzen 5 or above)
+- Memory: 12 GB RAM or above
+- GPU: Not required (except for virtual try-on)
+- Network: Stable internet connection (required for API calls)
 
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+> A stable network connection is required since the system relies on external APIs (e.g., LLM and weather services).
 
-**Frontend**
+#### Recommended Requirements
 
-```bash
-cd frontend
-npm install
-npm run dev:h5
-```
+- CPU: Intel i7 / AMD Ryzen 7 or above
+- **GPU:** NVIDIA GeForce RTX 4090 or better (recommended for virtual try-on).
+- **Memory:** 32 GB RAM or more.
+- Network: High-speed stable internet connection
 
-Make sure the frontend `API_BASE_URL` (in `frontend/utils/request.js`) matches the backend address.
+> **Note:** If suitable hardware is not available, you may skip installing ComfyUI. This may disable the Virtual Try-on feature, but other core features (wardrobe, recommendation, and calendar) can still run.
 
-## Environment variables
+### 2. Software Requirements
 
-Create `backend/.env`:
+- **Operating system:** Windows, macOS, or Linux (local development).
+- **Runtime:** Node.js ≥ 18; Python ≥ 3.9.
+- **Database:** PostgreSQL — create an empty database; put connection info in `backend/.env`. Tables are created automatically on first successful backend start.
+- **ComfyUI:** virtual try-on pipeline; workflow files under `backend/app/resources/`.
+- **Environment variables:** copy `backend/env_example.txt` to `backend/.env` and set `DATABASE_URL`, `SECRET_KEY`, `DASHSCOPE_API_KEY`, and `COMFYUI_SERVER` (optional QWeather keys for live weather). Restart the backend after edits.
 
-```env
-SECRET_KEY=your-secret
-DATABASE_URL=postgresql://user:password@localhost:5432/db
+## Installation instruction
 
-DASHSCOPE_API_KEY=your-key
-COMFYUI_SERVER=http://127.0.0.1:8118
-```
+Installation instruction: [Click to installation instruction](./docs/User%20Guide/installation_instruction.md).
+Environment template: `src/backend/env_example.txt` (create `src/backend/.env` based on this file).
+For course use, you can also use our provided `.env` directly and only update the database-related configuration.
 
-Optional weather-related keys (when using live weather) are described in `backend/AIwardrobe/README.md` and `backend/app/core/config.py`.
+## User manual
+
+User manual: [Click to user manual](./docs/User%20Guide/user_manual.md).
+
+## Test
+
+Test: [Click to test](./docs/Test%20Summary/Summary_of_Quality_Assurance.md).
 
 ## Features
 
@@ -224,14 +256,7 @@ Optional weather-related keys (when using live weather) are described in `backen
 
 ## API overview
 
-Detailed documentation is available in `docs/api/` (see [`docs/api/README.md`](./docs/api/README.md)).
-
-Examples:
-
-- `POST /api/auth/login`  
-- `GET /api/clothing`  
-- `POST /api/ai/chat/stream`  
-- `POST /api/virtual-try-on/generate`  
+Detailed documentation is available in [`docs/API Documentation/README.md`](./docs/API%20Documentation/README.md).
 
 ## Design notes
 

@@ -11,4 +11,4 @@ Canonical **current implementation** docs for HTTP APIs and frontend wiring. Eac
 | [virtual_tryon_api.md](./virtual_tryon_api.md) | Virtual try-on + ComfyUI |
 | [recommendation_ai_api.md](./recommendation_ai_api.md) | Streaming AI, conversations, weather |
 
-Paths are relative to **`src/docs/api/`** (i.e. under the repo’s `src` tree).
+Paths are relative to **`src/docs/API Documentation/`** (i.e. under the repo’s `src` tree).

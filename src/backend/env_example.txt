@@ -1,13 +1,15 @@
-# QWeather API (used by /api/weather/now and outfit suggestions)
-# Copy to backend/.env and fill in real values. Restart the backend after changes.
-# Docs: https://dev.qweather.com/
+# Backend requires a `backend/.env` file to run.
+# Create `backend/.env`, copy the variables below, replace example values, then restart the backend.
 
+# QWeather API (used by /api/weather/now and outfit suggestions)
+# Docs: https://dev.qweather.com/
 # Use the API Host domain from the QWeather console; do not use https://api.qweather.com
 QWEATHER_API_HOST=https://your-api-host.example.com
 QWEATHER_KID=your-key-id
 QWEATHER_PROJECT_ID=your-project-id
 QWEATHER_PRIVATE_KEY_PATH=/absolute/path/to/your-ed25519-private.pem
 
+# LLM provider settings (DashScope-compatible endpoint)
 DASHSCOPE_API_KEY=your-dashscope-api-key
 CLASSIFY_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 
