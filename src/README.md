@@ -211,7 +211,8 @@ The architecture separates frontend, backend, and AI modules, which improves mai
 - GPU: Not required (except for virtual try-on)
 - Network: Stable internet connection (required for API calls)
 
-> A stable network connection is required since the system relies on external APIs (e.g., LLM and weather services).
+> Under minimum requirements, most core features can run, but the full feature set may not be available.
+> Virtual try-on depends on local ComfyUI deployment and is more likely to be limited or unavailable on lower-end setups; use the recommended requirements for a complete experience.
 
 #### Recommended Requirements
 
@@ -265,9 +266,6 @@ Instead of plain text, the LLM produces structured responses (e.g. JSON-like for
 
 **End-to-end workflow integration**  
 The system connects frontend interaction, backend processing, and AI generation into a unified pipeline, ensuring consistency from input to output.
-
-**Cross-platform frontend**  
-UniApp enables a single codebase to support web and mini-program platforms, reducing development cost.
 
 **Modular backend design**  
 FastAPI is organized into clear layers (API → service → database), improving readability and scalability.
