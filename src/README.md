@@ -262,6 +262,13 @@ Test summary: [Click to test summary](./docs/Test%20Summary/Summary_of_Quality_A
 
 Detailed documentation is available in [`docs/API Documentation/README.md`](./docs/API%20Documentation/README.md).
 
+## Code Attribution
+
+All source code in this repository is original work authored by the project team.  
+This project does not include source files copied from or directly modified based on third-party codebases.
+
+Third-party software components are used only as dependencies (e.g. frameworks, libraries, or runtime environments listed in files such as `backend/requirements.txt` or frontend package manifests). These components are not part of the team's original implementation.
+
 ## Design notes
 
 **Structured AI output**  
