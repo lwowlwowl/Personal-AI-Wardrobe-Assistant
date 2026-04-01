@@ -1,0 +1,47 @@
+% Overleaf template was first created by Yue Li, June 2017 
+% Modified template was made by Denis Stepanov, June 2020
+
+%initialize format of your paper
+\documentclass[a4paper,12pt,oneside]{report}
+\usepackage[left=2.5cm,right=2.5cm,top=2cm,bottom=3cm]{geometry}
+
+%this is your packages file
+\include{thesis.preamble}
+
+\begin{document}
+\title{COMP2043.GRP Final Group Report}
+\projectname{[P2025-08] Personal AI Wardrobe Assistant}
+\author{Team 13}
+% replace line below: \submitdate{\today}
+\degree{DEGREE NAME}
+\studentid{Haochen Wang -- ssyhw12 -- 20618015\\ 
+           Jilin Song -- scyjs10 -- 20617160\\ 
+           Ruixi Yang -- scyry2 -- 20617865\\ 
+           Yuchen Fan -- scyyf5 -- 20618241\\ 
+           Jiajun Chen -- scyjc4 -- 20215487
+}
+\supervisor{Qian Zhang}
+\submitdate{2026/03/31}
+\wordcount{8779}
+\maketitle
+
+\pagestyle{plain}
+
+% body command is located in thesis.sty. it adds lists of figures, abbreviations and tables. Modify if needed
+\body
+\setlength{\parskip}{1em}
+
+% include all your "body" files
+\input{body/00_body}
+
+% last, include bibliography
+\nocite{*}
+\bibliographystyle{apalike}
+\bibliography{bibliography/bibliography}
+
+% appendices, words are not included in word counter
+%TC:ignore 
+\input{appendices/appendix}
+%TC:endignore
+
+\end{document}

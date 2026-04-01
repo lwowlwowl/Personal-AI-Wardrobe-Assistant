@@ -1,0 +1,160 @@
+\chapter{Reflection}
+\label{ch:reflection}
+
+\section{Legal, Societal, Ethical, and Professional Issues (LSEPI)}
+\subsection{Legal Issues}
+This project requires users to upload clothing images and their personal photos, and the system will send user wardrobe information to a third-party API. This may involves regulations under the law regarding personal privacy. According to legal requirements in China, processing personal information requires explicit user consent and adherence to the “minimum necessity” principle.
+
+\subsubsection{Solutions:}
+To protect user's personal information, we adopt a localized processing approach where all image recognition and data analysis are completed on the user’s local device and not uploaded to cloud servers.In addition, we provide a clear user agreement explaining data usage and obtain informed consent during initial setup. We also strictly follow the data minimization principle, collecting only data essential for core functionality.
+
+\subsection{Social Issues}
+The system will generate purchase suggestions for users based on their wardrobes, this may contradict the socially advocated concept of “sustainable fashion,” potentially contributing to resource waste and environmental pollution associated with fast fashion.
+
+\subsubsection{Solutions:}
+In the design, the system will prioritize recommending outfit combinations using the user’s existing wardrobe.
+
+\subsection{Ethical Issues}
+This project uses a large language model (LLM) to generate outfit recommendations. While this approach utilizes the model’s extensive knowledge of fashion and styling, it also introduces ethical considerations regarding algorithmic bias.
+
+Firstly, the internal logic of the LLM is not fully transparent, making it difficult to analyze why a particular recommendation was made. Moreover, LLMs are trained on large-scale internet data that may implicitly encode mainstream aesthetic standards (e.g., associating “good style” with “slimming” or “youthful” appearances). Consequently, the recommendations may reinforce narrow beauty ideals, potentially impacting users with different body types, cultural backgrounds, or personal style preferences.
+
+\subsubsection{Solutions:}
+During the phase of prompt engineering, we designed prompts that explicitly encourage diversity. And the system also allow users to specify their own style preferences and values (e.g., “comfort-first,” “sustainable,” “modest fashion”) and incorporate these preferences into the prompt.
+
+\subsection{Professional Issues}
+As a course design project, the team bears professional responsibility for the system’s accuracy. The team directly utilize black-box models without clearly understanding the underlying algorithms, and we also fail to implement fallback mechanisms for potential errors. These problems may violate the professional ethics of being accountable for one’s work.
+
+\subsubsection{Solutions:}
+We have clearly stated the technical limitations and known issues in the final report. We also conducted thorough system testing and honestly presented success rates and failure case analyses in the report. 
+
+\subsection{Summary}
+Our project, beyond its technical implementation, involves multiple dimensions including legal compliance, social impact, ethical boundaries, and professional responsibility. The above analysis and solutions demonstrate our design’s commitment to responsible innovation and lay the foundation for future system improvement and practical deployment.
+
+
+
+
+
+\section{Problems Encountered}
+\subsection{Technical Challenges}
+These problems are mainly related to the setup and compatibility of models, dependencies, development environments, and servers. They affected system stability during development.
+
+\textbf{\large a. Model Deployment Problem}  
+
+In the early stage of the project, we planned to deploy the Qwen-Image-Edit model locally. However, the installation process failed multiple times. The main reasons are that the unstable network connection prevented the complete down-
+load of the dependencies, the insufficient coverage of domestic mirror sources, and the large disk space requirement for the complete installation of the model.
+
+This caused a significant amount of early-stage research time to be spent on a single model, which may have led us to overlook other potentially better virtual try-on models. 
+
+To address this, we switched to ComfyUI, which bypassed dependency installation issues and provided a more stable inference pipeline. This led us to rethink the virtual try-on module, where we finally adopted a ComfyUI-based pipeline instead of a fully local deployment.\\
+
+
+\textbf{\large b. Environment and Dependency Compatibility Problem}  
+
+During the implementation of the backend and frontend, we encountered version conflicts that hindered development progress. Specifically, the backend Python environment was too advanced for certain legacy dependencies, while the frontend HBuilderX environment suffered from \texttt{npm install} and \texttt{npm run dev:h5} execution failures.
+
+This disrupted both backend development and frontend integration, causing delays in system testing and slowing down the overall project progress.
+
+The main reasons were the lack of version locking in the \texttt{package.json} file and the incompatibility between Python 3.12+ and older asynchronous frameworks.
+
+To address this, the team downgraded the Python environment to a stable version (3.10) and manually cleared the npm cache to reinstall dependencies. This restored the stability of both the backend and frontend environments.
+
+This issue led us to standardize development environments across team members and reduce conflicts caused by inconsistent configurations. We also increased the frequency of code integration to identify issues earlier.\\
+
+\textbf{\large c. AI Pipeline Integration and Port Conflict Problem}  
+
+Integration between the backend API and ComfyUI revealed port conflicts and incorrect node mapping. In addition, early outputs showed image distortion due to insufficient GPU VRAM.
+
+This made the inference pipeline unstable and led to inconsistent output quality.
+
+To solve these issues, the team re-mapped the ComfyUI port to 8118, updated the node mapping logic in the backend Python scripts, and finally upgraded the local inference server to a high-VRAM GPU. This led us to redesign the pipeline to reduce reliance on specific hardware and improve API stability.\\
+
+\textbf{\large d. Security and Authentication Logic Problem}  
+During the user authentication phase, we encountered persistent 401 Unauthorized errors and encryption exceptions, such as the 72-byte limit of the bcrypt library.
+
+The core issue was twofold. First, the passlib and bcrypt libraries showed version conflicts in the current environment. Second, the frontend framework (UniApp) sometimes stored JWT tokens with extra quotation marks and whitespace, which caused the backend to fail the token validation.
+
+This caused login failures and delayed system testing. It also introduced a risk to the reliability of user authentication.
+
+To mitigate these issues, the team bypassed the problematic bcrypt library by implementing a custom SHA256 hashing algorithm with a unique salt for each user. On the frontend side, a getCleanToken utility function was developed to remove invalid characters before each API request, ensuring the authentication process remained stable.
+
+This led us to standardize token handling and improve validation between the frontend and backend.
+
+
+\subsection{Management Issues}
+These problems are in task planning, division of work, and version control. They led to schedule delays, redundant work, and inconsistent documentation.
+
+\textbf{\large a. Workflow Problem}
+
+During the early stage of the project, tasks such as model research, requirement analysis, and prototype design were carried out at the same time, resulting in a disorder in the execution sequence. For instance, the prototype design was completed before the use case diagram was finished, and the SRS and persona were almost written simultaneously, leading to inconsistencies in the information of the two.
+
+This led to extra rework and additional time spent on making corrections
+
+The main reason for this was the lack of clear task division and the absence of phased milestones.
+
+To fix this, the team reorganized the timeline and assigned tasks based on specific deliverables, such as UML diagrams, sequence flows, user profiles, and requirement documents. This made the workflow clearer and reduced repeated work.
+
+After this, we followed a more structured and milestone-based workflow in the later stages of the project. Each module will have a designated owner (e.g. virtual try-on pipeline, recommendation logic, front-end UI, back-end API, documentation), ensuring accountability and continuous progress.\\
+
+
+\textbf{\large b. Collaboration and Version Control Problem}
+
+During the early research phase, most tasks focused on literature review, model testing, and draft writing. As a result, GitLab was not used frequently, and many decisions were stored locally instead of being tracked through commits or merge requests.
+
+This made it difficult to trace changes and led to poor team coordination.
+
+As the project moved from research to implementation, tasks became more concrete and required proper version control and review. This led us to use GitLab more consistently, with regular commits and better tracking of changes, which improved collaboration and reduced earlier issues.\\
+
+\textbf{\large c. Aesthetic Logic and User Experience Problem}
+
+All team members come from a computer science background, which led to a limited understanding of aesthetic logic in outfit recommendation.
+
+This affected the quality of recommendation results and reduced the overall user experience.
+
+To address this, we consulted external style resources and used LLM-generated explanations to support aesthetic reasoning. In addition, we collected user questionnaire feedback to improve the system iteratively.
+
+This led us to place more emphasis on user feedback and design considerations in later stages, rather than focusing only on technical implementation.
+
+\section{What We Would Do Differently}
+If we implement this project again, we will adopt a more organized and planned development approach from the beginning.
+
+Firstly, we will establish a clear timeline and proceed in stages to ensure that requirement analysis, system design, and implementation are completed in a logical order, which can avoid inconsistencies and reduce rework.
+
+Secondly, we will use GitLab earlier and more consistently, submit regularly, and make better use of branch and merge requests to improve traceability and team collaboration. At the same time, we will identify key content such as API documentation in advance to avoid confusion in the later stages.
+
+Thirdly, we will assess the technical feasibility in advance, especially in the integration of AI models and system deployment. By using early testing tools and environments, it is possible to reduce integration issues and delays, while also preparing alternative solutions to prevent delays in progress when encountering problems.
+
+Finally, we will start collecting user feedback early on in the project to understand their expectations, rather than relying solely on satisfaction questionnaires later on. This helps us ensure that the system better meets user needs and enhances the user experience.
+Overall, these improvements will enhance development efficiency, reduce risks, and improve the overall quality of the system.
+
+
+
+\section{Future Improvement}
+
+Reflecting on the limitations we encountered during the project, we realize that the system can be further improved in both functionality and overall user experience.
+
+At present, the system provides a basic single-user decision-making engine. From our experience, future improvements should focus on enhancing both functionality and user experience, especially in emotional interaction and social features.
+
+From the perspective of emotional interaction, we found that the current system lacks the ability to understand user preferences and provide supportive feedback. In the future, we plan to introduce speech-based affective computing and simple personalized memory models. These features could allow the system to remember user preferences, such as “I do not like turtlenecks”, and use them in future recommendations. The system could also provide supportive feedback. For example, when a user feels uncertain before an important event, it may suggest: “You wore this shirt to your previous interview and it worked well. Would you like to try it again?”
+
+In addition, we observed that the system is currently designed for single-user use. To improve this, we plan to develop a lightweight social module based on shared interests and connections. This may include features such as an “Inspiration Plaza”, a “Shared Wardrobe”, and a “Family Outfit Mode”. Users could share outfit ideas, manage clothing sharing among friends, and coordinate outfits within families or couples.
+
+Overall, these improvements reflect our understanding that future systems should not only provide functional support, but also offer a more engaging and user-centered experience.
+
+
+
+\section{Overall Reflection on the Project}
+Throughout the progression of the project, we discovered that the actual development did not strictly adhere to the original schedule. In the early stages, we simultaneously conducted requirements analysis, UI prototype design, and document writing, lacking a clear sequence of precedence. This led to inconsistencies between different parts of the project, such as some UI designs being completed before the use case diagrams were finished, and certain content in the software requirements specification not fully matching the prototype. Consequently, additional time was required for revision and coordination in the later stages.
+
+After the mid-term stage, we adjusted our approach by introducing clearer phase divisions and assigning tasks based on specific deliverables. For instance, UML diagrams, requirement specifications, and implementation tasks were separated and scheduled more explicitly. This made the workflow more structured and reduced duplicate work.
+
+In terms of team collaboration, the project has also undergone changes over time. In the initial stage, most tasks were completed collaboratively, lacking clear attribution of responsibilities, leading to duplication of effort and unclear responsibilities. Later, we assigned each module to specific members for responsibility, such as the virtual try-on module, recommendation logic, front-end interface, and back-end API. This made progress tracking more convenient and improved overall efficiency.
+
+From a technical perspective, integrating AI models into systems proves to be more challenging than anticipated. For instance, due to dependency issues, local deployment of the model has failed multiple times; integration with the backend also necessitated several adjustments to handle ports, APIs, and output formats. These issues underscore the significance of system stability and compatibility, particularly when integrating diverse technologies.
+
+In addition, considerations related to LSEPI (Legal, Social, Ethical, and Professional Issues) also influenced some design decisions. For example, we chose to process certain data locally to reduce privacy risks and adjusted the prompt word design to avoid overly biased recommendations.
+
+Overall, the project gradually shifted from casual exploration to a more organized, deliverable-driven work model. Through this process, we gained practical experience in both system implementation and team coordination.
+
+
+

@@ -1,0 +1,346 @@
+\chapter{Requirements Evaluation}
+\label{ch:evaluation}
+\section{SRS Evaluation}
+The evaluation presented in this chapter is based on FR and NFR defined in Chapter~\ref{ch:requirements}, together with their corresponding verification methods. The results are supported by the testing activities described in Chapter~\ref{ch:testing}.
+
+This chapter evaluates whether the system has achieved its initial design goals by comparing its actual behavior with the preset acceptance criteria.
+
+\subsection{Functional Requirements}
+Table \ref{tab:full_fr_criteria} lists the acceptance conditions for each module of the system.These criteria provide a practical way to check if the system works as expected. They also help show how goals of the system design were achieved.
+
+\begin{table*}[ht]
+\centering
+\caption{Acceptance Criteria (FR)}
+\label{tab:full_fr_criteria}
+\renewcommand{\arraystretch}{1}
+\begin{tabular}{p{1.6cm}p{13.2cm}}
+    \toprule
+    \textbf{FR ID} & \textbf{Acceptance Criteria} \\
+    \midrule
+    FR-01 &
+    User can register with email/password; login with correct credentials; logout session terminates; wardrobe is empty after first login.\\
+    
+    FR-02 &
+    Form accepts all fields; photo upload supports JPG/PNG; item appears in wardrobe after submission.\\
+    
+    FR-03 &
+    Batch upload supports $\geq$ 5 images; generated tags appear for user confirmation before saving.\\
+    
+    FR-04 &
+    Profile displays most frequent colors/styles from wardrobe; Dynamic update based on interactions. (Note: Editable fields not implemented) \\
+    
+    FR-05 &
+    Constraint selection UI functional; selections persist for recommendation request. \\
+    
+    FR-06 &
+    Weather displays based on location; manual override allows user to set custom weather. \\
+    
+    FR-07 &
+    At least 3 recommendations displayed; each recommendation respects user constraints.\\
+    
+    FR-08 &
+    Explanation text present for each recommendation; alternative items can be swapped. \\
+    
+    FR-09 &
+    Feedback buttons functional. (Note: Learning mechanism not implemented due to time constraints) \\
+    
+    FR-10 &
+   Full-body photo upload supported; try-on overlay displays selected clothing on user image. \\
+    
+    FR-11 &
+    Garment segmentation works for frontal poses; alignment accuracy meets basic requirements. (Note: Complex angles not fully supported) \\
+    
+    FR-12 &
+    (Note: Not implemented — deprioritized) \\
+    
+    FR-13 &
+    Search returns matching items; filters apply correctly; batch edit updates multiple items; deletion removes items after confirmation.\\
+    \bottomrule
+\end{tabular}
+\end{table*}
+
+\newpage
+Table \ref{tab:fr_verification} summarizes the implementation and verification status for each functional requirement. The table links each requirement to its verification method and provides the final validation outcome. Status indicators: Implemented (fully delivered and verified), Partially Implemented (core aspects delivered with known limitations), and Not Implemented (deferred to future iterations). Verification results are supported by functional test case IDs or specific validation metrics.
+
+\begin{table*}[ht]
+\centering
+\small
+\caption{Requirement Verification Status (FR)}
+\label{tab:fr_verification}
+\renewcommand{\arraystretch}{2}
+\begin{tabular}{p{1.6cm}p{4.4cm}p{4.4cm}p{4.4cm}}
+    \toprule
+    \textbf{FR ID} & \textbf{Implementation Status} & \textbf{Verification Method} & \textbf{Verification Result} \\
+    \midrule
+    FR-01 & 
+    Implemented &
+    Test  &
+    Pass
+      \\
+
+    FR-04      &
+    Partially Implemented &
+    Demonstration  &
+    Pass (with remarks) \\
+
+    FR-02 &
+    Implemented &
+    Test  & 
+    Pass
+      \\
+
+    FR-03      &
+    Implemented &
+    Test  &
+    Pass
+      \\
+
+    FR-13      &
+    Implemented &
+    Test  &
+    Pass
+      \\
+
+    FR-05 &
+    Implemented &
+    Test  &
+    Pass
+      \\
+    
+    FR-06      &
+    Implemented &
+    Test  & 
+    Pass
+      \\
+    
+    FR-07      &
+    Implemented &
+    Test  &
+    Pass
+      \\
+    
+    FR-08      &
+    Implemented &
+    Test  &
+    Pass
+      \\
+
+    FR-09      &
+    Not Implemented &
+    Analysis&
+    N/A  \\
+    
+    FR-10 &
+    Implemented &
+    Test   &
+    Pass
+       \\
+    
+    FR-11      &
+    Implemented &
+    Test   & 
+    Pass
+     \\
+    
+    FR-12      &
+    Not Implemented &
+    Analysis  &
+    N/A\\
+    
+    \bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{table*}[ht]
+\centering
+\small
+\caption{Verification Method Description}
+\label{tab:method_fr}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{p{3.2cm}p{11.6cm}}
+    \toprule
+    \textbf{Method} & \textbf{Description}\\
+    \midrule
+    Test & 
+    Verified through automated unit tests, integration tests, or system test cases with clear pass/fail criteria and execution records.
+      \\
+
+    Demonstration      &
+    Verified through manual operation, user interface interaction, or User Acceptance Testing (UAT), relying on human observation for confirmation. 
+    \\
+
+    Inspection &
+    Verified through code review, configuration review, or document walkthrough, without dynamic execution.
+      \\
+
+    Analysis      &
+    Verified through architectural analysis, theoretical reasoning, or mathematical modeling, without direct testing or demonstration.
+      \\
+    
+    \bottomrule
+\end{tabular}
+\end{table*}
+
+\newpage
+During the system implementation phase, some functional requirements were not fully implemented in the final system due to time constraints and adjustments in project priorities.
+
+First, FR-04 (User Preference Profiling) adopts a simplified statistical method. It generates user profiles by identifying the most frequent colors, styles, and clothing categories in the user’s wardrobe. The results are visualized using pie charts. However, functions such as editable profile panels have not been developed.
+
+In addition, FR-09 (Feedback Loop and Learning Mechanism) was not implemented due to the limited project schedule. The current system relies on off-the-shelf LLM APIs. After evaluation, further model training and feedback integration were considered unnecessary within the scope of this project. Therefore, this function was not included.
+
+Finally, FR-12 (Try-on Result Export and Sharing) was not developed. As a supplementary function, it was given lower priority under the time limitations.
+
+\newpage
+\subsection{Non-Functional Requirements}
+Table~\ref{tab:nfr_acceptance} presents the acceptance criteria used to evaluate the non-functional aspects of the system. These criteria are derived from the requirements defined in Chapter~\ref{ch:reflection} and are used to assess whether the implemented system meets the expected quality standards.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Acceptance Criteria (NFR)}
+\label{tab:nfr_acceptance}
+\renewcommand{\arraystretch}{2}
+\begin{tabular}{p{1.6cm}p{13.2cm}}
+\toprule
+\textbf{NF ID} & \textbf{Acceptance Criteria} \\
+\midrule
+NF-01 & 95\% of requests complete within 3 seconds \\
+NF-02 & System maintains stable response under load \\
+NF-03 & Single 720p image processed and displayed within 10 seconds \\
+NF-04 & UI components follow defined design system (colors, fonts, spacing, component consistency) \\
+NF-05 & Core functions (upload, recommendation, sharing) can be completed within 3 clicks/steps \\
+NF-06 & New users complete registration and wardrobe setup within 120 seconds \\
+NF-07 & All interface text switches correctly between Chinese and English \\
+NF-08 & User-uploaded photos are not used for model training or shared with third parties \\
+NF-09 & Users can delete account; all associated data (photos, preferences, wardrobe) are permanently removed \\
+NF-10 & System operational for $\geq$ 99\% of time ($\leq$ 3.65 days downtime per year). \\
+NF-11 & Data saved prior to crash remains intact after system restart \\
+NF-12 & Core functions work correctly on all specified browsers \\
+NF-13 & Core functions accessible on mobile devices \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\newpage
+Table \ref{tab:nfr_verification} presents the verification status for each non-functional requirement, with the same status indicators used in Table \ref{tab:fr_verification}.
+
+\begin{table*}[ht]
+\centering
+\small
+\caption{Requirement Verification Status (NFR)}
+\label{tab:nfr_verification}
+\renewcommand{\arraystretch}{2}
+\begin{tabular}{p{1.6cm}p{4.4cm}p{4.4cm}p{4.4cm}}
+    \toprule
+    \textbf{FR ID} & \textbf{Implementation Status} & \textbf{Verification Method} & \textbf{Verification Result} \\
+    \midrule
+    NF-01 & 
+    Partially Implemented &
+    Test  & 
+    Pass(with remarks)
+      \\
+
+    NF-02      &
+    Implemented &
+    Analysis   &
+    Pass
+       \\
+
+    NF-03 &
+    Partially Implemented &
+    Test  & 
+    Pass(with remarks
+      \\
+
+    NF-04      &
+    Implemented &
+    Analysis  &
+    Pass
+      \\
+
+    NF-05      &
+    Implemented &
+    Demonstration  &
+    Pass
+      \\
+
+    NF-06 &
+    Implemented &
+    Test  &
+    Pass
+      \\
+    
+    NF-07      &
+    Implemented &
+    Test  &
+    Pass
+      \\
+    
+    NF-08      &
+    Implemented &
+    Test  &
+    Pass
+      \\
+    
+    NF-09      &
+    Implemented &
+    Test  &
+    Pass
+      \\
+
+    NF-10      &
+    Implemented &
+    Test  &
+    Pass
+        \\
+    
+    NF-11 &
+    Implemented &
+     Test  &
+     Pass
+       \\
+    
+    NF-12      &
+    Implemented &
+    Inspection   & 
+    Pass
+     \\
+    
+    NF-13      &
+    Not Implemented &
+    N/A  &
+    N/A\\
+    
+    \bottomrule
+\end{tabular}
+\end{table*}
+
+Regarding non-functional requirements, most targets were achieved, except for NF1, NF3, and NF13.
+
+NF1 requires the system response time to be within 3 seconds, while NF3 requires 720p virtual try-on rendering within 10 seconds. These requirements were not met, mainly due to the latency of the AI models used. Under the current technical conditions, achieving these performance targets was not feasible.
+
+Moreover, NF13 requires support for mobile access on Android 10 and above, as well as iOS 14 and above. Due to limited development time, mobile adaptation and optimization were not carried out. As a result, the system was only tested on mainstream desktop browsers, including Chrome, Firefox, and Edge.
+
+
+\section{Evaluation of the SRS Design}
+Our SRS document is generally well structured and follows a standard format. 
+It covers the main functional and non-functional requirements of the system, 
+reflecting the core business logic and user interaction of the AI outfit recommendation assistant. 
+The requirements are presented in a clear and organized manner. 
+There is a basic alignment between use cases and functional requirements, 
+which provides a solid foundation for subsequent system design and development. 
+In addition, key non-functional aspects such as performance, security, and usability are considered, showing a certain level of completeness.
+
+However, there is still room for improvement in specification quality. 
+Some requirements are not detailed enough and lack clear testability. 
+The performance requirements are not fully quantified, which may affect later evaluation. 
+Some sections, such as the operating environment, remain incomplete. 
+Moreover, the traceability between requirements and use cases is not sufficiently clear. 
+A traceability matrix could be added to improve this aspect. 
+
+Overall, the SRS provides a solid foundational framework. However, further refinement and clarification are still required. 
+These limitations also inform the directions for future system improvements, as discussed in the Chapter~\ref{ch:reflection}.
+
+
+\section{Summary}
+In summary, the system satisfies most of the predefined functional and non-functional requirements, although certain components are constrained by time and technical feasibility. Some features, including dynamic user profiling and mobile accessibility, are not yet fully implemented. Nevertheless, the core functionality of the AI-powered outfit recommendation system is stable and effective. Future improvements focus on enhancing the system toward greater emotional intelligence and social connectivity. Overall, this project provides a solid foundation for subsequent development and offers clear directions for improving user engagement and system adaptability.

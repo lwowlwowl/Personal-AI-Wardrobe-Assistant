@@ -1,0 +1,211 @@
+\chapter{Testing}
+\label{ch:testing}
+In this project, testing activities are directly derived from the functional and non-functional requirements defined in Chapter~\ref{ch:requirements}, and they are structured around two complementary perspectives: 
+verification and validation. 
+
+Verification focuses on whether the system has been implemented correctly 
+according to the FR and NFR, such as API correctness, data consistency, and system performance. 
+
+Validation, on the other hand, evaluates whether the system meets user needs 
+in realistic usage scenarios, including usability, recommendation quality, and 
+overall user experience.
+
+\section{Verification}
+
+\subsection{Unit Testing}
+Unit testing was used to check whether the main backend logic behaved correctly under controlled inputs.
+
+Because some features depend on PostgreSQL, external LLM services, image-processing pipelines, and third-party APIs, these parts were not fully tested at unit level. They were either mocked or left to integration testing.
+
+To make the tests reproducible, a fixed test configuration was used. For example, token-related behavior was made deterministic, and heavy optional dependencies were replaced with lightweight stubs so that the tests could run without the full deployment environment.
+\begin{table}[H]
+\centering
+\caption{Summary of Unit Testing Coverage with Requirement Mapping}
+\label{unit_test_table}
+\begin{tabular}{p{3.2cm} p{8.8cm} p{2.2cm}}
+\toprule
+\textbf{Module} & \textbf{Test Focus} & \textbf{FR/NFR} \\
+\midrule
+
+User authentication 
+& Password hashing, token generation and validation; handling expired or invalid tokens; login checks with mocked database. 
+& FR-01, FR-04 \\
+
+\addlinespace
+
+Wardrobe data management 
+& Validation of user input (categories, attributes); error handling during save; CRUD operations tested at integration level. 
+& FR-02, FR-03, FR-13 \\
+
+\addlinespace
+
+Recommendation preprocessing 
+& Data preparation logic; user context construction; validation of required inputs (e.g. user ID). 
+& FR-05, FR-06 \\
+
+\addlinespace
+
+Chat input preprocessing 
+& Language detection (Chinese/English); handling short inputs using previous context. 
+& NFR-07 \\
+
+\addlinespace
+
+LLM output parsing 
+& Parsing structured outputs; handling missing fields, invalid formats, and default values. 
+& FR-07, FR-08 \\
+
+\addlinespace
+
+Weather data processing 
+& Time-based freshness validation using fixed timestamps for deterministic behaviour. 
+& FR-06, NFR-01 \\
+
+\addlinespace
+
+Request validation 
+& Schema-based input validation for login/register, location data, and AI requests. 
+& FR-01, FR-05 \\
+
+\addlinespace
+
+Virtual try-on workflow 
+& Verification that user inputs are correctly injected into the try-on pipeline configuration. 
+& FR-10, FR-11 \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table \ref{unit_test_table} summarizes the main areas covered by unit testing and shows how they relate to the functional and non-functional requirements. Each case supplies concrete inputs and asserts observable outputs or raised validation errors. Representative cases are tabulated in Appendix~\ref{appendix:unit_testing}.
+
+
+\subsection{Integration Testing}
+Integration testing was conducted to verify that different system components work correctly when combined, particularly across API endpoints, database interactions, and external service integrations.
+
+Unlike unit testing, integration testing focuses on end-to-end behavior, ensuring that data flows correctly between modules such as authentication, recommendation services, wardrobe management, and virtual try-on pipelines.
+
+Since the system involves multiple external dependencies (e.g. PostgreSQL, LLM services, weather APIs, and image generation services), integration tests were executed using controlled environments with partial mocking to ensure both realism and stability.
+\begin{table}[H]
+\centering
+\caption{Summary of Integration Testing Coverage with Requirement Mapping}
+\label{integration_test_table}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{p{3.2cm} p{8.8cm} p{2.2cm}}
+\toprule
+\textbf{Module} & \textbf{Test Focus} & \textbf{Related FR/NFR} \\
+\midrule
+
+Authentication API 
+& End-to-end verification of registration, login, token generation, and token validation via HTTP endpoints, including success and failure cases (e.g., invalid credentials, expired tokens). 
+& FR-01 \newline NFR-08 \\
+
+\addlinespace
+
+User profile management 
+& Retrieval and update of user profile information through authenticated requests, ensuring correct interaction between authentication layer and user data services. 
+& FR-04 \\
+
+\addlinespace
+
+Recommendation AI (conversation management) 
+& Creation, retrieval, and deletion of AI conversation sessions, ensuring consistency between frontend requests and backend storage. 
+& FR-05 \\
+
+\addlinespace
+
+Recommendation AI (chat stream) 
+& Validation of streaming responses (SSE), including handling of empty inputs and correct emission of intermediate and final outputs. 
+& FR-05, FR-07 \newline NFR-01 \\
+
+\addlinespace
+
+Wardrobe (clothing API) 
+& Retrieval of clothing items with filtering, search, and pagination, verifying correct parameter passing and database query integration. 
+& FR-02, FR-13 \\
+
+\addlinespace
+
+Calendar and analysis 
+& Aggregation of outfit and wardrobe statistics, ensuring correct data summarization and response formatting. 
+& FR-09 \\
+
+\addlinespace
+
+Model photo upload 
+& Upload and storage of user model images, verifying file handling, persistence, and response structure. 
+& FR-10 \\
+
+\addlinespace
+
+Weather service integration 
+& Retrieval of real-time weather data through service layer, ensuring correct API delegation and response formatting. 
+& FR-06 \newline NFR-01 \\
+
+\addlinespace
+
+Virtual try-on API 
+& End-to-end validation of try-on generation pipeline, including image upload, processing, and result delivery (both success and error cases). 
+& FR-10, FR-11 \\
+
+\addlinespace
+
+Password reset 
+& Verification of identity-based password reset flow, including validation of user information and update operations. 
+& FR-01 \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table \ref{integration_test_table} summarizes the main integration testing areas and their relationship to system requirements. These tests ensure that multiple components interact correctly under realistic conditions.
+
+Each integration test corresponds to one or more API-level scenarios, including both normal workflows and failure cases (e.g., invalid inputs, missing resources, or service errors). All test cases were executed successfully, with results recorded in Appendix~\ref{appendix:integration_testing} 
+
+
+\subsection{System Testing}
+We carried out system testing to check whether the system works as expected in real usage scenarios.  
+In this stage, we focused on the complete workflow, making sure that the frontend, backend, AI modules, and external services can work together properly.
+
+The test cases were designed based on common user actions, such as login, wardrobe management, recommendation generation, virtual try-on, weather display, and chat interaction.  
+These tests helped us verify that different features can run together without issues.
+
+Besides checking functional correctness, we also tested AI behaviour, system performance, and error handling.  
+For example, we evaluated the output quality and response time of the virtual try-on feature, and checked whether the chat and recommendation results were reasonable.
+
+We also paid attention to edge cases, such as invalid inputs and external service failures, to make sure the system remains stable and provides clear feedback.
+
+Detailed test cases are provided in Appendix~\ref{appendix:system_testing}.
+
+\section{Validation}
+
+\subsection{User Acceptance Testing}
+To evaluate the system from a user perspective, we conducted a user acceptance testing study based on a structured questionnaire (provided in Appendix~\ref{appendix:questionnaire}). The questionnaire was designed to assess the usability, system performance, recommendation quality, and overall user satisfaction.
+
+A total of 23 participants were invited to use the system and complete the survey. Most of the participants were undergraduate students.
+
+The questionnaire used a 5-point Likert scale (ranging from “Strongly Disagree” to “Strongly Agree”) to evaluate different aspects of the system, including:
+
+\begin{itemize}
+    \item Usability and interface clarity
+    \item System responsiveness and interaction experience
+    \item Recommendation quality and virtual try-on performance
+    \item Visual design and overall user experience
+\end{itemize}
+
+Overall, the results show that users had a positive experience with the system. Specifically, 21 out of 23 participants selected either “Agree” or “Strongly Agree” for most of the questions. The average user rating was 9.82 out of 10. Users generally found the system easy to use, with a clear and intuitive workflow. The recommendation feature and virtual try-on function were also considered both useful and enjoyable.
+
+At the same time, some users provided suggestions for improvement. For example, several participants suggested adding voice interaction to the recommendation module instead of relying only on text input. Others expressed interest in a real-time camera feature that could analyze their current outfit. There were also suggestions to integrate the system with e-commerce platforms, so that users could directly try on clothes from online stores.
+
+In summary, the system meets the basic user requirements, but there is still room for improvement, particularly in terms of Recommendation AI module and Virtual Try-on Module.
+
+\subsection{Stakeholder Feedback}
+In addition to user testing, we also collected feedback from our project supervisor.
+
+During the development process, our supervisor provided several practical suggestions. For example, the recommendation module should generate multiple outfit options instead of a single result, so that users could choose based on their own preferences. However, due to time constraints, this feature was not implemented in the current version.
+
+Another important suggestion was to better integrate the virtual try-on module with the recommendation results, allowing users to preview outfits more quickly. In response, we added “Virtual Try-On” and “Full Outfit Try-On” buttons directly within the recommendation cards. This allows users to try-on the recommended items without unnecessary steps, leading to a smoother user experience.
+
+In addition, our supervisor pointed out the need to improve the clarity of recommendations. This led us to refine the structure of AI responses, making them more readable and easier to understand.
+
+Overall, these feedbacks helped us refine key design decisions and improve the overall usability of the system.
