@@ -3,16 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PISA | Personal AI Wardrobe Assistant</title>
+    <title>PISA | Premium AI Wardrobe</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="js/tailwind-config.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,800;1,400&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/styles.css">
-
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/studio-freight/lenis@1.0.19/bundled/lenis.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            bg: '#FAF6EF',
+                            surface: '#F1E9DE',
+                            primary: '#B6987C',
+                            textMain: '#2F2925',
+                            textLight: '#8F877A'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Playfair Display"', 'serif'],
+                        sans: ['"Manrope"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body, html {
+            margin: 0; padding: 0;
+            background-color: #FAF6EF;
+            color: #2F2925;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+        }
+
+        ::-webkit-scrollbar { display: none; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .noise-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 9999; opacity: 0.028;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        #canvas-container {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 0; pointer-events: none; opacity: 0.68;
+        }
+
+        .glass-light {
+            background: rgba(255, 252, 247, 0.58);
+            backdrop-filter: blur(24px) saturate(1.35); -webkit-backdrop-filter: blur(24px) saturate(1.35);
+            border: 1px solid rgba(255, 255, 255, 0.65); box-shadow: 0 24px 48px rgba(47, 41, 37, 0.04);
+        }
+
+        /* Polaroid card base layout */
+        .polaroid {
+            background: #fff; padding: 12px 12px 40px 12px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+            position: absolute; will-change: transform; overflow: hidden;
+        }
+        .polaroid-img-wrapper { width: 100%; aspect-ratio: 1/1; overflow: hidden; background: #F2EDE6; }
+        .polaroid-img-wrapper img { width: 100%; height: 120%; object-fit: cover; transform: translateY(-10%); will-change: transform; }
+        .polaroid-tape {
+            position: absolute; top: -10px; left: 50%; transform: translateX(-50%) rotate(-2deg);
+            width: 80px; height: 25px; background: rgba(245, 240, 232, 0.95); box-shadow: 0 1px 3px rgba(0,0,0,0.06); z-index: 2;
+        }
+
+        /* Mobile: horizontal polaroid strip overrides */
+        @media (max-width: 768px) {
+            .polaroid { position: relative; width: 70vw !important; padding: 8px 8px 30px 8px; box-shadow: 0 15px 30px rgba(0,0,0,0.06); }
+            .polaroid-tape { width: 50px; height: 18px; top: -6px; }
+            .polaroid-img-wrapper img { height: 100%; transform: none; } /* Disable inner parallax on mobile for performance */
+        }
+
+        .reveal-text { clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); }
+        .reveal-text .hero-line { display: inline-block; transform: translateY(110%); }
+        ::selection { background: #B6987C; color: #fff; }
+
+    </style>
 </head>
 <body class="font-sans">
 
@@ -377,7 +452,7 @@
 
                         <div class="relative w-full flex flex-col items-center justify-center gap-3 pt-5 border-t border-brand-primary/10 group-hover:border-brand-primary/20 transition-colors">
                             <a href="mailto:ssyhw12@nottingham.edu.cn" class="flex flex-wrap items-center justify-center gap-2 font-sans text-sm md:text-[15px] xl:text-base text-brand-textLight hover:text-brand-primary transition-colors min-w-0 max-w-full break-all">
-                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="css/icons.svg#icon-mail"/></svg>
+                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                                 ssyhw12@nottingham.edu.cn
                             </a>
                         </div>
@@ -391,7 +466,7 @@
                         <p class="text-sm md:text-[14px] tracking-[0.2em] uppercase text-brand-primary font-bold mb-6">ID: 20617160</p>
                         <div class="relative w-full flex flex-col items-center justify-center gap-3 pt-5 border-t border-brand-primary/10 group-hover:border-brand-primary/20 transition-colors">
                             <a href="mailto:scyjs10@nottingham.edu.cn" class="flex flex-wrap items-center justify-center gap-2 font-sans text-sm md:text-[15px] xl:text-base text-brand-textLight hover:text-brand-primary transition-colors min-w-0 max-w-full break-all">
-                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="css/icons.svg#icon-mail"/></svg>
+                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                                 scyjs10@nottingham.edu.cn
                             </a>
                         </div>
@@ -405,7 +480,7 @@
                         <p class="text-sm md:text-[14px] tracking-[0.2em] uppercase text-brand-primary font-bold mb-6">ID: 20617865</p>
                         <div class="relative w-full flex flex-col items-center justify-center gap-3 pt-5 border-t border-brand-primary/10 group-hover:border-brand-primary/20 transition-colors">
                             <a href="mailto:scyry2@nottingham.edu.cn" class="flex flex-wrap items-center justify-center gap-2 font-sans text-sm md:text-[15px] xl:text-base text-brand-textLight hover:text-brand-primary transition-colors min-w-0 max-w-full break-all">
-                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="css/icons.svg#icon-mail"/></svg>
+                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                                 scyry2@nottingham.edu.cn
                             </a>
                         </div>
@@ -422,7 +497,7 @@
                         <p class="text-sm md:text-[14px] tracking-[0.2em] uppercase text-brand-primary font-bold mb-6">ID: 20618241</p>
                         <div class="relative w-full flex flex-col items-center justify-center gap-3 pt-5 border-t border-brand-primary/10 group-hover:border-brand-primary/20 transition-colors">
                             <a href="mailto:scyyf5@nottingham.edu.cn" class="flex flex-wrap items-center justify-center gap-2 font-sans text-sm md:text-[15px] xl:text-base text-brand-textLight hover:text-brand-primary transition-colors min-w-0 max-w-full break-all">
-                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="css/icons.svg#icon-mail"/></svg>
+                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                                 scyyf5@nottingham.edu.cn
                             </a>
                         </div>
@@ -436,7 +511,7 @@
                         <p class="text-sm md:text-[14px] tracking-[0.2em] uppercase text-brand-primary font-bold mb-6">ID: 20215487</p>
                         <div class="relative w-full flex flex-col items-center justify-center gap-3 pt-5 border-t border-brand-primary/10 group-hover:border-brand-primary/20 transition-colors">
                             <a href="mailto:scyjc4@nottingham.edu.cn" class="flex flex-wrap items-center justify-center gap-2 font-sans text-sm md:text-[15px] xl:text-base text-brand-textLight hover:text-brand-primary transition-colors min-w-0 max-w-full break-all">
-                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="css/icons.svg#icon-mail"/></svg>
+                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                                 scyjc4@nottingham.edu.cn
                             </a>
                         </div>
@@ -453,7 +528,7 @@
                         <p class="font-serif text-xl font-bold text-brand-textMain mb-6">Qian Zhang</p>
                         <div class="relative w-full flex flex-col items-center justify-center gap-3 pt-5 border-t border-brand-primary/10 group-hover:border-brand-primary/20 transition-colors">
                             <a href="mailto:Qian.Zhang@nottingham.edu.cn" class="flex flex-wrap items-center justify-center gap-2 font-sans text-sm md:text-[15px] xl:text-base text-brand-textLight hover:text-brand-primary transition-colors min-w-0 max-w-full break-all">
-                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="css/icons.svg#icon-mail"/></svg>
+                                <svg class="w-4 h-4 shrink-0 text-brand-textLight/70 group-hover:text-brand-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                                 Qian.Zhang@nottingham.edu.cn
                             </a>
                         </div>
@@ -463,7 +538,9 @@
 
             <div class="relative z-10 flex justify-center mb-6 md:mb-8 footer-elem">
                 <a href="https://github.com/lwowlwowl/Personal-AI-Wardrobe-Assistant" target="_blank" rel="noopener noreferrer" class="group inline-flex items-center gap-4 px-8 py-4 rounded-full bg-brand-textMain text-brand-bg hover:bg-[#1a1614] hover:shadow-[0_20px_40px_rgba(0,0,0,0.15)] hover:-translate-y-1 transition-all duration-500">
-                    <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="css/icons.svg#icon-github"/></svg>
+                    <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                    </svg>
                     <span class="font-bold text-[9px] md:text-[10px] uppercase tracking-[0.2em] pt-[2px]">lwowlwowl / Personal-AI-Wardrobe</span>
                     <span class="w-4 h-[1px] bg-brand-bg/40 group-hover:w-8 group-hover:bg-brand-primary transition-all duration-500"></span>
                 </a>
@@ -473,6 +550,410 @@
         </footer>
     </main>
 
-    <script src="js/app.js"></script>
+    <script>
+        // Lenis smooth scrolling
+        const lenis = new Lenis({
+            duration: 1.5,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            smooth: true, wheelMultiplier: 1,
+        });
+
+        lenis.on('scroll', ScrollTrigger.update);
+        gsap.ticker.add((time) => { lenis.raf(time * 1000) });
+        gsap.ticker.lagSmoothing(0);
+
+        // Smooth scroll for in-page hash links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    lenis.scrollTo(targetElement, {
+                        duration: 1.5,
+                        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t))
+                    });
+                }
+            });
+        });
+
+        window.addEventListener("load", () => ScrollTrigger.refresh());
+
+        // Three.js background plane
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xFAF6EF);
+        scene.fog = new THREE.FogExp2(0xF5EFE6, 0.009);
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, -15, 35);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); 
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.12;
+        container.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xfffaf5, 0.88);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffefd8, 0.62);
+        directionalLight.position.set(20, 20, 10);
+        scene.add(directionalLight);
+
+        const geometry = new THREE.PlaneGeometry(120, 120, 45, 45);
+        const material = new THREE.MeshStandardMaterial({
+            color: 0xEDE6DC,
+            emissive: 0xfffbf7,
+            emissiveIntensity: 0.14,
+            roughness: 0.42,
+            metalness: 0.06,
+            side: THREE.DoubleSide
+        });
+
+        const plane = new THREE.Mesh(geometry, material);
+        plane.rotation.x = -Math.PI / 2;
+        scene.add(plane);
+
+        const positions = geometry.attributes.position;
+        const clock = new THREE.Clock();
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            const time = clock.getElapsedTime() * 0.4; 
+            for (let i = 0; i < positions.count; i++) {
+                const x = positions.getX(i); const y = positions.getY(i);
+                const wave = Math.sin(x * 0.08 + time) * 1.5 + Math.cos(y * 0.08 + time) * 1.5;
+                positions.setZ(i, wave);
+            }
+            positions.needsUpdate = true;
+            geometry.computeVertexNormals(); 
+            plane.rotation.z = time * 0.03;
+            renderer.render(scene, camera);
+        }
+        animate3D();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Desktop magnetic hover on .magnetic targets
+        if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+            const hoverTargets = document.querySelectorAll('.hover-target');
+            hoverTargets.forEach(target => {
+                target.addEventListener('mouseleave', () => {
+                    if(target.classList.contains('magnetic')) {
+                        gsap.to(target, { x: 0, y: 0, duration: 0.5, ease: "power3.out" });
+                    }
+                });
+
+                if(target.classList.contains('magnetic')) {
+                    target.addEventListener('mousemove', (e) => {
+                        const rect = target.getBoundingClientRect();
+                        const relX = e.clientX - (rect.left + rect.width / 2);
+                        const relY = e.clientY - (rect.top + rect.height / 2);
+                        gsap.to(target, { x: relX * 0.3, y: relY * 0.3, duration: 0.3, ease: "power2.out" });
+                    });
+                }
+            });
+        }
+
+        gsap.registerPlugin(ScrollTrigger);
+
+        // Navbar glass / compact padding after scroll
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('navbar');
+            if(window.scrollY > 50) {
+                nav.classList.add('glass-light', 'py-4', 'md:py-4');
+                nav.classList.remove('py-6', 'md:py-8', 'border-transparent');
+            } else {
+                nav.classList.remove('glass-light', 'py-4', 'md:py-4');
+                nav.classList.add('py-6', 'md:py-8');
+            }
+        });
+
+        // Hero headline and fade-in lines
+        const tl = gsap.timeline();
+        tl.to(".hero-line", { y: 0, duration: 1.2, stagger: 0.1, ease: "power4.out", delay: 0.2 })
+          .from(".hero-fade", { y: 20, opacity: 0, duration: 1, stagger: 0.1, ease: "power3.out" }, "-=0.8");
+
+        // --- Desktop: polaroid scroll parallax (overview) ---
+        if (window.innerWidth > 768) {
+            const polaroids = ['.p1', '.p2', '.p3', '.p4'];
+            polaroids.forEach((p, index) => {
+                const el = document.querySelector(p);
+                if(!el) return;
+                const img = el.querySelector('.para-img');
+                const xOffset = index % 2 === 0 ? -150 : 150;
+                const rot = index % 2 === 0 ? -15 : 15;
+
+                gsap.fromTo(el, 
+                    { x: xOffset, y: 150, rotation: rot, opacity: 0 },
+                    {
+                        x: 0, y: 0, rotation: index === 0 ? -6 : (index === 1 ? 12 : (index===2 ? 3 : -6)), 
+                        opacity: 1, duration: 1.5, ease: "power3.out",
+                        scrollTrigger: { trigger: "#overview", start: "top 70%", end: "center center", scrub: 1 }
+                    }
+                );
+
+                gsap.to(img, {
+                    y: "10%", ease: "none",
+                    scrollTrigger: { trigger: "#overview", start: "top bottom", end: "bottom top", scrub: true }
+                });
+            });
+        }
+
+        // --- Mobile: polaroid strip entrance ---
+        if (window.innerWidth <= 768) {
+            gsap.from(".polaroid-mob", {
+                scrollTrigger: { trigger: ".polaroid-mobile-container", start: "top 85%" },
+                y: 60, opacity: 0, duration: 1, stagger: 0.15, ease: "power3.out"
+            });
+        }
+
+        // Section titles, tech cards, footer reveal on scroll
+        gsap.utils.toArray('.section-title').forEach(title => {
+            gsap.from(title, {
+                scrollTrigger: { trigger: title, start: "top 85%" },
+                y: 40, opacity: 0, duration: 1.2, ease: "power3.out"
+            });
+        });
+
+        gsap.utils.toArray(".tech-card").forEach((card, i) => {
+            gsap.from(card, {
+                scrollTrigger: {
+                    trigger: card,
+                    start: "top 90%",
+                    toggleActions: "play none none none",
+                    fastScrollEnd: true,
+                },
+                y: 56,
+                opacity: 0,
+                duration: 1,
+                delay: i * 0.07,
+                ease: "power3.out",
+            });
+        });
+
+        gsap.from(".footer-elem", {
+            scrollTrigger: {
+                trigger: "#about",
+                start: "top 85%"
+            },
+            y: 40,
+            opacity: 0,
+            duration: 1.2,
+            stagger: 0.15,
+            ease: "power3.out"
+        });
+
+        const garments = gsap.utils.toArray('.garment-item');
+        const featurePanels = gsap.utils.toArray('.feature-panel');
+        let currentActiveIndex = 0;
+
+        function updateCloset(activeIndex, isInitial = false) {
+            currentActiveIndex = activeIndex;
+            const isMobile = window.innerWidth < 1024;
+            const vw = Math.min(window.innerWidth || 390, 430);
+            const pushOffset = isMobile ? Math.min(88, Math.round(vw * 0.2)) : 320;
+            const stackGap = isMobile ? Math.min(28, Math.round(vw * 0.065)) : 70;
+
+            const centerScale = isMobile ? 1.06 : 1.15;
+            const sideScale = isMobile ? 0.82 : 0.85;
+
+            garments.forEach((garment, i) => {
+                let xPos = 0;
+                let scale = sideScale;
+                let rot = 0;
+                let z = 10;
+                let cardOpacity = 0.5;
+                let blur = "blur(4px)";
+
+                if (i === activeIndex) {
+                    xPos = 0;
+                    scale = centerScale;
+                    rot = 0;
+                    z = 50;
+                    cardOpacity = 1;
+                    blur = "blur(0px)";
+                } else if (i < activeIndex) {
+                    const diff = i - activeIndex;
+                    xPos = -pushOffset + (diff * stackGap);
+                    rot = -3 + diff;
+                    z = 20 + i;
+                } else {
+                    const diff = i - activeIndex;
+                    xPos = pushOffset + (diff * stackGap);
+                    rot = 3 + diff;
+                    z = 20 - i;
+                }
+
+                const hook = garment.querySelector(".garment-hook");
+                const crossbar = garment.querySelector(".garment-crossbar");
+                const card = garment.querySelector(".garment-card");
+                const t = { duration: isInitial ? 1 : 0.8, ease: "power3.out", overwrite: "auto" };
+
+                gsap.to(garment, {
+                    x: xPos,
+                    scale: scale,
+                    rotation: rot,
+                    zIndex: z,
+                    opacity: 1,
+                    filter: "none",
+                    ...t
+                });
+                if (hook) {
+                    gsap.to(hook, { opacity: cardOpacity, filter: blur, ...t });
+                }
+                if (crossbar) {
+                    gsap.to(crossbar, { opacity: 1, filter: "none", ...t });
+                }
+                if (card) {
+                    gsap.to(card, { opacity: cardOpacity, filter: blur, ...t });
+                }
+            });
+
+            featurePanels.forEach((panel, i) => {
+                if (i === activeIndex) {
+                    gsap.to(panel, { opacity: 1, y: 0, pointerEvents: "auto", duration: 0.6, ease: "power2.out", delay: 0.2 });
+                } else {
+                    gsap.to(panel, { opacity: 0, y: 20, pointerEvents: "none", duration: 0.4, ease: "power2.in" });
+                }
+            });
+        }
+
+        garments.forEach((g, i) => {
+            g.addEventListener('click', () => {
+                if (currentActiveIndex !== i) updateCloset(i);
+            });
+        });
+
+        ScrollTrigger.create({
+            trigger: "#features",
+            start: "top 60%",
+            once: true,
+            onEnter: () => {
+                gsap.from(garments, {
+                    y: -150,
+                    opacity: 0,
+                    rotation: () => -15 + Math.random() * 30,
+                    stagger: 0.1,
+                    duration: 1.2,
+                    ease: "elastic.out(1, 0.6)",
+                    onComplete: () => updateCloset(0, true)
+                });
+            }
+        });
+
+        // Mobile hamburger drawer menu
+        const menuBtn = document.getElementById('menu-toggle');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const mobileOverlay = document.getElementById('mobile-overlay');
+        const menuLinksContainer = document.getElementById('mobile-menu-links');
+        const line1 = document.getElementById('line1');
+        const line2 = document.getElementById('line2');
+        let isMenuOpen = false;
+
+        function toggleMenu() {
+            isMenuOpen = !isMenuOpen;
+            if (isMenuOpen) {
+                // Open overlay and drawer
+                mobileOverlay.classList.remove('opacity-0', 'pointer-events-none');
+                mobileOverlay.classList.add('opacity-100', 'pointer-events-auto');
+
+                mobileMenu.classList.remove('pointer-events-none');
+                mobileMenu.classList.add('pointer-events-auto');
+                
+                mobileMenu.classList.remove('translate-x-full');
+                mobileMenu.classList.add('translate-x-0', 'shadow-2xl');
+                
+                menuLinksContainer.classList.remove('opacity-0');
+                
+                line1.classList.add('rotate-45', 'translate-y-[2.5px]');
+                line2.classList.add('-rotate-45', '-translate-y-[4px]');
+            } else {
+                // Close overlay and drawer
+                mobileOverlay.classList.add('opacity-0', 'pointer-events-none');
+                mobileOverlay.classList.remove('opacity-100', 'pointer-events-auto');
+
+                mobileMenu.classList.add('pointer-events-none');
+                mobileMenu.classList.remove('pointer-events-auto');
+                
+                mobileMenu.classList.add('translate-x-full');
+                mobileMenu.classList.remove('translate-x-0', 'shadow-2xl');
+                
+                menuLinksContainer.classList.add('opacity-0');
+                
+                line1.classList.remove('rotate-45', 'translate-y-[2.5px]');
+                line2.classList.remove('-rotate-45', '-translate-y-[4px]');
+            }
+        }
+
+        menuBtn.addEventListener('click', toggleMenu);
+        mobileOverlay.addEventListener('click', toggleMenu); // Close when clicking overlay
+
+        document.querySelectorAll('.mobile-link').forEach(link => {
+            link.addEventListener('click', () => {
+                if(isMenuOpen) toggleMenu();
+            });
+        });
+
+        const siteLogo = document.getElementById('site-logo');
+        const scrollEase = (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t));
+        function scrollToPageTop() {
+            if (isMenuOpen) toggleMenu();
+            lenis.scrollTo(0, { duration: 1.5, easing: scrollEase });
+        }
+        if (siteLogo) {
+            siteLogo.addEventListener('click', () => scrollToPageTop());
+            siteLogo.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    scrollToPageTop();
+                }
+            });
+        }
+
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const rackContainer = document.getElementById('clothing-rack');
+        if (rackContainer) {
+            rackContainer.addEventListener('touchstart', e => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, { passive: true });
+            rackContainer.addEventListener('touchend', e => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }, { passive: true });
+        }
+
+        function handleSwipe() {
+            const swipeThreshold = 40;
+
+            if (touchEndX < touchStartX - swipeThreshold) {
+                if (currentActiveIndex < garments.length - 1) {
+                    updateCloset(currentActiveIndex + 1);
+                }
+            }
+            if (touchEndX > touchStartX + swipeThreshold) {
+                if (currentActiveIndex > 0) {
+                    updateCloset(currentActiveIndex - 1);
+                }
+            }
+        }
+
+        let closetResizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(closetResizeTimer);
+            closetResizeTimer = setTimeout(() => {
+                updateCloset(currentActiveIndex, true);
+                ScrollTrigger.refresh();
+            }, 120);
+        });
+
+    </script>
 </body>
 </html>

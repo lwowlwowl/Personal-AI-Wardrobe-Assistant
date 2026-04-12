@@ -1,0 +1,52 @@
+body, html {
+    margin: 0; padding: 0;
+    background-color: #FAF6EF;
+    color: #2F2925;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+}
+
+::-webkit-scrollbar { display: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.noise-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    pointer-events: none; z-index: 9999; opacity: 0.028;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+#canvas-container {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: 0; pointer-events: none; opacity: 0.68;
+}
+
+.glass-light {
+    background: rgba(255, 252, 247, 0.58);
+    backdrop-filter: blur(24px) saturate(1.35); -webkit-backdrop-filter: blur(24px) saturate(1.35);
+    border: 1px solid rgba(255, 255, 255, 0.65); box-shadow: 0 24px 48px rgba(47, 41, 37, 0.04);
+}
+
+/* Polaroid card base layout */
+.polaroid {
+    background: #fff; padding: 12px 12px 40px 12px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+    position: absolute; will-change: transform; overflow: hidden;
+}
+.polaroid-img-wrapper { width: 100%; aspect-ratio: 1/1; overflow: hidden; background: #F2EDE6; }
+.polaroid-img-wrapper img { width: 100%; height: 120%; object-fit: cover; transform: translateY(-10%); will-change: transform; }
+.polaroid-tape {
+    position: absolute; top: -10px; left: 50%; transform: translateX(-50%) rotate(-2deg);
+    width: 80px; height: 25px; background: rgba(245, 240, 232, 0.95); box-shadow: 0 1px 3px rgba(0,0,0,0.06); z-index: 2;
+}
+
+/* Mobile: horizontal polaroid strip overrides */
+@media (max-width: 768px) {
+    .polaroid { position: relative; width: 70vw !important; padding: 8px 8px 30px 8px; box-shadow: 0 15px 30px rgba(0,0,0,0.06); }
+    .polaroid-tape { width: 50px; height: 18px; top: -6px; }
+    .polaroid-img-wrapper img { height: 100%; transform: none; } /* Disable inner parallax on mobile for performance */
+}
+
+.reveal-text { clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); }
+.reveal-text .hero-line { display: inline-block; transform: translateY(110%); }
+::selection { background: #B6987C; color: #fff; }
